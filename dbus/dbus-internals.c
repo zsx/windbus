@@ -28,7 +28,9 @@
 #include <string.h>
 #include <sys/types.h>
 #include <errno.h>
+#ifndef DBUS_WIN
 #include <unistd.h>
+#endif
 #include <fcntl.h>
 #include <stdlib.h>
 
@@ -246,7 +248,12 @@ _dbus_verbose_real (const char *format,
   
   if (!verbose_initted)
     {
+#ifdef DBUS_WIN
+      const char *p = _dbus_getenv ("DBUS_VERBOSE"); 
+      verbose = p != NULL && *p == '1';
+#else
       verbose = _dbus_getenv ("DBUS_VERBOSE") != NULL;
+#endif
       verbose_initted = TRUE;
       if (!verbose)
         return;

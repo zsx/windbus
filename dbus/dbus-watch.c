@@ -486,7 +486,10 @@ _dbus_watch_set_handler (DBusWatch        *watch,
 int
 dbus_watch_get_fd (DBusWatch *watch)
 {
-  return watch->fd;
+  if (watch->fd == -1)
+    return -1;
+  else
+    return _dbus_decapsulate (watch->fd);
 }
 
 /**

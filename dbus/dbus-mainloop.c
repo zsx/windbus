@@ -609,7 +609,7 @@ _dbus_loop_iterate (DBusLoop     *loop,
                   
               flags = dbus_watch_get_flags (wcb->watch);
                   
-              fds[n_fds].fd = dbus_watch_get_fd (wcb->watch);
+              fds[n_fds].fd = _dbus_re_encapsulate_socket(dbus_watch_get_fd (wcb->watch));
               fds[n_fds].revents = 0;
               fds[n_fds].events = 0;
               if (flags & DBUS_WATCH_READABLE)

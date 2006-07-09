@@ -81,9 +81,15 @@ void _dbus_verbose_real       (const char *format,
                                ...) _DBUS_GNUC_PRINTF (1, 2);
 void _dbus_verbose_reset_real (void);
 
-#  define _dbus_verbose _dbus_verbose_real
-#  define _dbus_verbose_reset _dbus_verbose_reset_real
+#ifdef HAVE_GNUC_VARARGS
+# define _dbus_verbose(format, rest...) _dbus_verbose_real("[%s %d] " format, __FUNCTION__,__LINE__, ## rest)
 #else
+#  define _dbus_verbose _dbus_verbose_real
+#endif
+#  define _dbus_verbose_reset _dbus_verbose_reset_real
+
+#else
+
 #  ifdef HAVE_ISO_VARARGS
 #    define _dbus_verbose(...)
 #  elif defined (HAVE_GNUC_VARARGS)
@@ -270,6 +276,10 @@ extern int _dbus_current_generation;
 #define _DBUS_LOCK(name)                _dbus_mutex_lock   (_dbus_lock_##name)
 #define _DBUS_UNLOCK(name)              _dbus_mutex_unlock (_dbus_lock_##name)
 
+#ifdef DBUS_WIN
+_DBUS_DECLARE_GLOBAL_LOCK (win32_fds);
+_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
+#endif
 _DBUS_DECLARE_GLOBAL_LOCK (list);
 _DBUS_DECLARE_GLOBAL_LOCK (connection_slots);
 _DBUS_DECLARE_GLOBAL_LOCK (pending_call_slots);
@@ -281,7 +291,11 @@ _DBUS_DECLARE_GLOBAL_LOCK (shutdown_funcs);
 _DBUS_DECLARE_GLOBAL_LOCK (system_users);
 _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
 _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
+#ifdef DBUS_WIN
+#define _DBUS_N_GLOBAL_LOCKS (13)
+#else
 #define _DBUS_N_GLOBAL_LOCKS (11)
+#endif
 
 dbus_bool_t _dbus_threads_init_debug (void);
 

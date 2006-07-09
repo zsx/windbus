@@ -26,6 +26,9 @@
 #include "dbus-transport-unix.h"
 #include "dbus-transport-protected.h"
 #include "dbus-watch.h"
+#ifdef DBUS_WIN
+#include "dbus-sockets-win.h"
+#endif
 
 
 /**

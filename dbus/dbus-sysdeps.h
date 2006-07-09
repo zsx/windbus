@@ -99,6 +99,22 @@ typedef unsigned long dbus_gid_t;
 #define DBUS_UID_FORMAT "%lu"
 #define DBUS_GID_FORMAT "%lu"
 
+#ifdef DBUS_WIN
+int _dbus_encapsulate_socket    (int socket);
+int _dbus_re_encapsulate_socket (int socket);
+int _dbus_encapsulate_fd        (int fd);
+int _dbus_re_encapsulate_fd     (int fd);
+int _dbus_decapsulate           (int fd);
+#else
+#define _dbus_encapsulate_socket(socket)    (socket)
+#define _dbus_re_encapsulate_socket(socket) (socket)
+#define _dbus_encapsulate_fd(fd)            (fd)
+#define _dbus_re_encapsulate_fd(fd)         (fd)
+#define _dbus_decapsulate(fd)               (fd)
+#endif
+                                                                                                                               
+                                                                                                                                    
+
 /**
  * Struct representing socket credentials
  */

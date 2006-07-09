@@ -36,6 +36,9 @@ static int reload_pipe[2];
 #define RELOAD_READ_END 0
 #define RELOAD_WRITE_END 1
 
+#ifndef SIGHUP
+#define SIGHUP	1
+#endif
 
 static void
 signal_handler (int sig)
