@@ -1,0 +1,28 @@
+Windows port of the freedesktop.org DBus. 
+
+Until the merge with the official DBus this is
+the home of the Windows specific changes.
+
+Most files are a checkout of the official freedesktop.org DBus.
+
+Don't touch these files which are managed by CVS.
+
+Only commit changes to  *-win.h, *-win.c, Readme.win and
+files in the cmake folder.
+
+Move all patches of CVS managed files to 'windows-patch.diff'.
+
+Apply patch by:
+patch -p0 -i windows-patch.diff
+
+Extract changes by:
+svn diff >> windows-patch.diff
+
+
+The advantage of this approach is that you can diff against
+the CVS version of DBus without network access. It is also
+simple to sync with the freedesktop version:
+cvs -z9 up
+svn ci -"sync with freedesktop.org cvs version"
+
+
