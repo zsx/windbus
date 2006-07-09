@@ -1,0 +1,20 @@
+/.cvsignore/1.5/Thu Jul 14 20:44:15 2005//
+/Makefile.am/1.21/Wed Oct  5 20:43:46 2005//
+/__init__.py/1.7/Tue Sep  6 22:42:54 2005//
+/_dbus.py/1.16/Wed Feb 15 23:45:50 2006//
+/_util.py/1.2/Wed Jul 20 14:15:08 2005//
+/dbus.pth/1.1/Thu Aug 18 20:57:28 2005//
+/dbus_bindings.pxd.in/1.1/Tue Jul 12 18:16:06 2005//
+/dbus_bindings.pyx/1.22/Thu Mar  2 23:28:18 2006//
+/dbus_glib_bindings.pyx/1.3/Thu Sep  1 01:22:06 2005//
+/dbus_h_wrapper.h/1.2/Tue Sep 30 02:40:49 2003//
+/decorators.py/1.8/Mon Nov 14 02:53:29 2005//
+/exceptions.py/1.4/Tue Nov 15 17:19:19 2005//
+/extract.py/1.4/Wed Jul 20 14:15:08 2005//
+/glib.py/1.2/Thu Sep  1 01:22:06 2005//
+/introspect_parser.py/1.3/Mon Nov  7 15:31:30 2005//
+/matchrules.py/1.6/Wed Feb 15 23:45:50 2006//
+/proxies.py/1.13/Fri Feb 24 18:18:41 2006//
+/service.py/1.22/Tue Dec  6 12:38:07 2005//
+/types.py/1.2/Tue Aug 16 22:54:04 2005//
+D

@@ -1,0 +1,12 @@
+/.cvsignore/1.1/Fri Sep 30 15:21:44 2005//
+/Makefile.am/1.7/Sun Jun 11 12:18:23 2006//
+/common.h/1.3/Sun Jun 11 12:18:23 2006//
+/qpong.cpp/1.3/Sun Jun 11 12:18:23 2006//
+/tst_hal.cpp/1.4/Sun Jun 11 12:18:23 2006//
+/tst_headertest.cpp/1.1/Sun Jun 11 12:18:23 2006//
+/tst_qdbusabstractadaptor.cpp/1.3/Sun Jun 11 12:18:23 2006//
+/tst_qdbusconnection.cpp/1.7/Sun Jun 11 12:18:23 2006//
+/tst_qdbusinterface.cpp/1.4/Sun Jun 11 12:18:23 2006//
+/tst_qdbusmarshall.cpp/1.1/Sun Jun 11 12:18:23 2006//
+/tst_qdbusxmlparser.cpp/1.4/Sun Jun 11 12:18:23 2006//
+D

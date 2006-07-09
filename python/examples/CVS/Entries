@@ -1,0 +1,11 @@
+/.cvsignore/1.1/Tue Jun  1 06:16:13 2004//
+/Makefile.am/1.5/Sun Jul 11 03:09:03 2004//
+/example-client.py/1.7/Tue Aug 16 22:54:04 2005//
+/example-service.py/1.14/Sat Oct 29 22:04:01 2005//
+/example-signal-emitter.py/1.9/Sun Jul 17 21:02:56 2005//
+/example-signal-recipient.py/1.8/Thu Aug 18 04:04:57 2005//
+/gconf-proxy-client.py/1.2/Sun May  1 19:34:58 2005//
+/gconf-proxy-service.py/1.6/Sat Oct 29 22:04:01 2005//
+/gconf-proxy-service2.py/1.5/Sat Oct 29 22:04:01 2005//
+/list-system-services.py/1.6/Tue Aug 16 22:54:04 2005//
+D
