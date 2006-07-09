@@ -31,11 +31,7 @@ main (int argc, char **argv)
     argv_copy [i] = argv[i + 1];
   argv_copy[argc - 1] = NULL;
   
-#ifdef DBUS_WIN
-  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, setup_func, NULL, NULL, &error))
-#else
   if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, setup_func, NULL, &error))
-#endif
     {
       fprintf (stderr, "Could not launch application: \"%s\"\n",
 	       error.message);

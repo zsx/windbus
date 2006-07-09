@@ -33,20 +33,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sys/stat.h>
-#ifdef DBUS_WIN
-#include "dbus-dirent-win.h"
-#include "dbus-sysdeps-win.h"
-#include <aclapi.h>
-#define F_OK 0
-#else
-#include <dirent.h>
-#include <unistd.h>
 #include <grp.h>
-#endif
+#include <sys/socket.h>
+#include <dirent.h>
+#include <sys/un.h>
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -70,8 +65,6 @@ _dbus_become_daemon (const DBusString *pidfile,
 		     int               print_pid_fd,
                      DBusError        *error)
 {
-#ifndef DBUS_WIN
-
   const char *s;
   pid_t child_pid;
   int dev_null_fd;
@@ -181,14 +174,6 @@ _dbus_become_daemon (const DBusString *pidfile,
     _dbus_assert_not_reached ("setsid() failed");
   
   return TRUE;
-
-#else  /* DBUS_WIN */
-
-  dbus_set_error_const (error, DBUS_ERROR_FAILED,
-			"Not implemented: _dbus_become_daemon\n");
-  return FALSE;
-
-#endif /* DBUS_WIN */
 }
 
 
@@ -262,8 +247,6 @@ _dbus_change_identity  (dbus_uid_t     uid,
                         dbus_gid_t     gid,
                         DBusError     *error)
 {
-#ifndef DBUS_WIN
-
   /* setgroups() only works if we are a privileged process,
    * so we don't return error on failure; the only possible
    * failure is that we don't have perms to do it.
@@ -294,15 +277,6 @@ _dbus_change_identity  (dbus_uid_t     uid,
     }
   
   return TRUE;
-
-#else  /* DBUS_WIN */
-
-  dbus_set_error_const (error, DBUS_ERROR_FAILED,
-			"Not implemented: _dbus_change_identity\n");
-
-  return FALSE;
-
-#endif /* DBUS_WIN */
 }
 
 /** Installs a UNIX signal handler
@@ -314,7 +288,6 @@ void
 _dbus_set_signal_handler (int               sig,
                           DBusSignalHandler handler)
 {
-#ifndef DBUS_WIN
   struct sigaction act;
   sigset_t empty_mask;
   
@@ -323,7 +296,6 @@ _dbus_set_signal_handler (int               sig,
   act.sa_mask    = empty_mask;
   act.sa_flags   = 0;
   sigaction (sig,  &act, 0);
-#endif
 }
 
 
@@ -376,7 +348,6 @@ dbus_bool_t
 _dbus_user_at_console (const char *username,
                        DBusError  *error)
 {
-#ifndef DBUS_WIN
 
   DBusString f;
   dbus_bool_t result;
@@ -407,80 +378,6 @@ _dbus_user_at_console (const char *username,
   _dbus_string_free (&f);
 
   return result;
-
-#else
-
-  dbus_bool_t retval = FALSE;
-  wchar_t *wusername;
-  DWORD sid_length;
-  PSID user_sid, console_user_sid;
-  HWINSTA winsta;
-
-  wusername = _dbus_win_utf8_to_utf16 (username, error);
-  if (!wusername)
-    return FALSE;
-
-  if (!_dbus_account_to_win_sid (wusername, &user_sid, error))
-    goto out0;
-
-  /* Now we have the SID for username. Get the SID of the
-   * user at the "console" (window station WinSta0)
-   */
-  if (!(winsta = OpenWindowStation ("WinSta0", FALSE, READ_CONTROL)))
-    {
-      _dbus_win_set_error_from_win_error (error, GetLastError ());
-      goto out2;
-    }
-
-  sid_length = 0;
-  GetUserObjectInformation (winsta, UOI_USER_SID,
-			    NULL, 0, &sid_length);
-  if (sid_length == 0)
-    {
-      /* Nobody is logged on */
-      goto out2;
-    }
-  
-  if (sid_length < 0 || sid_length > 1000)
-    {
-      dbus_set_error_const (error, DBUS_ERROR_FAILED, "Invalid SID length");
-      goto out3;
-    }
-
-  console_user_sid = dbus_malloc (sid_length);
-  if (!console_user_sid)
-    {
-      _DBUS_SET_OOM (error);
-      goto out3;
-    }
-
-  if (!GetUserObjectInformation (winsta, UOI_USER_SID,
-				 console_user_sid, sid_length, &sid_length))
-    {
-      _dbus_win_set_error_from_win_error (error, GetLastError ());
-      goto out4;
-    }
-
-  if (!IsValidSid (console_user_sid))
-    {
-      dbus_set_error_const (error, DBUS_ERROR_FAILED, "Invalid SID");
-      goto out4;
-    }
-
-  retval = EqualSid (user_sid, console_user_sid);
-
- out4:
-  dbus_free (console_user_sid);
- out3:
-  CloseWindowStation (winsta);
- out2:
-  dbus_free (user_sid);
- out0:
-  dbus_free (wusername);
-
-  return retval;
-
-#endif
 }
 
 
@@ -493,26 +390,10 @@ _dbus_user_at_console (const char *username,
 dbus_bool_t
 _dbus_path_is_absolute (const DBusString *filename)
 {
-#ifndef DBUS_WIN
   if (_dbus_string_get_length (filename) > 0)
     return _dbus_string_get_byte (filename, 0) == '/';
   else
     return FALSE;
-#else
-  if (_dbus_string_get_length (filename) > 0 &&
-      (_dbus_string_get_byte (filename, 0) == '/' ||
-       _dbus_string_get_byte (filename, 0) == '\\'))
-    return TRUE;
-  
-  if (_dbus_string_get_length (filename) >= 3 &&
-      isalpha (_dbus_string_get_byte (filename, 0)) &&
-      _dbus_string_get_byte (filename, 1) == ':' &&
-      (_dbus_string_get_byte (filename, 2) == '/' ||
-       _dbus_string_get_byte (filename, 2) == '\\'))
-    return TRUE;
-
-  return FALSE;
-#endif
 }
 
 /**
@@ -529,21 +410,12 @@ _dbus_stat (const DBusString *filename,
             DBusError        *error)
 {
   const char *filename_c;
-#ifndef DBUS_WIN
   struct stat sb;
-#else
-  WIN32_FILE_ATTRIBUTE_DATA wfad;
-  char *lastdot;
-  DWORD rc;
-  PSID owner_sid, group_sid;
-  PSECURITY_DESCRIPTOR sd;
-#endif
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   filename_c = _dbus_string_get_const_data (filename);
 
-#ifndef DBUS_WIN
   if (stat (filename_c, &sb) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -559,66 +431,6 @@ _dbus_stat (const DBusString *filename,
   statbuf->atime = sb.st_atime;
   statbuf->mtime = sb.st_mtime;
   statbuf->ctime = sb.st_ctime;
-#else
-  if (!GetFileAttributesEx (filename_c, GetFileExInfoStandard, &wfad))
-    {
-      _dbus_win_set_error_from_win_error (error, GetLastError ());
-      return FALSE;
-    }
-
-  if (wfad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-    statbuf->mode = _S_IFDIR;
-  else
-    statbuf->mode = _S_IFREG;
-
-  statbuf->mode |= _S_IREAD;
-  if (wfad.dwFileAttributes & FILE_ATTRIBUTE_READONLY)
-    statbuf->mode |= _S_IWRITE;
-
-  lastdot = strrchr (filename_c, '.');
-  if (lastdot && stricmp (lastdot, ".exe") == 0)
-    statbuf->mode |= _S_IEXEC;
-
-  statbuf->mode |= (statbuf->mode & 0700) >> 3;
-  statbuf->mode |= (statbuf->mode & 0700) >> 6;
-
-  statbuf->nlink = 1;
-    
-  sd = NULL;
-  rc = GetNamedSecurityInfo ((char *) filename_c, SE_FILE_OBJECT,
-			     OWNER_SECURITY_INFORMATION |
-			     GROUP_SECURITY_INFORMATION,
-			     &owner_sid, &group_sid,
-			     NULL, NULL,
-			     &sd);
-  if (rc != ERROR_SUCCESS)
-    {
-      _dbus_win_set_error_from_win_error (error, rc);
-      if (sd != NULL)
-	LocalFree (sd);
-      return FALSE;
-    }
-
-  statbuf->uid = _dbus_win_sid_to_uid_t (owner_sid);
-  statbuf->gid = _dbus_win_sid_to_uid_t (group_sid);
-
-  LocalFree (sd);
-			
-  statbuf->size = ((dbus_int64_t) wfad.nFileSizeHigh << 32) + wfad.nFileSizeLow;
-  
-  statbuf->atime =
-    (((dbus_int64_t) wfad.ftLastAccessTime.dwHighDateTime << 32) +
-     wfad.ftLastAccessTime.dwLowDateTime) / 10000000 - DBUS_INT64_CONSTANT (116444736000000000);
-
-  statbuf->mtime = 
-    (((dbus_int64_t) wfad.ftLastWriteTime.dwHighDateTime << 32) +
-     wfad.ftLastWriteTime.dwLowDateTime) / 10000000 - DBUS_INT64_CONSTANT (116444736000000000);
-
-  statbuf->ctime =
-    (((dbus_int64_t) wfad.ftCreationTime.dwHighDateTime << 32) +
-     wfad.ftCreationTime.dwLowDateTime) / 10000000 - DBUS_INT64_CONSTANT (116444736000000000);
-  
-#endif
 
   return TRUE;
 }
@@ -702,11 +514,7 @@ _dbus_directory_get_next_file (DBusDirIter      *iter,
   ent = readdir (iter->d);
   if (ent == NULL)
     {
-#ifdef DBUS_WIN
-      if (errno != 0 && iter->d->finished != 1)
-#else
       if (errno != 0)
-#endif
         dbus_set_error (error,
                         _dbus_error_from_errno (errno),
                         "%s", _dbus_strerror (errno));
@@ -740,7 +548,6 @@ _dbus_directory_close (DBusDirIter *iter)
   dbus_free (iter);
 }
 
-#ifndef DBUS_WIN
 static dbus_bool_t
 fill_user_info_from_group (struct group  *g,
                            DBusGroupInfo *info,
@@ -761,7 +568,6 @@ fill_user_info_from_group (struct group  *g,
 
   return TRUE;
 }
-#endif /* DBUS_WIN */
 
 static dbus_bool_t
 fill_group_info (DBusGroupInfo    *info,
@@ -779,8 +585,6 @@ fill_group_info (DBusGroupInfo    *info,
   else
     group_c_str = NULL;
   
-#ifndef DBUS_WIN
-
   /* For now assuming that the getgrnam() and getgrgid() flavors
    * always correspond to the pwnam flavors, if not we have
    * to add more configure checks.
@@ -838,67 +642,6 @@ fill_group_info (DBusGroupInfo    *info,
       }
   }
 #endif  /* ! HAVE_GETPWNAM_R */
-#else  /* DBUS_WIN */
-
-  if (group_c_str)
-    {
-      PSID group_sid;
-      wchar_t *wgroupname = _dbus_win_utf8_to_utf16 (group_c_str, error);
-
-      if (!wgroupname)
-	return FALSE;
-
-      if (!_dbus_account_to_win_sid (wgroupname, &group_sid, error))
-	{
-	  dbus_free (wgroupname);
-	  return FALSE;
-	}
-
-      info->gid = _dbus_win_sid_to_uid_t (group_sid);
-      info->groupname = _dbus_strdup (group_c_str);
-
-      dbus_free (group_sid);
-      dbus_free (wgroupname);
-
-      return TRUE;
-    }
-  else
-    {
-      dbus_bool_t retval = FALSE;
-      wchar_t *wname, *wdomain;
-      char *name, *domain;
-
-      info->gid = gid;
-
-      if (!_dbus_win_sid_to_name_and_domain (gid, &wname, &wdomain, error))
-	return FALSE;
-
-      name = _dbus_win_utf16_to_utf8 (wname, error);
-      if (!name)
-	goto out0;
-      
-      domain = _dbus_win_utf16_to_utf8 (wdomain, error);
-      if (!domain)
-	goto out1;
-
-      info->groupname = dbus_malloc (strlen (domain) + 1 + strlen (name) + 1);
-
-      strcpy (info->groupname, domain);
-      strcat (info->groupname, "\\");
-      strcat (info->groupname, name);
-
-      retval = TRUE;
-
-      dbus_free (domain);
-    out1:
-      dbus_free (name);
-    out0:
-      dbus_free (wname);
-      dbus_free (wdomain);
-
-      return retval;
-    }
-#endif /* DBUS_WIN */
 }
 
 /**
@@ -965,8 +708,6 @@ _dbus_string_get_dirname  (const DBusString *filename,
   if (sep == 0)
     return _dbus_string_append (dirname, "."); /* empty string passed in */
     
-#ifndef DBUS_WIN
-
   while (sep > 0 && _dbus_string_get_byte (filename, sep - 1) == '/')
     --sep;
 
@@ -992,52 +733,6 @@ _dbus_string_get_dirname  (const DBusString *filename,
   else
     return _dbus_string_copy_len (filename, 0, sep - 0,
                                   dirname, _dbus_string_get_length (dirname));
-#else
-  
-  while (sep > 0 &&
-	 (_dbus_string_get_byte (filename, sep - 1) == '/' ||
-	  _dbus_string_get_byte (filename, sep - 1) == '\\'))
-    --sep;
-
-  _dbus_assert (sep >= 0);
-  
-  if (sep == 0 ||
-      (sep == 2 &&
-       _dbus_string_get_byte (filename, 1) == ':' &&
-       isalpha (_dbus_string_get_byte (filename, 0))))
-    return _dbus_string_copy_len (filename, 0, sep + 1,
-				  dirname, _dbus_string_get_length (dirname));
-
-  {
-    int sep1, sep2;
-    _dbus_string_find_byte_backward (filename, sep, '/', &sep1);
-    _dbus_string_find_byte_backward (filename, sep, '\\', &sep2);
-
-    sep = MAX (sep1, sep2);
-  }
-  if (sep < 0)
-    return _dbus_string_append (dirname, ".");
-  
-  while (sep > 0 &&
-	 (_dbus_string_get_byte (filename, sep - 1) == '/' ||
-	  _dbus_string_get_byte (filename, sep - 1) == '\\'))
-    --sep;
-
-  _dbus_assert (sep >= 0);
-  
-  if ((sep == 0 ||
-       (sep == 2 &&
-	_dbus_string_get_byte (filename, 1) == ':' &&
-	isalpha (_dbus_string_get_byte (filename, 0))))
-      &&
-      (_dbus_string_get_byte (filename, sep) == '/' ||
-       _dbus_string_get_byte (filename, sep) == '\\'))
-    return _dbus_string_copy_len (filename, 0, sep + 1,
-				  dirname, _dbus_string_get_length (dirname));
-  else
-    return _dbus_string_copy_len (filename, 0, sep - 0,
-                                  dirname, _dbus_string_get_length (dirname));
-#endif
 }
 /** @} */ /* DBusString stuff */
 
@@ -1117,26 +812,6 @@ _dbus_sysdeps_test (void)
   check_dirname ("///", "/");
   check_dirname ("", ".");  
 
-#ifdef DBUS_WIN
-  check_dirname ("foo\\bar", "foo");
-  check_dirname ("foo\\\\bar", "foo");
-  check_dirname ("foo/\\/bar", "foo");
-  check_dirname ("foo\\bar/", "foo");
-  check_dirname ("foo//bar\\", "foo");
-  check_dirname ("foo\\bar/", "foo");
-  check_dirname ("foo/bar\\\\", "foo");
-  check_dirname ("\\foo", "\\");
-  check_dirname ("\\\\foo", "\\");
-  check_dirname ("\\", "\\");
-  check_dirname ("\\\\", "\\");
-  check_dirname ("\\/", "\\");
-  check_dirname ("/\\/", "/");
-  check_dirname ("a:\\foo\\bar", "a:\\foo");
-  check_dirname ("a:\\foo", "a:\\");
-  check_dirname ("a:/foo", "a:/");
-  check_dirname ("a:\\", "a:\\");
-  check_dirname ("a:/", "a:/");
-#endif
 
   _dbus_string_init_const (&str, "3.5");
   if (!_dbus_string_parse_double (&str,
@@ -1156,7 +831,6 @@ _dbus_sysdeps_test (void)
       exit (1);
     }
 
-#ifndef DBUS_WIN
   _dbus_string_init_const (&str, "0xff");
   if (!_dbus_string_parse_double (&str,
 				  0, &val, &pos))
@@ -1174,23 +848,12 @@ _dbus_sysdeps_test (void)
       _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
       exit (1);
     }
-#endif
   
   check_path_absolute ("/", TRUE);
   check_path_absolute ("/foo", TRUE);
   check_path_absolute ("", FALSE);
   check_path_absolute ("foo", FALSE);
   check_path_absolute ("foo/bar", FALSE);
-#ifdef DBUS_WIN
-  check_path_absolute ("\\", TRUE);
-  check_path_absolute ("\\foo", TRUE);
-  check_path_absolute ("", FALSE);
-  check_path_absolute ("foo\\bar", FALSE);
-  check_path_absolute ("a:\\", TRUE);
-  check_path_absolute ("a:\\foo", TRUE);
-  check_path_absolute ("a:", FALSE);
-  check_path_absolute ("a:foo\\bar", FALSE);
-#endif
   
   return TRUE;
 }

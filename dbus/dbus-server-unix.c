@@ -27,16 +27,12 @@
 #include "dbus-connection-internal.h"
 #include "dbus-string.h"
 #include <sys/types.h>
-#ifdef DBUS_WIN
-#include "dbus-sockets-win.h"
-#else
 #include <unistd.h>
-#endif
 
 /**
- * @defgroup DBusServerUnix DBusServer implementations for UNIX and Winsock
+ * @defgroup DBusServerUnix DBusServer implementations for UNIX
  * @ingroup  DBusInternals
- * @brief Implementation details of DBusServer on UNIX and Winsock
+ * @brief Implementation details of DBusServer on UNIX
  *
  * @{
  */
@@ -106,7 +102,7 @@ handle_new_client_fd_and_unlock (DBusServer *server,
   transport = _dbus_transport_new_for_fd (client_fd, &server->guid_hex, NULL);
   if (transport == NULL)
     {
-      _dbus_close (client_fd, NULL);
+      close (client_fd);
       SERVER_UNLOCK (server);
       return FALSE;
     }
@@ -223,7 +219,7 @@ unix_disconnect (DBusServer *server)
       unix_server->watch = NULL;
     }
   
-  _dbus_close (unix_server->fd, NULL);
+  close (unix_server->fd);
   unix_server->fd = -1;
 
   if (unix_server->socket_name != NULL)
@@ -307,8 +303,6 @@ _dbus_server_new_for_fd (int               fd,
   return (DBusServer*) unix_server;
 }
 
-#ifndef DBUS_WIN
-
 /**
  * Creates a new server listening on the given Unix domain socket.
  *
@@ -388,94 +382,11 @@ _dbus_server_new_for_domain_socket (const char     *path,
   return NULL;
 }
 
-#else /* ifndef DBUS_WIN */
-
 /**
- * Creates a new server listening on the given Windows named pipe.
+ * Creates a new server listening on the given hostname and port.
+ * If the hostname is NULL, listens on localhost.
  *
- * @param path the path for the domain socket.
- * @param abstract #TRUE to use abstract socket namespace
- * @param error location to store reason for failure.
- * @returns the new server, or #NULL on failure.
- */
-DBusServer*
-_dbus_server_new_for_domain_socket (const char     *path,
-                                    dbus_bool_t     abstract,
-                                    DBusError      *error)
-{
-  DBusServer *server;
-  DBusServerUnix *unix_server;
-  int listen_fd;
-  DBusString address;
-  char *path_copy;
-  
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  if (!_dbus_string_init (&address))
-    {
-      _DBUS_SET_OOM (error);
-      return NULL;
-    }
-
-  if ((abstract &&
-       !_dbus_string_append (&address, "unix:abstract=")) ||
-      (!abstract &&
-       !_dbus_string_append (&address, "unix:path=")) ||
-      !_dbus_string_append (&address, path))
-    {
-      _DBUS_SET_OOM (error);
-      goto failed_0;
-    }
-
-  path_copy = _dbus_strdup (path);
-  if (path_copy == NULL)
-    {
-      _DBUS_SET_OOM (error);
-      goto failed_0;
-    }
-  
-  listen_fd = _dbus_listen_unix_socket (path, abstract, error);
-  
-  if (listen_fd < 0)
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      goto failed_1;
-    }
-  
-  _dbus_fd_set_close_on_exec (listen_fd);
-  server = _dbus_server_new_for_fd (listen_fd, &address);
-  if (server == NULL)
-    {
-      _DBUS_SET_OOM (error);
-      goto failed_2;
-    }
-
-  unix_server = (DBusServerUnix*) server;
-  unix_server->socket_name = path_copy;
-  
-  _dbus_string_free (&address);
-  
-  return server;
-
- failed_2:
-  _dbus_close (listen_fd, NULL);
- failed_1:
-  dbus_free (path_copy);
- failed_0:
-  _dbus_string_free (&address);
-
-  return NULL;
-}
-
-#endif /* ifndef DBUS_WIN */
-
-
-/**
- * Creates a new server listening on the given hostname and port.  If
- * the hostname is NULL, listens on localhost. If the hostname is an
- * empty string, listens on any local host address.
- *
- * @param host the hostname for the address to listen.
+ * @param host the hostname to listen on.
  * @param port the port to listen on.
  * @param error location to store reason for failure.
  * @returns the new server, or #NULL on failure.
@@ -525,7 +436,7 @@ _dbus_server_new_for_tcp_socket (const char     *host,
   if (server == NULL)
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      _dbus_close (listen_fd, NULL);
+      close (listen_fd);
       _dbus_string_free (&address);
       return NULL;
     }

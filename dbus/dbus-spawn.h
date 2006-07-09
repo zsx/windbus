@@ -37,9 +37,6 @@ typedef struct DBusBabysitter DBusBabysitter;
 
 dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
                                                    char                     **argv,
-#ifdef DBUS_WIN
-                                                   char                     **envp,
-#endif
                                                    DBusSpawnChildSetupFunc    child_setup,
                                                    void                      *user_data,
                                                    DBusError                 *error);

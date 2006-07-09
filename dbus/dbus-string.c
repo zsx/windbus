@@ -35,10 +35,6 @@
 /* for DBUS_VA_COPY */
 #include "dbus-sysdeps.h"
 
-#ifdef DBUS_WIN
-#include <malloc.h>
-#endif
-
 /**
  * @defgroup DBusString string class
  * @ingroup  DBusInternals
@@ -1197,6 +1193,7 @@ _dbus_string_append_printf_valist  (DBusString        *str,
                                     va_list            args)
 {
   int len;
+  char c;
   va_list args_copy;
 
   DBUS_STRING_PREAMBLE (str);
@@ -1204,34 +1201,7 @@ _dbus_string_append_printf_valist  (DBusString        *str,
   DBUS_VA_COPY (args_copy, args);
 
   /* Measure the message length without terminating nul */
-#ifndef DBUS_WIN
-  {
-    char c;
   len = vsnprintf (&c, 1, format, args);
-  }
-#else
-  /* MSVCRT's vsnprintf semantics are a bit different */
-  /* The C library source in the Platform SDK indicates that this
-   * would work, but alas, it doesn't. At least not on Windows
-   * 2000. Presumably those sources correspond to the C library on
-   * some newer or even future Windows version.
-   *
-    len = _vsnprintf (NULL, _DBUS_INT_MAX, format, args);
-   */
-  {
-    char p[1024];
-    len = vsnprintf (p, sizeof(p)-1, format, args);
-    if (len == -1) // try again
-      {
-        char *p;
-        p = malloc (strlen(format)*3);
-        len = vsnprintf (p, sizeof(p)-1, format, args);
-        free(p);
-      }
-    if (len == -1)
-      return FALSE;
-  }
-#endif
 
   if (!_dbus_string_lengthen (str, len))
     {
