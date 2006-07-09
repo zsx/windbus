@@ -1,0 +1,17 @@
+.deps
+.libs
+Makefile
+Makefile.in
+*.lo
+*.la
+*.bb
+*.bbg
+*.gcov
+*.da
+.dbus-keyrings
+*.dll
+*.exe
+test-dbus-sharp
+AssemblyInfo.cs
+dbus-sharp.dll.config
+

@@ -1,0 +1,10 @@
+.deps
+Makefile.in
+Makefile
+dbus_bindings.pxd
+*.lo
+*.la
+dbus_bindings.c
+dbus_glib_bindings.c
+*.pyc
+.libs
