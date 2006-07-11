@@ -25,4 +25,5 @@ simple to sync with the freedesktop version:
 cvs -z9 up
 svn ci -"sync with freedesktop.org cvs version"
 
-
+Build dbus out of source with cmake:
+cmake ..\trunk\cmake
