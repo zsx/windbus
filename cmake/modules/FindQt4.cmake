@@ -187,6 +187,10 @@ IF (QT_QMAKE_EXECUTABLE)
          SET(QT_MIN_VERSION "4.0.0")
       ENDIF (NOT QT_MIN_VERSION)
    
+      if(${QTVERSION} MATCHES 4.2.0-tp1)
+       SET(QTVERSION "4.2.0")
+      ENDIF(${QTVERSION} MATCHES 4.2.0-tp1)
+            
       #now parse the parts of the user given version string into variables
       STRING(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" req_qt_major_vers "${QT_MIN_VERSION}")
       IF (NOT req_qt_major_vers)
