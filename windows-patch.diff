@@ -1,31 +1,84 @@
+? .svn
+? README.win
+? cmake
+? qdbus
+? windows-patch.diff
+? x.diff
+? bus/.svn
+? dbus/.svn
 ? dbus/dbus-dirent-win.c
 ? dbus/dbus-dirent-win.h
+? dbus/dbus-dirent.h
 ? dbus/dbus-example.c
 ? dbus/dbus-sockets-win.h
 ? dbus/dbus-spawn-win.c
 ? dbus/dbus-sysdeps-util-win.c
 ? dbus/dbus-sysdeps-win.c
 ? dbus/dbus-sysdeps-win.h
+? doc/.svn
+? gcj/.svn
+? gcj/org/.svn
+? gcj/org/freedesktop/.svn
+? gcj/org/freedesktop/dbus/.svn
+? glib/.svn
+? glib/examples/.svn
+? glib/examples/statemachine/.svn
+? mono/.svn
+? mono/DBusType/.svn
+? mono/doc/.svn
+? mono/doc/en/.svn
+? mono/doc/en/DBus/.svn
+? mono/doc/en/DBus.DBusType/.svn
+? mono/example/.svn
+? python/.svn
+? python/examples/.svn
+? qt/.svn
+? qt/dbus/.svn
+? qt/examples/.svn
+? qt/src/.svn
+? qt/tools/.svn
+? qt3/.svn
+? test/.svn
+? test/data/.svn
+? test/data/auth/.svn
+? test/data/equiv-config-files/.svn
+? test/data/equiv-config-files/basic/.svn
+? test/data/equiv-config-files/basic/basic.d/.svn
+? test/data/equiv-config-files/entities/.svn
+? test/data/equiv-config-files/entities/basic.d/.svn
+? test/data/incomplete-messages/.svn
+? test/data/invalid-config-files/.svn
+? test/data/invalid-messages/.svn
+? test/data/sha-1/.svn
+? test/data/valid-config-files/.svn
+? test/data/valid-config-files/basic.d/.svn
+? test/data/valid-config-files/system.d/.svn
+? test/data/valid-introspection-files/.svn
+? test/data/valid-messages/.svn
+? test/data/valid-service-files/.svn
+? test/glib/.svn
+? test/name-test/.svn
+? test/python/.svn
+? test/qt/.svn
+? tools/.svn
 Index: bus/activation.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/activation.c,v
 retrieving revision 1.41
-diff -u -B -b -r1.41 activation.c
+diff -u -b -B -r1.41 activation.c
 --- bus/activation.c	22 Nov 2005 20:37:00 -0000	1.41
-+++ bus/activation.c	3 Jul 2006 12:56:20 -0000
-@@ -33,7 +33,11 @@
++++ bus/activation.c	11 Jul 2006 22:24:54 -0000
+@@ -33,7 +33,8 @@
  #include <dbus/dbus-shell.h>
  #include <dbus/dbus-spawn.h>
  #include <dbus/dbus-timeout.h>
-+#ifdef DBUS_WIN
-+#include <dbus/dbus-dirent-win.h>
-+#else
- #include <dirent.h>
-+#endif
+-#include <dirent.h>
++#include <dbus/dbus-dirent.h>
++
  #include <errno.h>
  
  #define DBUS_SERVICE_SECTION "D-BUS Service"
-@@ -1305,6 +1309,7 @@
+@@ -1305,6 +1306,7 @@
    DBusMessage *message;
    DBusString service_str;
    char **argv;
@@ -33,7 +86,7 @@ diff -u -B -b -r1.41 activation.c
    int argc;
    dbus_bool_t retval;
    DBusHashIter iter;
-@@ -1536,6 +1541,9 @@
+@@ -1536,6 +1538,9 @@
  
    _dbus_verbose ("Spawning %s ...\n", argv[0]);
    if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
@@ -47,9 +100,9 @@ Index: bus/main.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/main.c,v
 retrieving revision 1.31
-diff -u -B -b -r1.31 main.c
+diff -u -b -B -r1.31 main.c
 --- bus/main.c	15 Jun 2005 02:31:38 -0000	1.31
-+++ bus/main.c	3 Jul 2006 12:56:24 -0000
++++ bus/main.c	11 Jul 2006 22:24:57 -0000
 @@ -36,6 +36,9 @@
  #define RELOAD_READ_END 0
  #define RELOAD_WRITE_END 1
@@ -64,9 +117,9 @@ Index: dbus/dbus-internals.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-internals.c,v
 retrieving revision 1.44
-diff -u -B -b -r1.44 dbus-internals.c
+diff -u -b -B -r1.44 dbus-internals.c
 --- dbus/dbus-internals.c	13 Feb 2005 20:23:30 -0000	1.44
-+++ dbus/dbus-internals.c	3 Jul 2006 12:56:29 -0000
++++ dbus/dbus-internals.c	11 Jul 2006 22:25:03 -0000
 @@ -28,7 +28,9 @@
  #include <string.h>
  #include <sys/types.h>
@@ -94,9 +147,9 @@ Index: dbus/dbus-internals.h
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-internals.h,v
 retrieving revision 1.55
-diff -u -B -b -r1.55 dbus-internals.h
+diff -u -b -B -r1.55 dbus-internals.h
 --- dbus/dbus-internals.h	26 Feb 2005 06:37:46 -0000	1.55
-+++ dbus/dbus-internals.h	3 Jul 2006 12:56:29 -0000
++++ dbus/dbus-internals.h	11 Jul 2006 22:25:03 -0000
 @@ -81,9 +81,15 @@
                                 ...) _DBUS_GNUC_PRINTF (1, 2);
  void _dbus_verbose_reset_real (void);
@@ -140,9 +193,9 @@ Index: dbus/dbus-mainloop.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-mainloop.c,v
 retrieving revision 1.18
-diff -u -B -b -r1.18 dbus-mainloop.c
+diff -u -b -B -r1.18 dbus-mainloop.c
 --- dbus/dbus-mainloop.c	15 Jan 2005 07:15:38 -0000	1.18
-+++ dbus/dbus-mainloop.c	3 Jul 2006 12:56:30 -0000
++++ dbus/dbus-mainloop.c	11 Jul 2006 22:25:03 -0000
 @@ -609,7 +609,7 @@
                    
                flags = dbus_watch_get_flags (wcb->watch);
@@ -156,9 +209,9 @@ Index: dbus/dbus-server-unix.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-server-unix.c,v
 retrieving revision 1.29
-diff -u -B -b -r1.29 dbus-server-unix.c
+diff -u -b -B -r1.29 dbus-server-unix.c
 --- dbus/dbus-server-unix.c	25 Oct 2005 15:57:13 -0000	1.29
-+++ dbus/dbus-server-unix.c	3 Jul 2006 12:56:36 -0000
++++ dbus/dbus-server-unix.c	11 Jul 2006 22:25:09 -0000
 @@ -27,12 +27,16 @@
  #include "dbus-connection-internal.h"
  #include "dbus-string.h"
@@ -316,9 +369,9 @@ Index: dbus/dbus-spawn.h
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-spawn.h,v
 retrieving revision 1.7
-diff -u -B -b -r1.7 dbus-spawn.h
+diff -u -b -B -r1.7 dbus-spawn.h
 --- dbus/dbus-spawn.h	9 Sep 2004 10:20:17 -0000	1.7
-+++ dbus/dbus-spawn.h	3 Jul 2006 12:56:37 -0000
++++ dbus/dbus-spawn.h	11 Jul 2006 22:25:11 -0000
 @@ -37,6 +37,9 @@
  
  dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
@@ -333,9 +386,9 @@ Index: dbus/dbus-string.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-string.c,v
 retrieving revision 1.69
-diff -u -B -b -r1.69 dbus-string.c
+diff -u -b -B -r1.69 dbus-string.c
 --- dbus/dbus-string.c	16 Feb 2006 00:43:41 -0000	1.69
-+++ dbus/dbus-string.c	3 Jul 2006 12:56:38 -0000
++++ dbus/dbus-string.c	11 Jul 2006 22:25:12 -0000
 @@ -35,6 +35,10 @@
  /* for DBUS_VA_COPY */
  #include "dbus-sysdeps.h"
@@ -394,10 +447,16 @@ Index: dbus/dbus-sysdeps-util.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps-util.c,v
 retrieving revision 1.6
-diff -u -B -b -r1.6 dbus-sysdeps-util.c
+diff -u -b -B -r1.6 dbus-sysdeps-util.c
 --- dbus/dbus-sysdeps-util.c	24 Feb 2006 16:13:08 -0000	1.6
-+++ dbus/dbus-sysdeps-util.c	3 Jul 2006 12:56:39 -0000
-@@ -33,15 +33,20 @@
++++ dbus/dbus-sysdeps-util.c	11 Jul 2006 22:25:12 -0000
+@@ -28,20 +28,25 @@
+ #define DBUS_USERDB_INCLUDES_PRIVATE 1
+ #include "dbus-userdb.h"
+ #include "dbus-test.h"
++#include "dbus-dirent.h"
+ 
+ #include <sys/types.h>
  #include <stdlib.h>
  #include <string.h>
  #include <signal.h>
@@ -409,7 +468,6 @@ diff -u -B -b -r1.6 dbus-sysdeps-util.c
 -#include <grp.h>
 -#include <sys/socket.h>
 +#ifdef DBUS_WIN
-+#include "dbus-dirent-win.h"
 +#include "dbus-sysdeps-win.h"
 +#include <aclapi.h>
 +#define F_OK 0
@@ -922,9 +980,9 @@ Index: dbus/dbus-sysdeps.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps.c,v
 retrieving revision 1.102
-diff -u -B -b -r1.102 dbus-sysdeps.c
+diff -u -b -B -r1.102 dbus-sysdeps.c
 --- dbus/dbus-sysdeps.c	30 May 2006 15:34:10 -0000	1.102
-+++ dbus/dbus-sysdeps.c	3 Jul 2006 12:56:39 -0000
++++ dbus/dbus-sysdeps.c	11 Jul 2006 22:25:13 -0000
 @@ -3,6 +3,7 @@
   * 
   * Copyright (C) 2002, 2003  Red Hat, Inc.
@@ -933,7 +991,12 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
   *
   * Licensed under the Academic Free License version 2.1
   * 
-@@ -31,22 +32,31 @@
+@@ -27,26 +28,35 @@
+ #include "dbus-threads.h"
+ #include "dbus-protocol.h"
+ #include "dbus-string.h"
++#include "dbus-dirent.h"
+ #include <sys/types.h>
  #include <stdlib.h>
  #include <string.h>
  #include <signal.h>
@@ -944,7 +1007,6 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
 +
 +#ifdef DBUS_WIN
 +#include "dbus-sysdeps-win.h"
-+#include "dbus-dirent-win.h"
 +#include "dbus-hash.h"
 +#include "dbus-sockets-win.h"
 +#else
@@ -1176,7 +1238,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
        return -1;
      }
    
-@@ -674,22 +747,26 @@
+@@ -674,22 +746,26 @@
    addr.sin_family = AF_INET;
    addr.sin_port = htons (port);
    
@@ -1206,7 +1268,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
        fd = -1;
  
        return -1;
-@@ -699,12 +776,12 @@
+@@ -699,12 +775,12 @@
  }
  
  /**
@@ -1222,7 +1284,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
   * @param error return location for errors
   * @returns the listening file descriptor or -1 on error
   */
-@@ -717,31 +794,58 @@
+@@ -717,31 +793,58 @@
    struct sockaddr_in addr;
    struct hostent *he;
    struct in_addr *haddr;
@@ -1284,7 +1346,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  
    _DBUS_ZERO (addr);
    memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
-@@ -750,25 +854,29 @@
+@@ -750,25 +853,29 @@
  
    if (bind (listen_fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
      {
@@ -1318,7 +1380,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
        return -1;
      }
    
-@@ -779,6 +887,33 @@
+@@ -779,6 +886,33 @@
  write_credentials_byte (int             server_fd,
                          DBusError      *error)
  {
@@ -1352,7 +1414,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    int bytes_written;
    char buf[1] = { '\0' };
  #if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
-@@ -838,6 +973,8 @@
+@@ -838,6 +972,8 @@
        _dbus_verbose ("wrote credentials byte\n");
        return TRUE;
      }
@@ -1361,7 +1423,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  /**
-@@ -863,6 +1000,8 @@
+@@ -863,6 +999,8 @@
                                       DBusCredentials *credentials,
                                       DBusError       *error)
  {
@@ -1370,7 +1432,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    struct msghdr msg;
    struct iovec iov;
    char buf;
-@@ -1002,6 +1141,15 @@
+@@ -1002,6 +1140,15 @@
  		 credentials->gid);
      
    return TRUE;
@@ -1386,7 +1448,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  /**
-@@ -1049,16 +1197,23 @@
+@@ -1049,16 +1196,23 @@
  
    addrlen = sizeof (addr);
    
@@ -1412,7 +1474,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  /** @} */
-@@ -1238,6 +1393,7 @@
+@@ -1238,6 +1392,7 @@
  	
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
      
@@ -1420,7 +1482,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    directory = _dbus_string_get_const_data (dir);
  	
    if (stat (directory, &sb) < 0)
-@@ -1255,7 +1411,7 @@
+@@ -1255,7 +1410,7 @@
                       "%s directory is not private to the user", directory);
        return FALSE;
      }
@@ -1429,7 +1491,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    return TRUE;
  }
  
-@@ -1339,6 +1495,10 @@
+@@ -1339,6 +1494,10 @@
  ascii_strtod (const char *nptr,
  	      char      **endptr)
  {
@@ -1440,7 +1502,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    char *fail_pos;
    double val;
    struct lconv *locale_data;
-@@ -1507,6 +1667,9 @@
+@@ -1507,6 +1666,9 @@
   * @addtogroup DBusInternalsUtils
   * @{
   */
@@ -1450,7 +1512,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  static dbus_bool_t
  fill_user_info_from_passwd (struct passwd *p,
                              DBusUserInfo  *info,
-@@ -1529,6 +1692,7 @@
+@@ -1529,6 +1691,7 @@
  
    return TRUE;
  }
@@ -1458,7 +1520,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  
  static dbus_bool_t
  fill_user_info (DBusUserInfo       *info,
-@@ -1554,6 +1718,7 @@
+@@ -1554,6 +1717,7 @@
    else
      username_c = NULL;
  
@@ -1466,7 +1528,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    /* For now assuming that the getpwnam() and getpwuid() flavors
     * are always symmetrical, if not we have to add more configure
     * checks
-@@ -1704,8 +1869,36 @@
+@@ -1704,8 +1868,36 @@
   failed:
    _DBUS_ASSERT_ERROR_IS_SET (error);
    return FALSE;
@@ -1503,7 +1565,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  /**
   * Gets user info for the given username.
   *
-@@ -1753,7 +1946,7 @@
+@@ -1753,7 +1945,7 @@
    dbus_free (info->homedir);
  }
  
@@ -1512,7 +1574,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
   * Frees the members of info (but not info itself).
   *
   * @param info the group info
-@@ -1786,6 +1979,7 @@
+@@ -1786,6 +1978,7 @@
  void
  _dbus_credentials_from_current_process (DBusCredentials *credentials)
  {
@@ -1520,7 +1582,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    /* The POSIX spec certainly doesn't promise this, but
     * we need these assertions to fail as soon as we're wrong about
     * it so we can do the porting fixups
-@@ -1793,10 +1987,11 @@
+@@ -1793,10 +1986,11 @@
    _dbus_assert (sizeof (pid_t) <= sizeof (credentials->pid));
    _dbus_assert (sizeof (uid_t) <= sizeof (credentials->uid));
    _dbus_assert (sizeof (gid_t) <= sizeof (credentials->gid));
@@ -1535,7 +1597,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  /**
-@@ -1830,7 +2025,11 @@
+@@ -1830,7 +2024,11 @@
  unsigned long
  _dbus_getpid (void)
  {
@@ -1547,7 +1609,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  /** Gets our UID
-@@ -1839,7 +2038,11 @@
+@@ -1839,7 +2037,11 @@
  dbus_uid_t
  _dbus_getuid (void)
  {
@@ -1559,7 +1621,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  #ifdef DBUS_BUILD_TESTS
-@@ -1849,7 +2052,11 @@
+@@ -1849,7 +2051,11 @@
  dbus_gid_t
  _dbus_getgid (void)
  {
@@ -1571,7 +1633,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  #endif
  
-@@ -1931,6 +2138,9 @@
+@@ -1931,6 +2137,9 @@
              int         n_fds,
              int         timeout_milliseconds)
  {
@@ -1581,7 +1643,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  #ifdef HAVE_POLL
    /* This big thing is a constant expression and should get optimized
     * out of existence. So it's more robust than a configure check at
-@@ -2016,8 +2226,10 @@
+@@ -2016,8 +2225,10 @@
  
    return ready;
  #endif
@@ -1592,7 +1654,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  /** nanoseconds in a second */
  #define NANOSECONDS_PER_SECOND       1000000000
  /** microseconds in a second */
-@@ -2036,6 +2248,7 @@
+@@ -2036,6 +2247,7 @@
  void
  _dbus_sleep_milliseconds (int milliseconds)
  {
@@ -1600,7 +1662,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  #ifdef HAVE_NANOSLEEP
    struct timespec req;
    struct timespec rem;
-@@ -2052,18 +2265,22 @@
+@@ -2052,18 +2264,22 @@
  #else /* ! HAVE_USLEEP */
    sleep (MAX (milliseconds / 1000, 1));
  #endif
@@ -1624,7 +1686,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    struct timeval t;
  
    gettimeofday (&t, NULL);
-@@ -2072,6 +2289,24 @@
+@@ -2072,6 +2288,24 @@
      *tv_sec = t.tv_sec;
    if (tv_usec)
      *tv_usec = t.tv_usec;
@@ -1649,7 +1711,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  /**
-@@ -2099,7 +2334,7 @@
+@@ -2099,7 +2333,7 @@
    
    filename_c = _dbus_string_get_const_data (filename);
    
@@ -1658,7 +1720,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    fd = open (filename_c, O_RDONLY | O_BINARY);
    if (fd < 0)
      {
-@@ -2139,10 +2374,11 @@
+@@ -2139,10 +2373,11 @@
    if (sb.st_size > 0 && S_ISREG (sb.st_mode))
      {
        int bytes_read;
@@ -1671,7 +1733,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
                                     sb.st_size - total);
            if (bytes_read <= 0)
              {
-@@ -2154,7 +2390,7 @@
+@@ -2154,7 +2389,7 @@
                _dbus_verbose ("read() failed: %s",
                               _dbus_strerror (errno));
                
@@ -1680,7 +1742,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
                _dbus_string_set_length (str, orig_len);
                return FALSE;
              }
-@@ -2162,7 +2398,7 @@
+@@ -2162,7 +2397,7 @@
              total += bytes_read;
          }
  
@@ -1689,7 +1751,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
        return TRUE;
      }
    else if (sb.st_size != 0)
-@@ -2251,6 +2487,8 @@
+@@ -2251,6 +2486,8 @@
        goto out;
      }
  
@@ -1698,7 +1760,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    need_unlink = TRUE;
    
    total = 0;
-@@ -2275,7 +2513,7 @@
+@@ -2275,7 +2512,7 @@
        total += bytes_written;
      }
  
@@ -1707,7 +1769,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
      {
        dbus_set_error (error, _dbus_error_from_errno (errno),
                        "Could not close file %s: %s",
-@@ -2286,7 +2524,11 @@
+@@ -2286,7 +2523,11 @@
  
    fd = -1;
    
@@ -1720,7 +1782,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
      {
        dbus_set_error (error, _dbus_error_from_errno (errno),
                        "Could not rename %s to %s: %s",
-@@ -2306,7 +2548,7 @@
+@@ -2306,7 +2547,7 @@
     */
  
    if (fd >= 0)
@@ -1729,7 +1791,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
          
    if (need_unlink && unlink (tmp_filename_c) < 0)
      _dbus_verbose ("Failed to unlink temp file %s: %s\n",
-@@ -2444,6 +2686,7 @@
+@@ -2444,6 +2685,7 @@
        _dbus_string_get_length (next_component) == 0)
      return TRUE;
    
@@ -1737,7 +1799,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    dir_ends_in_slash = '/' == _dbus_string_get_byte (dir,
                                                      _dbus_string_get_length (dir) - 1);
  
-@@ -2458,6 +2701,25 @@
+@@ -2458,6 +2700,25 @@
        if (!_dbus_string_append_byte (dir, '/'))
          return FALSE;
      }
@@ -1763,7 +1825,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  
    return _dbus_string_copy (next_component, 0, dir,
                              _dbus_string_get_length (dir));
-@@ -2565,14 +2828,18 @@
+@@ -2565,14 +2826,18 @@
    old_len = _dbus_string_get_length (str);
    fd = -1;
  
@@ -1783,7 +1845,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
        _dbus_string_set_length (str, old_len);
        return pseudorandom_generate_random_bytes (str, n_bytes);
      }
-@@ -2583,6 +2850,10 @@
+@@ -2583,6 +2848,10 @@
    close (fd);
    
    return TRUE;
@@ -1794,7 +1856,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  /**
-@@ -2632,6 +2903,7 @@
+@@ -2632,6 +2901,7 @@
  const char*
  _dbus_strerror (int error_number)
  {
@@ -1802,7 +1864,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    const char *msg;
    
    msg = strerror (error_number);
-@@ -2639,6 +2911,9 @@
+@@ -2639,6 +2909,9 @@
      msg = "unknown";
  
    return msg;
@@ -1812,7 +1874,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  /**
-@@ -2647,7 +2922,9 @@
+@@ -2647,7 +2920,9 @@
  void
  _dbus_disable_sigpipe (void)
  {
@@ -1822,7 +1884,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  /**
-@@ -2660,6 +2937,9 @@
+@@ -2660,6 +2935,9 @@
  void
  _dbus_fd_set_close_on_exec (int fd)
  {
@@ -1832,7 +1894,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    int val;
    
    val = fcntl (fd, F_GETFD, 0);
-@@ -2670,15 +2950,16 @@
+@@ -2670,15 +2948,16 @@
    val |= FD_CLOEXEC;
    
    fcntl (fd, F_SETFD, val);
@@ -1851,7 +1913,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
   * @returns an error name
   */
  const char*
-@@ -2792,6 +3073,10 @@
+@@ -2792,6 +3071,10 @@
  _dbus_close (int        fd,
               DBusError *error)
  {
@@ -1862,7 +1924,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
    
   again:
-@@ -2806,6 +3091,7 @@
+@@ -2806,6 +3089,7 @@
      }
  
    return TRUE;
@@ -1870,7 +1932,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  /**
-@@ -2819,6 +3105,9 @@
+@@ -2819,6 +3103,9 @@
  _dbus_set_fd_nonblocking (int             fd,
                            DBusError      *error)
  {
@@ -1880,7 +1942,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    int val;
  
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-@@ -2846,6 +3135,7 @@
+@@ -2846,6 +3133,7 @@
      }
  
    return TRUE;
@@ -1888,7 +1950,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
  }
  
  #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
-@@ -2893,8 +3183,8 @@
+@@ -2893,8 +3181,8 @@
  _dbus_parse_uid (const DBusString      *uid_str,
                   dbus_uid_t            *uid)
  {
@@ -1898,7 +1960,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
    
    if (_dbus_string_get_length (uid_str) == 0)
      {
-@@ -2904,8 +3194,7 @@
+@@ -2904,8 +3192,7 @@
  
    val = -1;
    end = 0;
@@ -1908,7 +1970,7 @@ diff -u -B -b -r1.102 dbus-sysdeps.c
      {
        _dbus_verbose ("could not parse string as a UID\n");
        return FALSE;
-@@ -2975,6 +3264,9 @@
+@@ -2975,6 +3262,9 @@
                   *fd1, *fd2);
    
    return TRUE;  
@@ -1922,9 +1984,9 @@ Index: dbus/dbus-sysdeps.h
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps.h,v
 retrieving revision 1.49
-diff -u -B -b -r1.49 dbus-sysdeps.h
+diff -u -b -B -r1.49 dbus-sysdeps.h
 --- dbus/dbus-sysdeps.h	8 Jul 2005 14:36:22 -0000	1.49
-+++ dbus/dbus-sysdeps.h	3 Jul 2006 12:56:40 -0000
++++ dbus/dbus-sysdeps.h	11 Jul 2006 22:25:13 -0000
 @@ -99,6 +99,22 @@
  #define DBUS_UID_FORMAT "%lu"
  #define DBUS_GID_FORMAT "%lu"
@@ -1952,9 +2014,9 @@ Index: dbus/dbus-test.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-test.c,v
 retrieving revision 1.42
-diff -u -B -b -r1.42 dbus-test.c
+diff -u -b -B -r1.42 dbus-test.c
 --- dbus/dbus-test.c	24 Feb 2005 16:03:56 -0000	1.42
-+++ dbus/dbus-test.c	3 Jul 2006 12:56:40 -0000
++++ dbus/dbus-test.c	11 Jul 2006 22:25:13 -0000
 @@ -154,7 +154,9 @@
    
    run_test ("hash", specific_test, _dbus_hash_test);
@@ -1969,9 +2031,9 @@ Index: dbus/dbus-threads.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-threads.c,v
 retrieving revision 1.23
-diff -u -B -b -r1.23 dbus-threads.c
+diff -u -b -B -r1.23 dbus-threads.c
 --- dbus/dbus-threads.c	26 Feb 2005 06:37:46 -0000	1.23
-+++ dbus/dbus-threads.c	3 Jul 2006 12:56:40 -0000
++++ dbus/dbus-threads.c	11 Jul 2006 22:25:13 -0000
 @@ -222,6 +222,10 @@
    
    DBusMutex **global_locks[] = {
@@ -1987,9 +2049,9 @@ Index: dbus/dbus-transport-unix.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-transport-unix.c,v
 retrieving revision 1.49
-diff -u -B -b -r1.49 dbus-transport-unix.c
+diff -u -b -B -r1.49 dbus-transport-unix.c
 --- dbus/dbus-transport-unix.c	30 May 2006 15:34:10 -0000	1.49
-+++ dbus/dbus-transport-unix.c	3 Jul 2006 12:56:40 -0000
++++ dbus/dbus-transport-unix.c	11 Jul 2006 22:25:14 -0000
 @@ -26,6 +26,9 @@
  #include "dbus-transport-unix.h"
  #include "dbus-transport-protected.h"
@@ -2000,18 +2062,13 @@ diff -u -B -b -r1.49 dbus-transport-unix.c
  
  
  /**
-Index: dbus/dbus-userdb.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-userdb.c,v
-retrieving revision 1.19
-diff -u -B -b -r1.19 dbus-userdb.c
 Index: dbus/dbus-watch.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-watch.c,v
 retrieving revision 1.18
-diff -u -B -b -r1.18 dbus-watch.c
+diff -u -b -B -r1.18 dbus-watch.c
 --- dbus/dbus-watch.c	26 Nov 2004 01:53:13 -0000	1.18
-+++ dbus/dbus-watch.c	3 Jul 2006 12:56:41 -0000
++++ dbus/dbus-watch.c	11 Jul 2006 22:25:14 -0000
 @@ -486,7 +486,10 @@
  int
  dbus_watch_get_fd (DBusWatch *watch)
@@ -2028,9 +2085,9 @@ Index: test/spawn-test.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/test/spawn-test.c,v
 retrieving revision 1.3
-diff -u -B -b -r1.3 spawn-test.c
+diff -u -b -B -r1.3 spawn-test.c
 --- test/spawn-test.c	5 Apr 2003 00:37:17 -0000	1.3
-+++ test/spawn-test.c	3 Jul 2006 12:57:07 -0000
++++ test/spawn-test.c	11 Jul 2006 22:25:36 -0000
 @@ -31,7 +31,11 @@
      argv_copy [i] = argv[i + 1];
    argv_copy[argc - 1] = NULL;
@@ -2047,9 +2104,9 @@ Index: test/test-segfault.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/test/test-segfault.c,v
 retrieving revision 1.4
-diff -u -B -b -r1.4 test-segfault.c
+diff -u -b -B -r1.4 test-segfault.c
 --- test/test-segfault.c	30 Nov 2005 19:32:26 -0000	1.4
-+++ test/test-segfault.c	3 Jul 2006 12:57:07 -0000
++++ test/test-segfault.c	11 Jul 2006 22:25:36 -0000
 @@ -1,9 +1,26 @@
  /* This is simply a process that segfaults */
 +#include <config.h>
@@ -2077,14 +2134,18 @@ diff -u -B -b -r1.4 test-segfault.c
  
  int
  main (int argc, char **argv)
-
+Index: test/data/sha-1/Readme.txt
+===================================================================
+RCS file: /cvs/dbus/dbus/test/data/sha-1/Readme.txt,v
+retrieving revision 1.1
+diff -u -b -B -r1.1 Readme.txt
 Index: tools/dbus-monitor.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/tools/dbus-monitor.c,v
 retrieving revision 1.16
-diff -u -B -b -r1.16 dbus-monitor.c
+diff -u -b -B -r1.16 dbus-monitor.c
 --- tools/dbus-monitor.c	14 Jun 2006 14:39:51 -0000	1.16
-+++ tools/dbus-monitor.c	3 Jul 2006 12:57:19 -0000
++++ tools/dbus-monitor.c	11 Jul 2006 22:25:40 -0000
 @@ -19,6 +19,7 @@
   *
   */
@@ -2097,9 +2158,9 @@ Index: tools/dbus-send.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/tools/dbus-send.c,v
 retrieving revision 1.20
-diff -u -B -b -r1.20 dbus-send.c
+diff -u -b -B -r1.20 dbus-send.c
 --- tools/dbus-send.c	1 Aug 2005 16:10:34 -0000	1.20
-+++ tools/dbus-send.c	3 Jul 2006 12:57:19 -0000
++++ tools/dbus-send.c	11 Jul 2006 22:25:40 -0000
 @@ -19,6 +19,7 @@
   *
   */
