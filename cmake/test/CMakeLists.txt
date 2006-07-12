@@ -92,15 +92,19 @@ install_targets(/bin test_names)
 
 add_executable(shell_test ${shell_test_SOURCES})
 target_link_libraries(shell_test dbus-1)
+install_targets(/bin shell_test)
 
 add_executable(spawn_test ${spawn_test_SOURCES})
 target_link_libraries(spawn_test dbus-1)
 
+
 add_executable(test_exit ${test_exit_SOURCES})
 target_link_libraries(test_exit dbus-1)
+install_targets(/bin test_exit)
 
 add_executable(test_segfault ${test_segfault_SOURCES})
 target_link_libraries(test_segfault dbus-1)
+install_targets(/bin test_segfault)
 
 #add_executable(test_sleep_forever ${test_sleep_forever_SOURCES})
 #target_link_libraries(test_sleep_forever dbus-1)

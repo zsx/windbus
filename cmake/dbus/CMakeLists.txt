@@ -31,22 +31,40 @@ endif (WIN32)
  
 if (WIN32)
 	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)
-ENDIF (WIN32)
-
-if(MSVC)
+	set(CMAKE_DEBUG_POSTFIX "d")
 	add_library(dbus-1 STATIC ${DBUS_SOURCES} ${DBUS_SPAWN_SOURCE} ${DBUS_HEADERS} )
-else(MSVC)
+else(WIN32)
 	add_library(dbus-1 ${DBUS_SOURCES} ${DBUS_SPAWN_SOURCE} ${DBUS_HEADERS} )
-endif(MSVC)
+endif(WIN32)
 
 target_link_libraries(dbus-1 ${LIBS} )
 install_targets(/lib dbus-1 )
 
-install_files(/include/dbus FILES ${DBUS_HEADERS} )
+
+
+install_files(/include/dbus FILES 
+	${CMAKE_SOURCE_DIR}/../dbus/dbus.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-address.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-bus.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-connection.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-errors.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-macros.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-memory.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-message.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-pending-call.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-protocol.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-server.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-shared.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-signature.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-threads.h
+	${CMAKE_SOURCE_DIR}/../dbus/dbus-types.h
+	${CMAKE_CURRENT_BINARY_DIR}/dbus-arch-deps.h
+)
 
 
 #ADD_EXECUTABLE(dbus-example dbus-example.c)
-#target_link_libraries(dbus-example dbus-1)
+#target_link_libraries(${CMAKE_SOURCE_DIR}/../dbus/dbus-example dbus-1)
+#install_targets(/bin dbus-example )
 
 
 if (DBUS_BUILD_TESTS)
@@ -55,6 +73,7 @@ if (DBUS_BUILD_TESTS)
 	ADD_EXECUTABLE(dbus-test  ${CMAKE_SOURCE_DIR}/../dbus/dbus-test-main.c)
 	target_link_libraries(dbus-test dbus-1 ${LIBS})
 	add_test(dbus-test ${EXECUTABLE_OUTPUT_PATH}/dbus-test ${CMAKE_SOURCE_DIR}/test/data)
+	install_targets(/bin dbus-test )
 ENDIF (DBUS_BUILD_TESTS)
 
 
@@ -70,9 +89,11 @@ set (BUILT_SOURCES ${dbusarchinclude_HEADERS} ${DBUS_GLIB_BUILT_INCLUDES})
 #libdbus_1_la_LIBADD= $(DBUS_CLIENT_LIBS)
 ## don't export symbols that start with "_" (we use this 
 ## convention for internal symbols)
+
 if (UNIX)
 	set (libdbus_1_la_LDFLAGS -export-symbols-regex "^[^_].*" -version-info $(LT_CURRENT):$(LT_REVISION):$(LT_AGE) -no-undefined)
 ENDIF (UNIX)
+
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
 ## TESTS
