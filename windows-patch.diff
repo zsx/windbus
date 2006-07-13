@@ -1,217 +1,65 @@
-? .svn
-? README.win
-? cmake
-? qdbus
-? windows-patch.diff
-? x.diff
-? bus/.svn
-? dbus/.svn
-? dbus/dbus-dirent-win.c
-? dbus/dbus-dirent-win.h
-? dbus/dbus-dirent.h
-? dbus/dbus-example.c
-? dbus/dbus-sockets-win.h
-? dbus/dbus-spawn-win.c
-? dbus/dbus-sysdeps-util-win.c
-? dbus/dbus-sysdeps-win.c
-? dbus/dbus-sysdeps-win.h
-? doc/.svn
-? gcj/.svn
-? gcj/org/.svn
-? gcj/org/freedesktop/.svn
-? gcj/org/freedesktop/dbus/.svn
-? glib/.svn
-? glib/examples/.svn
-? glib/examples/statemachine/.svn
-? mono/.svn
-? mono/DBusType/.svn
-? mono/doc/.svn
-? mono/doc/en/.svn
-? mono/doc/en/DBus/.svn
-? mono/doc/en/DBus.DBusType/.svn
-? mono/example/.svn
-? python/.svn
-? python/examples/.svn
-? qt/.svn
-? qt/dbus/.svn
-? qt/examples/.svn
-? qt/src/.svn
-? qt/tools/.svn
-? qt3/.svn
-? test/.svn
-? test/data/.svn
-? test/data/auth/.svn
-? test/data/equiv-config-files/.svn
-? test/data/equiv-config-files/basic/.svn
-? test/data/equiv-config-files/basic/basic.d/.svn
-? test/data/equiv-config-files/entities/.svn
-? test/data/equiv-config-files/entities/basic.d/.svn
-? test/data/incomplete-messages/.svn
-? test/data/invalid-config-files/.svn
-? test/data/invalid-messages/.svn
-? test/data/sha-1/.svn
-? test/data/valid-config-files/.svn
-? test/data/valid-config-files/basic.d/.svn
-? test/data/valid-config-files/system.d/.svn
-? test/data/valid-introspection-files/.svn
-? test/data/valid-messages/.svn
-? test/data/valid-service-files/.svn
-? test/glib/.svn
-? test/name-test/.svn
-? test/python/.svn
-? test/qt/.svn
-? tools/.svn
-Index: bus/activation.c
+Index: dbus/dbus-string.c
 ===================================================================
-RCS file: /cvs/dbus/dbus/bus/activation.c,v
-retrieving revision 1.41
-diff -u -b -B -r1.41 activation.c
---- bus/activation.c	22 Nov 2005 20:37:00 -0000	1.41
-+++ bus/activation.c	11 Jul 2006 22:24:54 -0000
-@@ -33,7 +33,8 @@
- #include <dbus/dbus-shell.h>
- #include <dbus/dbus-spawn.h>
- #include <dbus/dbus-timeout.h>
--#include <dirent.h>
-+#include <dbus/dbus-dirent.h>
-+
- #include <errno.h>
+--- dbus/dbus-string.c	(revision 23)
++++ dbus/dbus-string.c	(working copy)
+@@ -35,6 +35,10 @@
+ /* for DBUS_VA_COPY */
+ #include "dbus-sysdeps.h"
  
- #define DBUS_SERVICE_SECTION "D-BUS Service"
-@@ -1305,6 +1306,7 @@
-   DBusMessage *message;
-   DBusString service_str;
-   char **argv;
-+  char **envp;
-   int argc;
-   dbus_bool_t retval;
-   DBusHashIter iter;
-@@ -1536,6 +1538,9 @@
- 
-   _dbus_verbose ("Spawning %s ...\n", argv[0]);
-   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
 +#ifdef DBUS_WIN
-+                                          envp,
++#include <malloc.h>
 +#endif
-                                           child_setup, activation, 
-                                           error))
-     {
-Index: bus/main.c
-===================================================================
-RCS file: /cvs/dbus/dbus/bus/main.c,v
-retrieving revision 1.31
-diff -u -b -B -r1.31 main.c
---- bus/main.c	15 Jun 2005 02:31:38 -0000	1.31
-+++ bus/main.c	11 Jul 2006 22:24:57 -0000
-@@ -36,6 +36,9 @@
- #define RELOAD_READ_END 0
- #define RELOAD_WRITE_END 1
++
+ /**
+  * @defgroup DBusString string class
+  * @ingroup  DBusInternals
+@@ -1193,7 +1197,6 @@
+                                     va_list            args)
+ {
+   int len;
+-  char c;
+   va_list args_copy;
  
-+#ifndef SIGHUP
-+#define SIGHUP	1
-+#endif
+   DBUS_STRING_PREAMBLE (str);
+@@ -1201,7 +1204,34 @@
+   DBUS_VA_COPY (args_copy, args);
  
- static void
- signal_handler (int sig)
-Index: dbus/dbus-internals.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-internals.c,v
-retrieving revision 1.44
-diff -u -b -B -r1.44 dbus-internals.c
---- dbus/dbus-internals.c	13 Feb 2005 20:23:30 -0000	1.44
-+++ dbus/dbus-internals.c	11 Jul 2006 22:25:03 -0000
-@@ -28,7 +28,9 @@
- #include <string.h>
- #include <sys/types.h>
- #include <errno.h>
+   /* Measure the message length without terminating nul */
 +#ifndef DBUS_WIN
- #include <unistd.h>
++  {
++    char c;
+   len = vsnprintf (&c, 1, format, args);
++  }
++#else
++  /* MSVCRT's vsnprintf semantics are a bit different */
++  /* The C library source in the Platform SDK indicates that this
++   * would work, but alas, it doesn't. At least not on Windows
++   * 2000. Presumably those sources correspond to the C library on
++   * some newer or even future Windows version.
++   *
++    len = _vsnprintf (NULL, _DBUS_INT_MAX, format, args);
++   */
++  {
++    char p[1024];
++    len = vsnprintf (p, sizeof(p)-1, format, args);
++    if (len == -1) // try again
++      {
++        char *p;
++        p = malloc (strlen(format)*3);
++        len = vsnprintf (p, sizeof(p)-1, format, args);
++        free(p);
++      }
++    if (len == -1)
++      return FALSE;
++  }
 +#endif
- #include <fcntl.h>
- #include <stdlib.h>
  
-@@ -246,7 +248,12 @@
-   
-   if (!verbose_initted)
+   if (!_dbus_string_lengthen (str, len))
      {
-+#ifdef DBUS_WIN
-+      const char *p = _dbus_getenv ("DBUS_VERBOSE"); 
-+      verbose = p != NULL && *p == '1';
-+#else
-       verbose = _dbus_getenv ("DBUS_VERBOSE") != NULL;
-+#endif
-       verbose_initted = TRUE;
-       if (!verbose)
-         return;
-Index: dbus/dbus-internals.h
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-internals.h,v
-retrieving revision 1.55
-diff -u -b -B -r1.55 dbus-internals.h
---- dbus/dbus-internals.h	26 Feb 2005 06:37:46 -0000	1.55
-+++ dbus/dbus-internals.h	11 Jul 2006 22:25:03 -0000
-@@ -81,9 +81,15 @@
-                                ...) _DBUS_GNUC_PRINTF (1, 2);
- void _dbus_verbose_reset_real (void);
- 
-+#ifdef HAVE_GNUC_VARARGS
-+# define _dbus_verbose(format, rest...) _dbus_verbose_real("[%s %d] " format, __FUNCTION__,__LINE__, ## rest)
-+#else
- #  define _dbus_verbose _dbus_verbose_real
-+#endif
- #  define _dbus_verbose_reset _dbus_verbose_reset_real
-+
- #else
-+
- #  ifdef HAVE_ISO_VARARGS
- #    define _dbus_verbose(...)
- #  elif defined (HAVE_GNUC_VARARGS)
-@@ -270,6 +276,10 @@
- #define _DBUS_LOCK(name)                _dbus_mutex_lock   (_dbus_lock_##name)
- #define _DBUS_UNLOCK(name)              _dbus_mutex_unlock (_dbus_lock_##name)
- 
-+#ifdef DBUS_WIN
-+_DBUS_DECLARE_GLOBAL_LOCK (win32_fds);
-+_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
-+#endif
- _DBUS_DECLARE_GLOBAL_LOCK (list);
- _DBUS_DECLARE_GLOBAL_LOCK (connection_slots);
- _DBUS_DECLARE_GLOBAL_LOCK (pending_call_slots);
-@@ -281,7 +291,11 @@
- _DBUS_DECLARE_GLOBAL_LOCK (system_users);
- _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
- _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
-+#ifdef DBUS_WIN
-+#define _DBUS_N_GLOBAL_LOCKS (13)
-+#else
- #define _DBUS_N_GLOBAL_LOCKS (11)
-+#endif
- 
- dbus_bool_t _dbus_threads_init_debug (void);
- 
-Index: dbus/dbus-mainloop.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-mainloop.c,v
-retrieving revision 1.18
-diff -u -b -B -r1.18 dbus-mainloop.c
---- dbus/dbus-mainloop.c	15 Jan 2005 07:15:38 -0000	1.18
-+++ dbus/dbus-mainloop.c	11 Jul 2006 22:25:03 -0000
-@@ -609,7 +609,7 @@
-                   
-               flags = dbus_watch_get_flags (wcb->watch);
-                   
--              fds[n_fds].fd = dbus_watch_get_fd (wcb->watch);
-+              fds[n_fds].fd = _dbus_re_encapsulate_socket(dbus_watch_get_fd (wcb->watch));
-               fds[n_fds].revents = 0;
-               fds[n_fds].events = 0;
-               if (flags & DBUS_WATCH_READABLE)
 Index: dbus/dbus-server-unix.c
 ===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-server-unix.c,v
-retrieving revision 1.29
-diff -u -b -B -r1.29 dbus-server-unix.c
---- dbus/dbus-server-unix.c	25 Oct 2005 15:57:13 -0000	1.29
-+++ dbus/dbus-server-unix.c	11 Jul 2006 22:25:09 -0000
+--- dbus/dbus-server-unix.c	(revision 23)
++++ dbus/dbus-server-unix.c	(working copy)
 @@ -27,12 +27,16 @@
  #include "dbus-connection-internal.h"
  #include "dbus-string.h"
@@ -264,9 +112,12 @@ diff -u -b -B -r1.29 dbus-server-unix.c
  
 +#else /* ifndef DBUS_WIN */
 +
-+/**
+ /**
+- * Creates a new server listening on the given hostname and port.
+- * If the hostname is NULL, listens on localhost.
 + * Creates a new server listening on the given Windows named pipe.
-+ *
+  *
+- * @param host the hostname to listen on.
 + * @param path the path for the domain socket.
 + * @param abstract #TRUE to use abstract socket namespace
 + * @param error location to store reason for failure.
@@ -344,14 +195,11 @@ diff -u -b -B -r1.29 dbus-server-unix.c
 +#endif /* ifndef DBUS_WIN */
 +
 +
- /**
-- * Creates a new server listening on the given hostname and port.
-- * If the hostname is NULL, listens on localhost.
++/**
 + * Creates a new server listening on the given hostname and port.  If
 + * the hostname is NULL, listens on localhost. If the hostname is an
 + * empty string, listens on any local host address.
-  *
-- * @param host the hostname to listen on.
++ *
 + * @param host the hostname for the address to listen.
   * @param port the port to listen on.
   * @param error location to store reason for failure.
@@ -365,13 +213,39 @@ diff -u -b -B -r1.29 dbus-server-unix.c
        _dbus_string_free (&address);
        return NULL;
      }
+Index: dbus/dbus-test.c
+===================================================================
+--- dbus/dbus-test.c	(revision 23)
++++ dbus/dbus-test.c	(working copy)
+@@ -154,7 +154,9 @@
+   
+   run_test ("hash", specific_test, _dbus_hash_test);
+ 
++#ifndef DBUS_WIN
+   run_data_test ("spawn", specific_test, _dbus_spawn_test, test_data_dir);
++#endif
+   
+   run_data_test ("userdb", specific_test, _dbus_userdb_test, test_data_dir);
+   
+Index: dbus/dbus-threads.c
+===================================================================
+--- dbus/dbus-threads.c	(revision 23)
++++ dbus/dbus-threads.c	(working copy)
+@@ -222,6 +222,10 @@
+   
+   DBusMutex **global_locks[] = {
+ #define LOCK_ADDR(name) (& _dbus_lock_##name)
++#ifdef DBUS_WIN
++    LOCK_ADDR (win32_fds),
++    LOCK_ADDR (sid_atom_cache),
++#endif
+     LOCK_ADDR (list),
+     LOCK_ADDR (connection_slots),
+     LOCK_ADDR (pending_call_slots),
 Index: dbus/dbus-spawn.h
 ===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-spawn.h,v
-retrieving revision 1.7
-diff -u -b -B -r1.7 dbus-spawn.h
---- dbus/dbus-spawn.h	9 Sep 2004 10:20:17 -0000	1.7
-+++ dbus/dbus-spawn.h	11 Jul 2006 22:25:11 -0000
+--- dbus/dbus-spawn.h	(revision 23)
++++ dbus/dbus-spawn.h	(working copy)
 @@ -37,6 +37,9 @@
  
  dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
@@ -382,74 +256,10 @@ diff -u -b -B -r1.7 dbus-spawn.h
                                                     DBusSpawnChildSetupFunc    child_setup,
                                                     void                      *user_data,
                                                     DBusError                 *error);
-Index: dbus/dbus-string.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-string.c,v
-retrieving revision 1.69
-diff -u -b -B -r1.69 dbus-string.c
---- dbus/dbus-string.c	16 Feb 2006 00:43:41 -0000	1.69
-+++ dbus/dbus-string.c	11 Jul 2006 22:25:12 -0000
-@@ -35,6 +35,10 @@
- /* for DBUS_VA_COPY */
- #include "dbus-sysdeps.h"
- 
-+#ifdef DBUS_WIN
-+#include <malloc.h>
-+#endif
-+
- /**
-  * @defgroup DBusString string class
-  * @ingroup  DBusInternals
-@@ -1193,7 +1197,6 @@
-                                     va_list            args)
- {
-   int len;
--  char c;
-   va_list args_copy;
- 
-   DBUS_STRING_PREAMBLE (str);
-@@ -1201,7 +1204,34 @@
-   DBUS_VA_COPY (args_copy, args);
- 
-   /* Measure the message length without terminating nul */
-+#ifndef DBUS_WIN
-+  {
-+    char c;
-   len = vsnprintf (&c, 1, format, args);
-+  }
-+#else
-+  /* MSVCRT's vsnprintf semantics are a bit different */
-+  /* The C library source in the Platform SDK indicates that this
-+   * would work, but alas, it doesn't. At least not on Windows
-+   * 2000. Presumably those sources correspond to the C library on
-+   * some newer or even future Windows version.
-+   *
-+    len = _vsnprintf (NULL, _DBUS_INT_MAX, format, args);
-+   */
-+  {
-+    char p[1024];
-+    len = vsnprintf (p, sizeof(p)-1, format, args);
-+    if (len == -1) // try again
-+      {
-+        char *p;
-+        p = malloc (strlen(format)*3);
-+        len = vsnprintf (p, sizeof(p)-1, format, args);
-+        free(p);
-+      }
-+    if (len == -1)
-+      return FALSE;
-+  }
-+#endif
- 
-   if (!_dbus_string_lengthen (str, len))
-     {
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps-util.c,v
-retrieving revision 1.6
-diff -u -b -B -r1.6 dbus-sysdeps-util.c
---- dbus/dbus-sysdeps-util.c	24 Feb 2006 16:13:08 -0000	1.6
-+++ dbus/dbus-sysdeps-util.c	11 Jul 2006 22:25:12 -0000
+--- dbus/dbus-sysdeps-util.c	(revision 23)
++++ dbus/dbus-sysdeps-util.c	(working copy)
 @@ -28,20 +28,25 @@
  #define DBUS_USERDB_INCLUDES_PRIVATE 1
  #include "dbus-userdb.h"
@@ -465,17 +275,17 @@ diff -u -b -B -r1.6 dbus-sysdeps-util.c
  #include <errno.h>
  #include <fcntl.h>
  #include <sys/stat.h>
--#include <grp.h>
--#include <sys/socket.h>
 +#ifdef DBUS_WIN
 +#include "dbus-sysdeps-win.h"
 +#include <aclapi.h>
 +#define F_OK 0
 +#else
- #include <dirent.h>
--#include <sys/un.h>
++#include <dirent.h>
 +#include <unistd.h>
-+#include <grp.h>
+ #include <grp.h>
+-#include <sys/socket.h>
+-#include <dirent.h>
+-#include <sys/un.h>
 +#endif
  
  #ifndef O_BINARY
@@ -683,7 +493,7 @@ diff -u -b -B -r1.6 dbus-sysdeps-util.c
    if (stat (filename_c, &sb) < 0)
      {
        dbus_set_error (error, _dbus_error_from_errno (errno),
-@@ -431,6 +559,66 @@
+@@ -431,7 +559,67 @@
    statbuf->atime = sb.st_atime;
    statbuf->mtime = sb.st_mtime;
    statbuf->ctime = sb.st_ctime;
@@ -693,7 +503,7 @@ diff -u -b -B -r1.6 dbus-sysdeps-util.c
 +      _dbus_win_set_error_from_win_error (error, GetLastError ());
 +      return FALSE;
 +    }
-+
+ 
 +  if (wfad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
 +    statbuf->mode = _S_IFDIR;
 +  else
@@ -747,9 +557,10 @@ diff -u -b -B -r1.6 dbus-sysdeps-util.c
 +     wfad.ftCreationTime.dwLowDateTime) / 10000000 - DBUS_INT64_CONSTANT (116444736000000000);
 +  
 +#endif
- 
++
    return TRUE;
  }
+ 
 @@ -514,7 +702,11 @@
    ent = readdir (iter->d);
    if (ent == NULL)
@@ -976,13 +787,53 @@ diff -u -b -B -r1.6 dbus-sysdeps-util.c
    
    return TRUE;
  }
+Index: dbus/dbus-watch.c
+===================================================================
+--- dbus/dbus-watch.c	(revision 23)
++++ dbus/dbus-watch.c	(working copy)
+@@ -486,7 +486,10 @@
+ int
+ dbus_watch_get_fd (DBusWatch *watch)
+ {
+-  return watch->fd;
++  if (watch->fd == -1)
++    return -1;
++  else
++    return _dbus_decapsulate (watch->fd);
+ }
+ 
+ /**
+Index: dbus/dbus-transport-unix.c
+===================================================================
+--- dbus/dbus-transport-unix.c	(revision 23)
++++ dbus/dbus-transport-unix.c	(working copy)
+@@ -26,6 +26,9 @@
+ #include "dbus-transport-unix.h"
+ #include "dbus-transport-protected.h"
+ #include "dbus-watch.h"
++#ifdef DBUS_WIN
++#include "dbus-sockets-win.h"
++#endif
+ 
+ 
+ /**
+Index: dbus/dbus-mainloop.c
+===================================================================
+--- dbus/dbus-mainloop.c	(revision 23)
++++ dbus/dbus-mainloop.c	(working copy)
+@@ -609,7 +609,7 @@
+                   
+               flags = dbus_watch_get_flags (wcb->watch);
+                   
+-              fds[n_fds].fd = dbus_watch_get_fd (wcb->watch);
++              fds[n_fds].fd = _dbus_re_encapsulate_socket(dbus_watch_get_fd (wcb->watch));
+               fds[n_fds].revents = 0;
+               fds[n_fds].events = 0;
+               if (flags & DBUS_WATCH_READABLE)
 Index: dbus/dbus-sysdeps.c
 ===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps.c,v
-retrieving revision 1.102
-diff -u -b -B -r1.102 dbus-sysdeps.c
---- dbus/dbus-sysdeps.c	30 May 2006 15:34:10 -0000	1.102
-+++ dbus/dbus-sysdeps.c	11 Jul 2006 22:25:13 -0000
+--- dbus/dbus-sysdeps.c	(revision 23)
++++ dbus/dbus-sysdeps.c	(working copy)
 @@ -3,6 +3,7 @@
   * 
   * Copyright (C) 2002, 2003  Red Hat, Inc.
@@ -991,7 +842,7 @@ diff -u -b -B -r1.102 dbus-sysdeps.c
   *
   * Licensed under the Academic Free License version 2.1
   * 
-@@ -27,26 +28,35 @@
+@@ -27,27 +28,36 @@
  #include "dbus-threads.h"
  #include "dbus-protocol.h"
  #include "dbus-string.h"
@@ -1024,13 +875,14 @@ diff -u -b -B -r1.102 dbus-sysdeps.c
  #include <netdb.h>
  #include <grp.h>
 +#endif
-+
+ 
 +#include <time.h>
 +#include <locale.h>
 +#include <sys/stat.h>
- 
++
  #ifdef HAVE_WRITEV
  #include <sys/uio.h>
+ #endif
 @@ -69,6 +79,14 @@
  #define socklen_t int
  #endif
@@ -1291,8 +1143,8 @@ diff -u -b -B -r1.102 dbus-sysdeps.c
 +#ifdef DBUS_WIN
 +  struct in_addr ina;
 +#endif
-+
  
++
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
    
 +#ifdef DBUS_WIN
@@ -1799,7 +1651,7 @@ diff -u -b -B -r1.102 dbus-sysdeps.c
    dir_ends_in_slash = '/' == _dbus_string_get_byte (dir,
                                                      _dbus_string_get_length (dir) - 1);
  
-@@ -2458,6 +2700,25 @@
+@@ -2458,7 +2700,26 @@
        if (!_dbus_string_append_byte (dir, '/'))
          return FALSE;
      }
@@ -1807,7 +1659,7 @@ diff -u -b -B -r1.102 dbus-sysdeps.c
 +  dir_ends_in_slash =
 +    ('/' == _dbus_string_get_byte (dir, _dbus_string_get_length (dir) - 1) ||
 +     '\\' == _dbus_string_get_byte (dir, _dbus_string_get_length (dir) - 1));
-+
+ 
 +  file_starts_with_slash =
 +     ('/' == _dbus_string_get_byte (next_component, 0) ||
 +      '\\' == _dbus_string_get_byte (next_component, 0));
@@ -1822,9 +1674,10 @@ diff -u -b -B -r1.102 dbus-sysdeps.c
 +        return FALSE;
 +    }
 +#endif
- 
++
    return _dbus_string_copy (next_component, 0, dir,
                              _dbus_string_get_length (dir));
+ }
 @@ -2565,14 +2826,18 @@
    old_len = _dbus_string_get_length (str);
    fd = -1;
@@ -1980,13 +1833,37 @@ diff -u -b -B -r1.102 dbus-sysdeps.c
  #else
    _dbus_warn ("_dbus_full_duplex_pipe() not implemented on this OS\n");
    dbus_set_error (error, DBUS_ERROR_FAILED,
+Index: dbus/dbus-internals.c
+===================================================================
+--- dbus/dbus-internals.c	(revision 23)
++++ dbus/dbus-internals.c	(working copy)
+@@ -28,7 +28,9 @@
+ #include <string.h>
+ #include <sys/types.h>
+ #include <errno.h>
++#ifndef DBUS_WIN
+ #include <unistd.h>
++#endif
+ #include <fcntl.h>
+ #include <stdlib.h>
+ 
+@@ -246,7 +248,12 @@
+   
+   if (!verbose_initted)
+     {
++#ifdef DBUS_WIN
++      const char *p = _dbus_getenv ("DBUS_VERBOSE"); 
++      verbose = p != NULL && *p == '1';
++#else
+       verbose = _dbus_getenv ("DBUS_VERBOSE") != NULL;
++#endif
+       verbose_initted = TRUE;
+       if (!verbose)
+         return;
 Index: dbus/dbus-sysdeps.h
 ===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps.h,v
-retrieving revision 1.49
-diff -u -b -B -r1.49 dbus-sysdeps.h
---- dbus/dbus-sysdeps.h	8 Jul 2005 14:36:22 -0000	1.49
-+++ dbus/dbus-sysdeps.h	11 Jul 2006 22:25:13 -0000
+--- dbus/dbus-sysdeps.h	(revision 23)
++++ dbus/dbus-sysdeps.h	(working copy)
 @@ -99,6 +99,22 @@
  #define DBUS_UID_FORMAT "%lu"
  #define DBUS_GID_FORMAT "%lu"
@@ -2010,84 +1887,77 @@ diff -u -b -B -r1.49 dbus-sysdeps.h
  /**
   * Struct representing socket credentials
   */
-Index: dbus/dbus-test.c
+Index: dbus/dbus-internals.h
 ===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-test.c,v
-retrieving revision 1.42
-diff -u -b -B -r1.42 dbus-test.c
---- dbus/dbus-test.c	24 Feb 2005 16:03:56 -0000	1.42
-+++ dbus/dbus-test.c	11 Jul 2006 22:25:13 -0000
-@@ -154,7 +154,9 @@
-   
-   run_test ("hash", specific_test, _dbus_hash_test);
+--- dbus/dbus-internals.h	(revision 23)
++++ dbus/dbus-internals.h	(working copy)
+@@ -81,9 +81,15 @@
+                                ...) _DBUS_GNUC_PRINTF (1, 2);
+ void _dbus_verbose_reset_real (void);
  
-+#ifndef DBUS_WIN
-   run_data_test ("spawn", specific_test, _dbus_spawn_test, test_data_dir);
++#ifdef HAVE_GNUC_VARARGS
++# define _dbus_verbose(format, rest...) _dbus_verbose_real("[%s %d] " format, __FUNCTION__,__LINE__, ## rest)
++#else
+ #  define _dbus_verbose _dbus_verbose_real
 +#endif
-   
-   run_data_test ("userdb", specific_test, _dbus_userdb_test, test_data_dir);
-   
-Index: dbus/dbus-threads.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-threads.c,v
-retrieving revision 1.23
-diff -u -b -B -r1.23 dbus-threads.c
---- dbus/dbus-threads.c	26 Feb 2005 06:37:46 -0000	1.23
-+++ dbus/dbus-threads.c	11 Jul 2006 22:25:13 -0000
-@@ -222,6 +222,10 @@
-   
-   DBusMutex **global_locks[] = {
- #define LOCK_ADDR(name) (& _dbus_lock_##name)
+ #  define _dbus_verbose_reset _dbus_verbose_reset_real
++
+ #else
++
+ #  ifdef HAVE_ISO_VARARGS
+ #    define _dbus_verbose(...)
+ #  elif defined (HAVE_GNUC_VARARGS)
+@@ -270,6 +276,10 @@
+ #define _DBUS_LOCK(name)                _dbus_mutex_lock   (_dbus_lock_##name)
+ #define _DBUS_UNLOCK(name)              _dbus_mutex_unlock (_dbus_lock_##name)
+ 
 +#ifdef DBUS_WIN
-+    LOCK_ADDR (win32_fds),
-+    LOCK_ADDR (sid_atom_cache),
++_DBUS_DECLARE_GLOBAL_LOCK (win32_fds);
++_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
 +#endif
-     LOCK_ADDR (list),
-     LOCK_ADDR (connection_slots),
-     LOCK_ADDR (pending_call_slots),
-Index: dbus/dbus-transport-unix.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-transport-unix.c,v
-retrieving revision 1.49
-diff -u -b -B -r1.49 dbus-transport-unix.c
---- dbus/dbus-transport-unix.c	30 May 2006 15:34:10 -0000	1.49
-+++ dbus/dbus-transport-unix.c	11 Jul 2006 22:25:14 -0000
-@@ -26,6 +26,9 @@
- #include "dbus-transport-unix.h"
- #include "dbus-transport-protected.h"
- #include "dbus-watch.h"
+ _DBUS_DECLARE_GLOBAL_LOCK (list);
+ _DBUS_DECLARE_GLOBAL_LOCK (connection_slots);
+ _DBUS_DECLARE_GLOBAL_LOCK (pending_call_slots);
+@@ -281,7 +291,11 @@
+ _DBUS_DECLARE_GLOBAL_LOCK (system_users);
+ _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
+ _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
 +#ifdef DBUS_WIN
-+#include "dbus-sockets-win.h"
++#define _DBUS_N_GLOBAL_LOCKS (13)
++#else
+ #define _DBUS_N_GLOBAL_LOCKS (11)
 +#endif
  
+ dbus_bool_t _dbus_threads_init_debug (void);
  
- /**
-Index: dbus/dbus-watch.c
+Index: tools/dbus-monitor.c
 ===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-watch.c,v
-retrieving revision 1.18
-diff -u -b -B -r1.18 dbus-watch.c
---- dbus/dbus-watch.c	26 Nov 2004 01:53:13 -0000	1.18
-+++ dbus/dbus-watch.c	11 Jul 2006 22:25:14 -0000
-@@ -486,7 +486,10 @@
- int
- dbus_watch_get_fd (DBusWatch *watch)
- {
--  return watch->fd;
-+  if (watch->fd == -1)
-+    return -1;
-+  else
-+    return _dbus_decapsulate (watch->fd);
- }
+--- tools/dbus-monitor.c	(revision 23)
++++ tools/dbus-monitor.c	(working copy)
+@@ -19,6 +19,7 @@
+  *
+  */
  
- /**
++#include <config.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+Index: tools/dbus-send.c
+===================================================================
+--- tools/dbus-send.c	(revision 23)
++++ tools/dbus-send.c	(working copy)
+@@ -19,6 +19,7 @@
+  *
+  */
+ 
++#include <config.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
 Index: test/spawn-test.c
 ===================================================================
-RCS file: /cvs/dbus/dbus/test/spawn-test.c,v
-retrieving revision 1.3
-diff -u -b -B -r1.3 spawn-test.c
---- test/spawn-test.c	5 Apr 2003 00:37:17 -0000	1.3
-+++ test/spawn-test.c	11 Jul 2006 22:25:36 -0000
+--- test/spawn-test.c	(revision 23)
++++ test/spawn-test.c	(working copy)
 @@ -31,7 +31,11 @@
      argv_copy [i] = argv[i + 1];
    argv_copy[argc - 1] = NULL;
@@ -2102,12 +1972,9 @@ diff -u -b -B -r1.3 spawn-test.c
  	       error.message);
 Index: test/test-segfault.c
 ===================================================================
-RCS file: /cvs/dbus/dbus/test/test-segfault.c,v
-retrieving revision 1.4
-diff -u -b -B -r1.4 test-segfault.c
---- test/test-segfault.c	30 Nov 2005 19:32:26 -0000	1.4
-+++ test/test-segfault.c	11 Jul 2006 22:25:36 -0000
-@@ -1,9 +1,26 @@
+--- test/test-segfault.c	(revision 23)
++++ test/test-segfault.c	(working copy)
+@@ -1,10 +1,27 @@
  /* This is simply a process that segfaults */
 +#include <config.h>
  #include <stdlib.h>
@@ -2130,42 +1997,54 @@ diff -u -b -B -r1.4 test-segfault.c
  #include <sys/time.h>
  #include <sys/resource.h>
 +#endif
-+
  
++
  int
  main (int argc, char **argv)
-Index: test/data/sha-1/Readme.txt
+ {
+Index: bus/activation.c
 ===================================================================
-RCS file: /cvs/dbus/dbus/test/data/sha-1/Readme.txt,v
-retrieving revision 1.1
-diff -u -b -B -r1.1 Readme.txt
-Index: tools/dbus-monitor.c
-===================================================================
-RCS file: /cvs/dbus/dbus/tools/dbus-monitor.c,v
-retrieving revision 1.16
-diff -u -b -B -r1.16 dbus-monitor.c
---- tools/dbus-monitor.c	14 Jun 2006 14:39:51 -0000	1.16
-+++ tools/dbus-monitor.c	11 Jul 2006 22:25:40 -0000
-@@ -19,6 +19,7 @@
-  *
-  */
+--- bus/activation.c	(revision 23)
++++ bus/activation.c	(working copy)
+@@ -33,7 +33,8 @@
+ #include <dbus/dbus-shell.h>
+ #include <dbus/dbus-spawn.h>
+ #include <dbus/dbus-timeout.h>
+-#include <dirent.h>
++#include <dbus/dbus-dirent.h>
++
+ #include <errno.h>
  
-+#include <config.h>
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
-Index: tools/dbus-send.c
-===================================================================
-RCS file: /cvs/dbus/dbus/tools/dbus-send.c,v
-retrieving revision 1.20
-diff -u -b -B -r1.20 dbus-send.c
---- tools/dbus-send.c	1 Aug 2005 16:10:34 -0000	1.20
-+++ tools/dbus-send.c	11 Jul 2006 22:25:40 -0000
-@@ -19,6 +19,7 @@
-  *
-  */
+ #define DBUS_SERVICE_SECTION "D-BUS Service"
+@@ -1305,6 +1306,7 @@
+   DBusMessage *message;
+   DBusString service_str;
+   char **argv;
++  char **envp;
+   int argc;
+   dbus_bool_t retval;
+   DBusHashIter iter;
+@@ -1536,6 +1538,9 @@
  
-+#include <config.h>
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
+   _dbus_verbose ("Spawning %s ...\n", argv[0]);
+   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
++#ifdef DBUS_WIN
++                                          envp,
++#endif
+                                           child_setup, activation, 
+                                           error))
+     {
+Index: bus/main.c
+===================================================================
+--- bus/main.c	(revision 23)
++++ bus/main.c	(working copy)
+@@ -36,6 +36,9 @@
+ #define RELOAD_READ_END 0
+ #define RELOAD_WRITE_END 1
+ 
++#ifndef SIGHUP
++#define SIGHUP	1
++#endif
+ 
+ static void
+ signal_handler (int sig)
