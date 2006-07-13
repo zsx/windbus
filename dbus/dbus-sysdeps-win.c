@@ -28,6 +28,7 @@
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
 #include "dbus-hash.h"
+#include "dbus-dirent.h"
 #include "dbus-sockets-win.h"
 #include "dbus-string.h"
 #include <sys/types.h>
@@ -37,7 +38,6 @@
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
-#include "dbus-dirent-win.h"
 #include <locale.h>
 #include <sys/stat.h>
 
@@ -1654,6 +1654,70 @@ _dbus_decapsulate (int fd)
 
   return fd;
 }
+
+dbus_bool_t
+_dbus_win_account_to_sid (const wchar_t *waccount,
+			    void      	 **ppsid,
+			    DBusError 	  *error)
+{
+  dbus_bool_t retval = FALSE;
+  DWORD sid_length, wdomain_length;
+  SID_NAME_USE use;
+  wchar_t *wdomain;
+		     
+  *ppsid = NULL;
+
+  sid_length = 0;
+  wdomain_length = 0;
+  if (!LookupAccountNameW (NULL, waccount, NULL, &sid_length,
+			   NULL, &wdomain_length, &use) &&
+      GetLastError () != ERROR_INSUFFICIENT_BUFFER)
+    {
+      _dbus_win_set_error_from_win_error (error, GetLastError ());
+      return FALSE;
+    }
+
+  *ppsid = dbus_malloc (sid_length);
+  if (!*ppsid)
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  wdomain = dbus_new (wchar_t, wdomain_length);
+  if (!wdomain)
+    {
+      _DBUS_SET_OOM (error);
+      goto out1;
+    }
+
+  if (!LookupAccountNameW (NULL, waccount, (PSID) *ppsid, &sid_length,
+			   wdomain, &wdomain_length, &use))
+    {
+      _dbus_win_set_error_from_win_error (error, GetLastError ());
+      goto out2;
+    }
+
+  if (!IsValidSid ((PSID) *ppsid))
+    {
+      dbus_set_error_const (error, DBUS_ERROR_FAILED, "Invalid SID");
+      goto out2;
+    }
+
+  retval = TRUE;
+
+ out2:
+  dbus_free (wdomain);
+ out1:
+  if (!retval)
+    {
+      dbus_free (*ppsid);
+      *ppsid = NULL;
+    }
+
+  return retval;
+}
+
 
 
 /**

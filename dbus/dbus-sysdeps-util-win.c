@@ -28,6 +28,7 @@
 #define DBUS_USERDB_INCLUDES_PRIVATE 1
 #include "dbus-userdb.h"
 #include "dbus-test.h"
+#include "dbus-dirent.h"
 
 #include <sys/types.h>
 #include <stdlib.h>
@@ -42,11 +43,6 @@
 #include <sys/stat.h>
 #ifdef HAVE_GRP_H
 #include <grp.h>
-#endif
-#ifdef DBUS_WIN
-#include "dbus-dirent-win.h"
-#else
-#include <dirent.h>
 #endif
 
 #ifdef DBUS_WIN

@@ -138,7 +138,7 @@ fill_win_user_info_from_name (wchar_t      *wname,
                               DBusUserInfo *info,
                               DBusError    *error);
 
-dbus_bool_t _dbus_win32_account_to_sid (const wchar_t *waccount,
+dbus_bool_t _dbus_win_account_to_sid (const wchar_t *waccount,
 					void         **ppsid,
 					DBusError     *error);
 

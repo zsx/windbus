@@ -63,7 +63,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "dbus-dirent-win.h"
+#include "dbus-dirent.h"
 
 /**********************************************************************
  * Implement dirent-style opendir/readdir/closedir on Window 95/NT
