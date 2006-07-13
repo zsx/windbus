@@ -99,9 +99,9 @@ set (DBUS_BUILD_TESTS 1)
 
 if (DBUS_BUILD_TESTS)
 	add_definitions(-DDBUS_BUILD_TESTS=1)
-	if(NOT MSVC)
+	if(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
 		add_definitions(-g)
-	endif(NOT MSVC)
+	endif(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
 endif (DBUS_BUILD_TESTS)
 
 #AC_ARG_ENABLE(ansi, AS_HELP_STRING([--enable-ansi],[enable -ansi -pedantic gcc flags]),enable_ansi=$enableval,enable_ansi=no)

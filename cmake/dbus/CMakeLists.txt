@@ -22,21 +22,23 @@ set(DBUS_HEADERS ${DBUS_HEADERS} ${CMAKE_CURRENT_BINARY_DIR}/dbus-arch-deps.h)
 
 if (WIN32)
 	set (DBUS_SPAWN_SOURCE ${CMAKE_SOURCE_DIR}/../dbus/dbus-spawn-win.c)
+	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)
 else (WIN32)
 	set (DBUS_SPAWN_SOURCE ${CMAKE_SOURCE_DIR}/../dbus/dbus-spawn.c)
 endif (WIN32)
 
 
 
- 
-if (WIN32)
-	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)
-	set(CMAKE_DEBUG_POSTFIX "d")
-	add_library(dbus-1 STATIC ${DBUS_SOURCES} ${DBUS_SPAWN_SOURCE} ${DBUS_HEADERS} )
-else(WIN32)
-	add_library(dbus-1 ${DBUS_SOURCES} ${DBUS_SPAWN_SOURCE} ${DBUS_HEADERS} )
-endif(WIN32)
 
+if(MSVC)
+	set(CMAKE_DEBUG_POSTFIX "d")
+	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)	
+	add_library(dbus-1 STATIC ${DBUS_SOURCES} ${DBUS_SPAWN_SOURCE} ${DBUS_HEADERS} )
+else(MSVC)
+	add_library(dbus-1 ${DBUS_SOURCES} ${DBUS_SPAWN_SOURCE} ${DBUS_HEADERS} )
+endif(MSVC)
+
+message("STATUS ${LIBS}")
 target_link_libraries(dbus-1 ${LIBS} )
 install_targets(/lib dbus-1 )
 
