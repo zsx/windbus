@@ -69,8 +69,7 @@ set (bus_test_SOURCES
 add_executable(bus-test ${BUS_SOURCES} ${BUS_HEADERS} ${CMAKE_SOURCE_DIR}/../bus/test-main.c	)
 target_link_libraries(bus-test dbus-1 ${LIBS} )
 install_targets(/bin bus-test)
-
-#bus_test_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
+add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_SOURCE_DIR}/../test/data)
 
 ## mop up the gcov files
 #clean-local:

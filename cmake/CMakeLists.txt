@@ -27,6 +27,7 @@ if(MSVC)
 else(MSVC)
 endif(MSVC)
 
+ENABLE_TESTING()
 
 #########################################################################
 # Disallow in-source build
