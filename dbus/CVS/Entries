@@ -1,5 +1,4 @@
 /.cvsignore/1.6/Sun Jul 23 08:55:51 2006//
-/Makefile.am/1.77/Sun Jul 23 08:56:58 2006//
 /dbus-address.c/1.16/Sun Jul 23 08:55:52 2006//
 /dbus-address.h/1.5/Sun Jul 23 08:55:53 2006//
 /dbus-arch-deps.h.in/1.4/Sun Jul 23 08:55:51 2006//
@@ -8,14 +7,10 @@
 /dbus-auth-util.c/1.1/Sun Jul 23 08:55:52 2006//
 /dbus-auth.c/1.47/Sun Jul 23 08:55:51 2006//
 /dbus-auth.h/1.13/Sun Jul 23 08:55:51 2006//
-/dbus-bus.c/1.52/Sun Jul 23 08:56:58 2006//
 /dbus-bus.h/1.17/Sun Jul 23 08:55:52 2006//
-/dbus-connection-internal.h/1.26/Sun Jul 23 08:56:58 2006//
-/dbus-connection.c/1.123/Sun Jul 23 08:56:58 2006//
 /dbus-connection.h/1.42/Sun Jul 23 08:55:51 2006//
 /dbus-dataslot.c/1.10/Sun Jul 23 08:55:52 2006//
 /dbus-dataslot.h/1.8/Sun Jul 23 08:55:52 2006//
-/dbus-errors.c/1.29/Sun Jul 23 08:56:58 2006//
 /dbus-errors.h/1.26/Sun Jul 23 08:55:51 2006//
 /dbus-hash.c/1.20/Sun Jul 23 08:55:50 2006//
 /dbus-hash.h/1.15/Sun Jul 23 08:55:50 2006//
@@ -28,7 +23,6 @@
 /dbus-macros.h/1.5/Sun Jul 23 08:55:52 2006//
 /dbus-mainloop.c/1.18/Sun Jul 23 08:55:51 2006//
 /dbus-mainloop.h/1.7/Sun Jul 23 08:55:52 2006//
-/dbus-marshal-basic.c/1.27/Sun Jul 23 08:56:58 2006//
 /dbus-marshal-basic.h/1.20/Sun Jul 23 08:55:50 2006//
 /dbus-marshal-byteswap-util.c/1.1/Sun Jul 23 08:55:53 2006//
 /dbus-marshal-byteswap.c/1.5/Sun Jul 23 08:55:52 2006//
@@ -39,7 +33,6 @@
 /dbus-marshal-recursive.c/1.50/Sun Jul 23 08:55:53 2006//
 /dbus-marshal-recursive.h/1.30/Sun Jul 23 08:55:53 2006//
 /dbus-marshal-validate-util.c/1.5/Sun Jul 23 08:55:51 2006//
-/dbus-marshal-validate.c/1.22/Sun Jul 23 08:56:58 2006//
 /dbus-marshal-validate.h/1.12/Sun Jul 23 08:55:52 2006//
 /dbus-md5.c/1.6/Sun Jul 23 08:55:51 2006//
 /dbus-md5.h/1.5/Sun Jul 23 08:55:51 2006//
@@ -47,7 +40,6 @@
 /dbus-memory.h/1.10/Sun Jul 23 08:55:52 2006//
 /dbus-mempool.c/1.12/Sun Jul 23 08:55:51 2006//
 /dbus-mempool.h/1.5/Sun Jul 23 08:55:51 2006//
-/dbus-message-factory.c/1.10/Sun Jul 23 08:56:58 2006//
 /dbus-message-factory.h/1.4/Sun Jul 23 08:55:51 2006//
 /dbus-message-internal.h/1.20/Sun Jul 23 08:55:50 2006//
 /dbus-message-private.h/1.3/Sun Jul 23 08:55:53 2006//
@@ -57,8 +49,6 @@
 /dbus-object-tree.c/1.18/Sun Jul 23 08:55:50 2006//
 /dbus-object-tree.h/1.8/Sun Jul 23 08:55:50 2006//
 /dbus-pending-call-internal.h/1.2/Fri Jul 14 03:09:22 2006//
-/dbus-pending-call.c/1.15/Sun Jul 23 08:56:59 2006//
-/dbus-pending-call.h/1.8/Sun Jul 23 08:56:59 2006//
 /dbus-protocol.h/1.46/Sun Jul 23 08:55:52 2006//
 /dbus-resources.c/1.4/Sun Jul 23 08:55:52 2006//
 /dbus-resources.h/1.5/Sun Jul 23 08:55:52 2006//
@@ -105,4 +95,14 @@
 /dbus-watch.c/1.18/Sun Jul 23 08:55:51 2006//
 /dbus-watch.h/1.8/Sun Jul 23 08:55:51 2006//
 /dbus.h/1.21/Sun Jul 23 08:55:51 2006//
+/Makefile.am/1.77/Sun Jul 23 09:00:26 2006//
+/dbus-bus.c/1.52/Sun Jul 23 09:00:26 2006//
+/dbus-connection-internal.h/1.26/Sun Jul 23 09:00:26 2006//
+/dbus-connection.c/1.123/Sun Jul 23 09:00:26 2006//
+/dbus-errors.c/1.29/Sun Jul 23 09:00:26 2006//
+/dbus-marshal-basic.c/1.27/Sun Jul 23 09:00:26 2006//
+/dbus-marshal-validate.c/1.22/Sun Jul 23 09:00:26 2006//
+/dbus-message-factory.c/1.10/Sun Jul 23 09:00:27 2006//
+/dbus-pending-call.c/1.15/Sun Jul 23 09:00:27 2006//
+/dbus-pending-call.h/1.8/Sun Jul 23 09:00:27 2006//
 D

@@ -1,5 +1,4 @@
 /.cvsignore/1.4/Sun Jul 23 08:55:54 2006//
-/Makefile.am/1.19/Sun Jul 23 08:57:00 2006//
 /dbus-cleanup-sockets.1/1.1/Sun Jul 23 08:55:54 2006//
 /dbus-cleanup-sockets.c/1.2/Sun Jul 23 08:55:54 2006//
 /dbus-launch.1/1.5/Sun Jul 23 08:55:54 2006//
@@ -12,4 +11,5 @@
 /dbus-send.c/1.20/Sun Jul 23 08:55:54 2006//
 /dbus-viewer.c/1.16/Sun Jul 23 08:55:54 2006//
 /run-with-tmp-session-bus.sh/1.1/Sun Jul 23 08:55:54 2006//
+/Makefile.am/1.19/Sun Jul 23 09:00:27 2006//
 D

@@ -1,7 +1,5 @@
 /.cvsignore/1.8/Sun Jul 23 08:55:35 2006//
 /Makefile.am/1.37/Sun Jul 23 08:55:36 2006//
-/activation.c/1.42/Sun Jul 23 08:56:57 2006//
-/activation.h/1.14/Sun Jul 23 08:56:57 2006//
 /bus.c/1.67/Sun Jul 23 08:55:36 2006//
 /bus.h/1.27/Sun Jul 23 08:55:35 2006//
 /config-loader-expat.c/1.10/Sun Jul 23 08:55:36 2006//
@@ -15,9 +13,7 @@
 /desktop-file.h/1.5/Sun Jul 23 08:55:36 2006//
 /dir-watch.c/1.1/Sun Jul 23 08:55:35 2006//
 /dir-watch.h/1.1/Sun Jul 23 08:55:35 2006//
-/dispatch.c/1.75/Sun Jul 23 08:56:58 2006//
 /dispatch.h/1.6/Sun Jul 23 08:55:35 2006//
-/driver.c/1.77/Sun Jul 23 08:56:58 2006//
 /driver.h/1.9/Sun Jul 23 08:55:35 2006//
 /expirelist.c/1.6/Sun Jul 23 08:55:35 2006//
 /expirelist.h/1.6/Sun Jul 23 08:55:35 2006//
@@ -39,4 +35,8 @@
 /test.h/1.15/Sun Jul 23 08:55:35 2006//
 /utils.c/1.9/Sun Jul 23 08:55:35 2006//
 /utils.h/1.8/Sun Jul 23 08:55:35 2006//
+/activation.c/1.42/Sun Jul 23 09:00:26 2006//
+/activation.h/1.14/Sun Jul 23 09:00:26 2006//
+/dispatch.c/1.75/Sun Jul 23 09:00:26 2006//
+/driver.c/1.77/Sun Jul 23 09:00:26 2006//
 D
