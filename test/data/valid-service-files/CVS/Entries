@@ -1,8 +1,6 @@
-/.cvsignore/1.4/Mon Oct 24 18:29:50 2005//
-/debug-echo.service.in/1.2/Fri Apr 11 03:45:40 2003//
-/debug-glib.service.in/1.1/Tue Oct 21 05:46:52 2003//
-/debug-python.service.in/1.1/Thu Aug 25 00:27:35 2005//
-/debug-segfault.service.in/1.1/Fri Apr 11 03:45:40 2003//
-/debug-shell-echo-fail.service.in/1.1/Thu Jul 14 20:44:15 2005//
-/debug-shell-echo-success.service.in/1.1/Thu Jul 14 20:44:15 2005//
+/.cvsignore/1.4/Sun Jul 23 08:55:29 2006//
+/debug-echo.service.in/1.2/Sun Jul 23 08:55:29 2006//
+/debug-segfault.service.in/1.1/Sun Jul 23 08:55:29 2006//
+/debug-shell-echo-fail.service.in/1.1/Sun Jul 23 08:55:29 2006//
+/debug-shell-echo-success.service.in/1.1/Sun Jul 23 08:55:29 2006//
 D

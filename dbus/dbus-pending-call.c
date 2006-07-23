@@ -23,6 +23,7 @@
 
 #include "dbus-internals.h"
 #include "dbus-connection-internal.h"
+#include "dbus-pending-call-internal.h"
 #include "dbus-pending-call.h"
 #include "dbus-list.h"
 #include "dbus-threads.h"
@@ -37,6 +38,31 @@
  *
  * @{
  */
+
+/**
+ * @brief Internals of DBusPendingCall
+ *
+ * Opaque object representing a reply message that we're waiting for.
+ */
+struct DBusPendingCall
+{
+  DBusAtomic refcount;                            /**< reference count */
+
+  DBusDataSlotList slot_list;                     /**< Data stored by allocated integer ID */
+  
+  DBusPendingCallNotifyFunction function;         /**< Notifier when reply arrives. */
+
+  DBusConnection *connection;                     /**< Connections we're associated with */
+  DBusMessage *reply;                             /**< Reply (after we've received it) */
+  DBusTimeout *timeout;                           /**< Timeout */
+
+  DBusList *timeout_link;                         /**< Preallocated timeout response */
+  
+  dbus_uint32_t reply_serial;                     /**< Expected serial of reply */
+
+  unsigned int completed : 1;                     /**< TRUE if completed */
+  unsigned int timeout_added : 1;                 /**< Have added the timeout */
+};
 
 static dbus_int32_t notify_user_data_slot = -1;
 
@@ -57,7 +83,7 @@ _dbus_pending_call_new (DBusConnection    *connection,
   DBusTimeout *timeout;
 
   _dbus_assert (timeout_milliseconds >= 0 || timeout_milliseconds == -1);
-  
+ 
   if (timeout_milliseconds == -1)
     timeout_milliseconds = _DBUS_DEFAULT_TIMEOUT_VALUE;
 
@@ -93,11 +119,47 @@ _dbus_pending_call_new (DBusConnection    *connection,
   
   pending->refcount.value = 1;
   pending->connection = connection;
+  _dbus_connection_ref_unlocked (pending->connection);
+
   pending->timeout = timeout;
+
 
   _dbus_data_slot_list_init (&pending->slot_list);
   
   return pending;
+}
+
+/**
+ * Sets the reply of a pending call with the given message,
+ * or if the message is #NULL, by timing out the pending call.
+ * 
+ * @param pending the pending call
+ * @param message the message to complete the call with, or #NULL
+ *  to time out the call
+ */
+void
+_dbus_pending_call_set_reply (DBusPendingCall *pending,
+                              DBusMessage     *message)
+{
+  if (message == NULL)
+    {
+      message = pending->timeout_link->data;
+      _dbus_list_clear (&pending->timeout_link);
+    }
+  else
+    dbus_message_ref (message);
+
+  _dbus_verbose ("  handing message %p (%s) to pending call serial %u\n",
+                 message,
+                 dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_METHOD_RETURN ?
+                 "method return" :
+                 dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_ERROR ?
+                 "error" : "other type",
+                 pending->reply_serial);
+  
+  _dbus_assert (pending->reply == NULL);
+  _dbus_assert (pending->reply_serial == dbus_message_get_reply_serial (message));
+  pending->reply = message;
 }
 
 /**
@@ -108,7 +170,7 @@ _dbus_pending_call_new (DBusConnection    *connection,
  * 
  */
 void
-_dbus_pending_call_notify (DBusPendingCall *pending)
+_dbus_pending_call_complete (DBusPendingCall *pending)
 {
   _dbus_assert (!pending->completed);
   
@@ -122,6 +184,146 @@ _dbus_pending_call_notify (DBusPendingCall *pending)
       
       (* pending->function) (pending, user_data);
     }
+}
+
+void
+_dbus_pending_call_queue_timeout_error (DBusPendingCall *pending, 
+                                        DBusConnection *connection)
+{
+  if (pending->timeout_link)
+    {
+      _dbus_connection_queue_synthesized_message_link (connection,
+						       pending->timeout_link);
+      pending->timeout_link = NULL;
+    }
+}
+
+/**
+ * Checks to see if a timeout has been added
+ *
+ * @param pending the pending_call
+ * @returns #TRUE if there is a timeout or #FALSE if not
+ */
+dbus_bool_t 
+_dbus_pending_call_is_timeout_added (DBusPendingCall  *pending)
+{
+  _dbus_assert (pending != NULL);
+
+  return pending->timeout_added;
+}
+
+
+/**
+ * Sets wether the timeout has been added
+ *
+ * @param pending the pending_call
+ * @param is_added whether or not a timeout is added
+ */
+void
+_dbus_pending_call_set_timeout_added (DBusPendingCall  *pending,
+                                      dbus_bool_t       is_added)
+{
+  _dbus_assert (pending != NULL);
+
+  pending->timeout_added = is_added;
+}
+
+
+/**
+ * Retrives the timeout
+ *
+ * @param pending the pending_call
+ * @returns a timeout object 
+ */
+DBusTimeout *
+_dbus_pending_call_get_timeout (DBusPendingCall  *pending)
+{
+  _dbus_assert (pending != NULL);
+
+  return pending->timeout;
+}
+
+/**
+ * Gets the reply's serial number
+ *
+ * @param pending the pending_call
+ * @returns a serial number for the reply or 0 
+ */
+dbus_uint32_t 
+_dbus_pending_call_get_reply_serial (DBusPendingCall  *pending)
+{
+  _dbus_assert (pending != NULL);
+
+  return pending->reply_serial;
+}
+
+/**
+ * Sets the reply's serial number
+ *
+ * @param pending the pending_call
+ * @param serial the serial number 
+ */
+void
+_dbus_pending_call_set_reply_serial  (DBusPendingCall *pending,
+                                      dbus_uint32_t serial)
+{
+  _dbus_assert (pending != NULL);
+  _dbus_assert (pending->reply_serial == 0);
+
+  pending->reply_serial = serial;
+}
+
+/**
+ * Gets the connection associated with this pending call
+ *
+ * @param pending the pending_call
+ * @returns the connection associated with the pending call
+ */
+DBusConnection *
+_dbus_pending_call_get_connection (DBusPendingCall *pending)
+{
+  _dbus_assert (pending != NULL);
+ 
+  return pending->connection; 
+}
+
+/**
+ * Sets the reply message associated with the pending call to a timeout error
+ *
+ * @param pending the pending_call
+ * @param message the message we are sending the error reply to 
+ * @param serial serial number for the reply
+ * @return #FALSE on OOM
+ */
+dbus_bool_t
+_dbus_pending_call_set_timeout_error (DBusPendingCall *pending,
+                                      DBusMessage *message,
+                                      dbus_uint32_t serial)
+{ 
+  DBusList *reply_link;
+  DBusMessage *reply;
+
+  reply = dbus_message_new_error (message, DBUS_ERROR_NO_REPLY,
+                                  "Did not receive a reply. Possible causes include: "
+                                  "the remote application did not send a reply, "
+                                  "the message bus security policy blocked the reply, "
+                                  "the reply timeout expired, or "
+                                  "the network connection was broken.");
+  if (reply == NULL)
+    return FALSE;
+
+  reply_link = _dbus_list_alloc_link (reply);
+  if (reply_link == NULL)
+    {
+      dbus_message_unref (reply);
+      return FALSE;
+    }
+
+  pending->timeout_link = reply_link;
+
+  _dbus_pending_call_set_reply_serial (pending, serial);
+  
+  return TRUE;
 }
 
 /** @} */
@@ -180,12 +382,13 @@ dbus_pending_call_unref (DBusPendingCall *pending)
       /* If we get here, we should be already detached
        * from the connection, or never attached.
        */
-      _dbus_assert (pending->connection == NULL);
       _dbus_assert (!pending->timeout_added);  
+     
+      dbus_connection_unref (pending->connection);
 
       /* this assumes we aren't holding connection lock... */
       _dbus_data_slot_list_free (&pending->slot_list);
-      
+
       if (pending->timeout != NULL)
         _dbus_timeout_unref (pending->timeout);
       

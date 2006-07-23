@@ -1,3 +1,89 @@
+2006-07-22  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-connection.c:
+	(_dbus_connection_attach_pending_call_unlocked):
+	(connection_timeout_and_complete_all_pending_calls_unlocked):
+	Make sure we set timeout_added on pending calls to FALSE when
+	we remove the timeout from the connection
+
+2006-07-21  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Removed some extra bindings stuff lingering around (thanks timo)
+	* dbus-pendingcall.c (_dbus_pending_call_new): 
+	s/dbus_connection_ref/_dbus_connection_ref_unlocked fixes assertion
+	when we tried to take a lock on an already locked connection
+
+2006-07-17  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Released 0.90
+
+2006-07-17  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-marshal-basic.c (_dbus_type_to_string): support 64-bit
+	ints, reported by Owen Taylor
+
+2006-07-17  John (J5) Palmieri  <johnp@redhat.com>
+
+	* doc/TODO:
+	* dbus/dbus-bus.c:
+	* dbus-errors.c:
+	* dbus/dbus-marshal-validate.c:
+	  Removed TODO items which were fixed or are no longer relevent
+
+2006-07-17  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus-qt4-1.pc.in, dbus-sharp.pc.in:
+	Remove stray files from the stripped bindings
+
+2006-07-16  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-pending-call.c (_dbus_pending_call_set_timeout_error):
+	Improve the error message on reply timeout
+
+2006-07-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Remove all bindings
+
+2006-07-13  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus-connection.c (dbus_connection_send_with_reply): return TRUE
+	and set pending_reply out arg to NULL is connection is disconnected
+	(connection_timeout_and_complete_all_pending_calls_unlocked): New
+	static method for cleaning up pending calls on disconnect
+	(_dbus_connection_get_dispatch_status_unlocked): If we have pending 
+	calls queued timeouts on disconnect 
+
+	 * dbus/dbus-pending-call.c (_dbus_pending_call_set_connection):
+	Remove 
+
+2006-07-13  Carlos Garcia Campos  <carlosgc@gnome.org>
+
+	* bus/activation.[ch] (bus_activation_list_services): new function to 
+	get the list of services that can be activated
+
+	* bus/dispatch.c: test coverage for the new bus method
+	ListActivatableNames
+
+	* bus/driver.c: new bus method ListActivatableNames to get the list of
+	services that can be activated
+
+	* doc/dbus-specification.xml: ListActivatableNames method documentation
+
+2006-07-12  John (J5) Palmieri  <johnp@redhat.com>
+	* dbus/Makefile.am: add dbus-pending-call-internal.h to the list of
+	source files
+
+2006-07-12  John (J5) Palmieri  <johnp@redhat.com>
+	* dbus/dbus-message-factory.c:
+	Fix index into an array (patch by Peter Kümmel <syntheticpp at gmx.net>)
+
+2006-07-12  John (J5) Palmieri  <johnp@redhat.com>
+	* dbus/dbus-connection-internal.h:
+	* dbus/dbus-connection.c:
+	* file dbus/dbus-pending-call.c:
+	* dbus/dbus-pending-call.h:
+	Make DBusPendingCall an opaque type even to D-Bus internals
+
 2006-07-07  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-connection.h: remove connection_disconnect and replace with
