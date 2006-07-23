@@ -17,6 +17,13 @@
 include_directories( ${CMAKE_SOURCE_DIR}/.. )
 include_directories( ${CMAKE_INCLUDE_PATH} )
 
+set (TEST_SERVICE_DIR "/")
+set (TEST_SOCKET_DIR "/")
+
+configure_file(${CMAKE_SOURCE_DIR}/test/data/valid-config-files/debug-allow-all-sha1.conf.cmake ${CMAKE_SOURCE_DIR}/../test/data/valid-config-files/debug-allow-all-sha1.conf )
+
+configure_file(${CMAKE_SOURCE_DIR}/test/data/valid-config-files/debug-allow-all.conf.cmake ${CMAKE_SOURCE_DIR}/../test/data/valid-config-files/debug-allow-all.conf )
+
 
 #if (DBUS_BUILD_TESTS)
 ## break-loader removed for now
@@ -35,21 +42,21 @@ include_directories( ${CMAKE_INCLUDE_PATH} )
 #GCOV_BINARIES=
 #endif
 
-#noinst_PROGRAMS= $(TEST_BINARIES) $(GCOV_BINARIES)
-
 set (test_service_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-service.c				
 	${CMAKE_SOURCE_DIR}/../test/test-utils.c				
 	${CMAKE_SOURCE_DIR}/../test/test-utils.h
 )
+
 set (test_names_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-names.c				
 	${CMAKE_SOURCE_DIR}/../test/test-utils.c				
 	${CMAKE_SOURCE_DIR}/../test/test-utils.h
 )
 
-##break_loader_SOURCES=				
-##	break-loader.c
+set (break_loader_SOURCES
+	${CMAKE_SOURCE_DIR}/../test/break-loader.c
+)
 
 set (test_shell_service_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-shell-service.c			
@@ -57,22 +64,26 @@ set (test_shell_service_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-utils.h
 )
 
-set (shell_test_SOURCES
+set (test_shell_SOURCES
         ${CMAKE_SOURCE_DIR}/../test/shell-test.c
 )
-set (spawn_test_SOURCES
+
+set (test_spawn_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/spawn-test.c
 )
 
 set (test_exit_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-exit.c
 )
+
 set (test_segfault_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-segfault.c
 )
+
 set (test_sleep_forever_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-sleep-forever.c
 )
+
 set (decode_gcov_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/decode-gcov.c
 )
@@ -80,6 +91,9 @@ set (decode_gcov_SOURCES
 add_executable(test_service ${test_service_SOURCES})
 target_link_libraries(test_service dbus-1)
 install_targets(/bin test_service)
+
+# (rh) does not work at now
+#ADD_TEST(test_service ${EXECUTABLE_OUTPUT_PATH}/test_service)
 
 # install service and service file 
 set (TEST_SERVICE_BINARY ${EXPANDED_BINDIR}/test_service.exe)
@@ -89,25 +103,37 @@ install_files(/data/dbus-1/services FILES debug-echo.service)
 add_executable(test_names ${test_names_SOURCES})
 target_link_libraries(test_names dbus-1)
 install_targets(/bin test_names)
+ADD_TEST(test_names ${EXECUTABLE_OUTPUT_PATH}/test_names)
 
-add_executable(shell_test ${shell_test_SOURCES})
-target_link_libraries(shell_test dbus-1)
-install_targets(/bin shell_test)
+add_executable(test_shell ${test_shell_SOURCES})
+target_link_libraries(test_shell dbus-1)
+install_targets(/bin test_shell)
+ADD_TEST(test_shell ${EXECUTABLE_OUTPUT_PATH}/test_shell)
 
-add_executable(spawn_test ${spawn_test_SOURCES})
-target_link_libraries(spawn_test dbus-1)
+add_executable(test_shell_service ${test_shell_SOURCES})
+target_link_libraries(test_shell_service dbus-1)
+install_targets(/bin test_shell_service)
+ADD_TEST(test_shell_service ${EXECUTABLE_OUTPUT_PATH}/test_shell_service)
 
+add_executable(test_spawn ${test_spawn_SOURCES})
+target_link_libraries(test_spawn dbus-1)
+# (rh) does not work now
+#ADD_TEST(test_spawn ${EXECUTABLE_OUTPUT_PATH}/test_spawn)
 
 add_executable(test_exit ${test_exit_SOURCES})
 target_link_libraries(test_exit dbus-1)
 install_targets(/bin test_exit)
+ADD_TEST(test_exit ${EXECUTABLE_OUTPUT_PATH}/test_exit)
 
 add_executable(test_segfault ${test_segfault_SOURCES})
 target_link_libraries(test_segfault dbus-1)
 install_targets(/bin test_segfault)
+ADD_TEST(test_segfault ${EXECUTABLE_OUTPUT_PATH}/test_segfault)
 
-#add_executable(test_sleep_forever ${test_sleep_forever_SOURCES})
-#target_link_libraries(test_sleep_forever dbus-1)
+add_executable(test_sleep_forever ${test_sleep_forever_SOURCES})
+target_link_libraries(test_sleep_forever dbus-1)
+# (rh) don't know for what this test is good 
+#ADD_TEST(test_sleep_forever ${EXECUTABLE_OUTPUT_PATH}/test_sleep_forever)
 
 #add_executable(decode_gcov ${decode_gcov_SOURCES})
 #target_link_libraries(decode_gcov dbus-1)
