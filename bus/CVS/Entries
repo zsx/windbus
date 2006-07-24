@@ -1,6 +1,5 @@
 /.cvsignore/1.8/Sun Jul 23 09:08:28 2006//
 /Makefile.am/1.37/Sun Jul 23 09:08:28 2006//
-/activation.c/1.42/Sun Jul 23 09:08:28 2006//
 /activation.h/1.14/Sun Jul 23 09:08:28 2006//
 /bus.c/1.67/Sun Jul 23 09:08:28 2006//
 /bus.h/1.27/Sun Jul 23 09:08:27 2006//
@@ -21,7 +20,6 @@
 /driver.h/1.9/Sun Jul 23 09:08:28 2006//
 /expirelist.c/1.6/Sun Jul 23 09:08:28 2006//
 /expirelist.h/1.6/Sun Jul 23 09:08:28 2006//
-/main.c/1.31/Sun Jul 23 09:08:28 2006//
 /messagebus.in/1.5/Sun Jul 23 09:08:28 2006//
 /policy.c/1.23/Sun Jul 23 09:08:27 2006//
 /policy.h/1.16/Sun Jul 23 09:08:28 2006//
@@ -39,4 +37,6 @@
 /test.h/1.15/Sun Jul 23 09:08:28 2006//
 /utils.c/1.9/Sun Jul 23 09:08:28 2006//
 /utils.h/1.8/Sun Jul 23 09:08:28 2006//
+/activation.c/1.42/Mon Jul 24 20:12:21 2006//
+/main.c/1.31/Mon Jul 24 20:12:21 2006//
 D
