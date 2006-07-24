@@ -17,6 +17,10 @@
 include_directories( ${CMAKE_SOURCE_DIR}/.. )
 include_directories( ${CMAKE_INCLUDE_PATH} )
 
+if (WIN32)
+add_definitions(-Dsleep=_sleep)
+endif (WIN32)
+
 set (TEST_SERVICE_DIR "/")
 set (TEST_SOCKET_DIR "/")
 
