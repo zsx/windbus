@@ -1,0 +1,38 @@
+Index: dbus/dbus-string.c
+===================================================================
+--- dbus/dbus-string.c  (revision 49)
++++ dbus/dbus-string.c  (working copy)
+@@ -1193,7 +1193,6 @@
+                                     va_list            args)
+ {
+   int len;
+-  char c;
+   va_list args_copy;
+
+   DBUS_STRING_PREAMBLE (str);
+@@ -1201,7 +1200,7 @@
+   DBUS_VA_COPY (args_copy, args);
+
+   /* Measure the message length without terminating nul */
+-  len = vsnprintf (&c, 1, format, args);
++  len = _dbus_printf_length (format, args);
+
+   if (!_dbus_string_lengthen (str, len))
+     {
+     
+     
+Index: dbus/dbus-sysdeps.h
+===================================================================
+--- dbus/dbus-sysdeps.h (revision 49)
++++ dbus/dbus-sysdeps.h (working copy)
+@@ -272,6 +272,10 @@
+
+ void _dbus_exit (int code) _DBUS_GNUC_NORETURN;
+
++int _dbus_printf_length (const char *format,
++                         va_list args);
++
++
+ /**
+  * Portable struct with stat() results
+  */

@@ -2319,3 +2319,30 @@ _dbus_poll_win (DBusPollFD *fds,
   return ready;
 #endif /* ! HAVE_POLL */
 }
+
+/**
+ * Measure the message length without terminating nul 
+ */
+int _dbus_printf_length (const char *format,
+                         va_list args) 
+{
+  /* MSVCRT's vsnprintf semantics are a bit different */
+  /* The C library source in the Platform SDK indicates that this
+   * would work, but alas, it doesn't. At least not on Windows
+   * 2000. Presumably those sources correspond to the C library on
+   * some newer or even future Windows version.
+   *
+    len = _vsnprintf (NULL, _DBUS_INT_MAX, format, args);
+   */
+  char p[1024];
+  int len;
+  len = vsnprintf (p, sizeof(p)-1, format, args);
+  if (len == -1) // try again
+    {
+      char *p;
+      p = malloc (strlen(format)*3);
+      len = vsnprintf (p, sizeof(p)-1, format, args);
+      free(p);
+    }
+  return len;
+}

@@ -1,0 +1,59 @@
+relating notes:
+
+> +#ifdef DBUS_WIN
+> +#include <malloc.h>
+> +#endif
+
+(Havoc) What function in here requires malloc.h? Can we abstract it?
+
+>  /**
+>   * @defgroup DBusString string class
+>   * @ingroup  DBusInternals
+> @@ -1193,7 +1197,6 @@
+>                                      va_list            args)
+>  {
+>    int len;
+> -  char c;
+>    va_list args_copy;
+>  
+>    DBUS_STRING_PREAMBLE (str);
+> @@ -1201,7 +1204,34 @@
+>    DBUS_VA_COPY (args_copy, args);
+>  
+>    /* Measure the message length without terminating nul */
+> +#ifndef DBUS_WIN
+> +  {
+> +    char c;
+>    len = vsnprintf (&c, 1, format, args);
+> +  }
+> +#else
+> +  /* MSVCRT's vsnprintf semantics are a bit different */
+> +  /* The C library source in the Platform SDK indicates that this
+> +   * would work, but alas, it doesn't. At least not on Windows
+> +   * 2000. Presumably those sources correspond to the C library on
+> +   * some newer or even future Windows version.
+> +   *
+> +    len = _vsnprintf (NULL, _DBUS_INT_MAX, format, args);
+> +   */
+> +  {
+> +    char p[1024];
+> +    len = vsnprintf (p, sizeof(p)-1, format, args);
+> +    if (len == -1) // try again
+> +      {
+> +        char *p;
+> +        p = malloc (strlen(format)*3);
+> +        len = vsnprintf (p, sizeof(p)-1, format, args);
+> +        free(p);
+
+(Havoc) If the malloc.h include was for this, just use _dbus_malloc instead here. 
+(Havoc) Also, I think it would be better to add a _dbus_printf_length() 
+(Havoc) or something to dbus-sysdeps
+
+
+
+
+changelog entry: 
+
+	* dbus/dbus-sysdeps.h: add _dbus_printf_length
+	* dbus/dbus-sysdeps.c: add _dbus_printf_length
+
