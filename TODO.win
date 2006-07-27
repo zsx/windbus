@@ -38,19 +38,6 @@ But if it does make sense, there should at least be an abstraction that addresse
 
 This at least needs a comment about when SIGHUP would not be defined.
 
-> +#ifndef DBUS_WIN
->  #include <unistd.h>
-> +#endif
-
-If unistd is not used in the file, this should just be deleted; if it is, then there's more thinking to do (depends on how it's used).
-
-> +#ifdef DBUS_WIN
-> +      const char *p = _dbus_getenv ("DBUS_VERBOSE"); +      verbose = p != NULL && *p == '1';
-> +#else
->        verbose = _dbus_getenv ("DBUS_VERBOSE") != NULL;
-> +#endif
-
-Why not just add the *p == 1 to unix also and drop the #ifdef
 
 > +#ifdef HAVE_GNUC_VARARGS
 > +# define _dbus_verbose(format, rest...) _dbus_verbose_real("[%s %d] " format, __FUNCTION__,__LINE__, ## rest)
