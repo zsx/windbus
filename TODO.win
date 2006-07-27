@@ -39,39 +39,6 @@ But if it does make sense, there should at least be an abstraction that addresse
 This at least needs a comment about when SIGHUP would not be defined.
 
 
-> +#ifdef HAVE_GNUC_VARARGS
-> +# define _dbus_verbose(format, rest...) _dbus_verbose_real("[%s %d] " format, __FUNCTION__,__LINE__, ## rest)
-> +#else
->  #  define _dbus_verbose _dbus_verbose_real
-> +#endif
->  #  define _dbus_verbose_reset _dbus_verbose_reset_real
-> +
->  #else
-> +
->  #  ifdef HAVE_ISO_VARARGS
->  #    define _dbus_verbose(...)
-
-
-This logic looks messed up - "if else end else"
-
-> +#ifdef DBUS_WIN
-> +_DBUS_DECLARE_GLOBAL_LOCK (win32_fds);
-> +_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
-> +#endif
->  _DBUS_DECLARE_GLOBAL_LOCK (list);
->  _DBUS_DECLARE_GLOBAL_LOCK (connection_slots);
->  _DBUS_DECLARE_GLOBAL_LOCK (pending_call_slots);
-> @@ -281,7 +291,11 @@
->  _DBUS_DECLARE_GLOBAL_LOCK (system_users);
->  _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
->  _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
-> +#ifdef DBUS_WIN
-> +#define _DBUS_N_GLOBAL_LOCKS (13)
-> +#else
->  #define _DBUS_N_GLOBAL_LOCKS (11)
-> +#endif
-
-I'd just drop the #ifdef here and always have the two windows locks, saving a little memory is not worth having platform-specific bugs such as wrong N_GLOBAL_LOCKS on only one platform.
 
 > --- dbus/dbus-mainloop.c    15 Jan 2005 07:15:38 -0000    1.18
 > +++ dbus/dbus-mainloop.c    3 Jul 2006 12:56:30 -0000

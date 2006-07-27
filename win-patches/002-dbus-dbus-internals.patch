@@ -1,0 +1,33 @@
+Index: dbus/dbus-internals.h
+===================================================================
+--- dbus/dbus-internals.h       (revision 49)
++++ dbus/dbus-internals.h       (working copy)
+@@ -81,9 +81,16 @@
+                                ...) _DBUS_GNUC_PRINTF (1, 2);
+ void _dbus_verbose_reset_real (void);
+
+-#  define _dbus_verbose _dbus_verbose_real
++#  ifdef HAVE_GNUC_VARARGS
++#    define _dbus_verbose(format, rest...) _dbus_verbose_real("[%s %d] " format, __FUNCTION__,__LINE__, ## rest)
++#  else
++#    define _dbus_verbose _dbus_verbose_real
++#  endif // HAVE_GNUC_VARARGS
++
+ #  define _dbus_verbose_reset _dbus_verbose_reset_real
+-#else
++
++#else // DBUS_ENABLE_VERBOSE_MODE
++
+ #  ifdef HAVE_ISO_VARARGS
+ #    define _dbus_verbose(...)
+ #  elif defined (HAVE_GNUC_VARARGS)
+@@ -281,7 +288,9 @@
+ _DBUS_DECLARE_GLOBAL_LOCK (system_users);
+ _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
+ _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
+-#define _DBUS_N_GLOBAL_LOCKS (11)
++_DBUS_DECLARE_GLOBAL_LOCK (win32_fds);
++_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
++#define _DBUS_N_GLOBAL_LOCKS (13)
+
+ dbus_bool_t _dbus_threads_init_debug (void);
