@@ -36,3 +36,30 @@ Index: dbus/dbus-sysdeps.h
  /**
   * Portable struct with stat() results
   */
+
+Index: dbus/dbus-sysdeps.c
+===================================================================
+--- dbus/dbus-sysdeps.c (revision 49)
++++ dbus/dbus-sysdeps.c (working copy)
+@@ -2983,6 +2983,21 @@
+ #endif
+ }
+
++
++#ifndef DBUS_WIN
++/**
++ * Measure the message length without terminating nul
++ */
++int _dbus_printf_length (const char *format,
++                         va_list args)
++{
++  char c;
++  return vsnprintf (&c, 1, format, args);
++}
++#endif
++
++
++
+ /** @} end of sysdeps */
+
+ /* tests in dbus-sysdeps-util.c */
