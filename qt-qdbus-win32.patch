@@ -1,0 +1,119 @@
+diff -ubB -r tools/qdbus/src/src.pro tools/qdbus/src/src.pro
+--- tools/qdbus/src/src.pro	2006-08-03 01:35:44.000000000 +0200
++++ tools/qdbus/src/src.pro	2006-08-03 08:44:06.859375000 +0200
+@@ -17,6 +17,11 @@
+ QT = core xml
+ 
+ INCLUDEPATH += .
++win32 {
++	DBUS_INSTALL_DIR=c:/Programme/dbus
++	INCLUDEPATH += $$DBUS_INSTALL_DIR/include
++	LIBS +=  -L$$DBUS_INSTALL_DIR/lib -ldbus-1
++}
+ 
+ MOC_DIR         = tmp
+ DESTDIR = ../../../lib
+diff -ubB -r tools/qdbus/tools/dbus.pro tools/qdbus/tools/dbus.pro
+--- tools/qdbus/tools/dbus.pro	2006-08-03 01:35:45.000000000 +0200
++++ tools/qdbus/tools/dbus.pro	2006-08-03 08:58:23.781250000 +0200
+@@ -1,8 +1,9 @@
+ SOURCES = dbus.cpp
+ DESTDIR = ../../../bin
+ TARGET = dbus
+-QT = core
++QT = core xml
+ CONFIG += qdbus
++win32: CONFIG += console
+ 
+ target.path=$$[QT_INSTALL_BINS]
+ INSTALLS += target
+diff -ubB -r tools/qdbus/tools/dbuscpp2xml.pro tools/qdbus/tools/dbuscpp2xml.pro
+--- tools/qdbus/tools/dbuscpp2xml.pro	2006-08-03 01:35:45.000000000 +0200
++++ tools/qdbus/tools/dbuscpp2xml.pro	2006-08-03 08:58:07.640625000 +0200
+@@ -3,6 +3,7 @@
+ TARGET = dbuscpp2xml
+ QT = core xml
+ CONFIG += qdbus
++win32: CONFIG += console
+ 
+ target.path=$$[QT_INSTALL_BINS]
+ INSTALLS += target
+diff -ubB -r tools/qdbus/tools/dbusxml2cpp.cpp tools/qdbus/tools/dbusxml2cpp.cpp
+--- tools/qdbus/tools/dbusxml2cpp.cpp	2006-08-03 01:35:45.000000000 +0200
++++ tools/qdbus/tools/dbusxml2cpp.cpp	2006-08-03 08:50:20.703125000 +0200
+@@ -38,6 +38,9 @@
+ #include <sys/types.h>
+ #include <stdio.h>
+ #include <stdlib.h>
++#ifdef Q_WS_WIN
++#include <process.h>
++#endif
+ 
+ #define PROGRAMNAME     "dbusxml2cpp"
+ #define PROGRAMVERSION  "0.6"
+diff -ubB -r tools/qdbus/tools/dbusxml2cpp.pro tools/qdbus/tools/dbusxml2cpp.pro
+--- tools/qdbus/tools/dbusxml2cpp.pro	2006-08-03 01:35:45.000000000 +0200
++++ tools/qdbus/tools/dbusxml2cpp.pro	2006-08-03 08:58:11.312500000 +0200
+@@ -3,6 +3,7 @@
+ TARGET = dbusxml2cpp
+ QT = core xml
+ CONFIG += qdbus
++win32: CONFIG += console
+ 
+ target.path=$$[QT_INSTALL_BINS]
+ INSTALLS += target
+diff -ubB -r examples/qdbus/complexpingpong/complexping.pro examples/qdbus/complexpingpong/complexping.pro
+--- examples/qdbus/complexpingpong/complexping.pro	2006-08-03 01:35:54.000000000 +0200
++++ examples/qdbus/complexpingpong/complexping.pro	2006-08-03 08:44:06.718750000 +0200
+@@ -4,6 +4,7 @@
+ INCLUDEPATH += .
+ QT -= gui
+ CONFIG += qdbus
++win32: CONFIG += console
+ 
+ # Input
+ HEADERS += complexping.h
+diff -ubB -r examples/qdbus/complexpingpong/complexpong.pro examples/qdbus/complexpingpong/complexpong.pro
+--- examples/qdbus/complexpingpong/complexpong.pro	2006-08-03 01:35:54.000000000 +0200
++++ examples/qdbus/complexpingpong/complexpong.pro	2006-08-03 08:44:06.734375000 +0200
+@@ -4,6 +4,7 @@
+ INCLUDEPATH += .
+ QT -= gui
+ CONFIG += qdbus
++win32: CONFIG += console
+ 
+ # Input
+ HEADERS += complexpong.h
+diff -ubB -r examples/qdbus/listnames/listnames.pro examples/qdbus/listnames/listnames.pro
+--- examples/qdbus/listnames/listnames.pro	2006-08-03 01:35:54.000000000 +0200
++++ examples/qdbus/listnames/listnames.pro	2006-08-03 08:44:06.796875000 +0200
+@@ -4,6 +4,7 @@
+ INCLUDEPATH += .
+ QT -= gui
+ CONFIG += qdbus
++win32: CONFIG += console
+ 
+ # Input
+ SOURCES += listnames.cpp
+diff -ubB -r examples/qdbus/pingpong/pong.pro examples/qdbus/pingpong/pong.pro
+--- examples/qdbus/pingpong/pong.pro	2006-08-03 01:35:55.000000000 +0200
++++ examples/qdbus/pingpong/pong.pro	2006-08-03 08:44:06.812500000 +0200
+@@ -4,6 +4,7 @@
+ INCLUDEPATH += .
+ QT -= gui
+ CONFIG += qdbus
++win32: CONFIG += console
+ 
+ # Input
+ HEADERS += ping-common.h pong.h
+diff -ubB -r examples/qdbus/qdbus.pro examples/qdbus/qdbus.pro
+--- examples/qdbus/qdbus.pro	2006-08-03 01:36:15.000000000 +0200
++++ examples/qdbus/qdbus.pro	2006-08-03 09:00:03.500000000 +0200
+@@ -2,4 +2,6 @@
+ SUBDIRS = listnames \
+ 	  pingpong \
+ 	  complexpingpong \
+-	  chat
++
++# compile errors
++#	  chat
