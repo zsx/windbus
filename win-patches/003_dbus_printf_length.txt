@@ -57,3 +57,7 @@ changelog entry:
 	* dbus/dbus-sysdeps.h: add _dbus_printf_length
 	* dbus/dbus-sysdeps.c: add _dbus_printf_length
 
+
+
+ACCEPTED:
+https://bugs.freedesktop.org/show_bug.cgi?id=7664

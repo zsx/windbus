@@ -21,3 +21,6 @@ changelog entry:
 	(_dbus_verbose_real): only enable verbose printing 
 	if DBUS_VERBOSE environment var is set to '1'
 
+
+ACCEPTED:
+https://bugs.freedesktop.org/show_bug.cgi?id=7666
