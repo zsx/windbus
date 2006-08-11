@@ -13,15 +13,15 @@ if (WIN32)
 	find_package(GNUWIN32)
 endif (WIN32)
 find_package(LIBXML2 REQUIRED)
-find_package(QT4)
+
 
 # make some more macros available
 include (MacroLibrary)
 
 if(MSVC)
 
-	SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Zi   -wd4996 -wd4800" CACHE STRING "runtime-library flags" FORCE)
-	SET(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE}  -wd4996 -wd4800" CACHE STRING "runtime-library flags" FORCE)
+	SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Zi   -W0 -wd4996 -wd4800" CACHE STRING "runtime-library flags" FORCE)
+	SET(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE}  -W0 -wd4996 -wd4800" CACHE STRING "runtime-library flags" FORCE)
 	SET(CMAKE_C_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
 	SET(CMAKE_C_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
 else(MSVC)
