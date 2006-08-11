@@ -46,6 +46,21 @@ Index: test/test-segfault.c
  int
  main (int argc, char **argv)
  {
+Index: test/test-sleep-forever.c
+===================================================================
+--- test/test-sleep-forever.c	(revision 49)
++++ test/test-sleep-forever.c	(working copy)
+@@ -1,6 +1,10 @@
+ /* This is a process that just sleeps infinitely. */
+ 
++
++#include <config.h>
++#ifndef DBUS_WIN
+ #include <unistd.h>
++#endif
+ 
+ int
+ main (int argc, char **argv)
 Index: bus/activation.c
 ===================================================================
 --- bus/activation.c	(revision 55)
@@ -1895,6 +1910,34 @@ Index: dbus/dbus-sysdeps.h
  /**
   * Struct representing socket credentials
   */
+Index: dbus/dbus-internals.h
+===================================================================
+--- dbus/dbus-internals.h	(revision 55)
++++ dbus/dbus-internals.h	(working copy)
+@@ -281,7 +281,9 @@
+ _DBUS_DECLARE_GLOBAL_LOCK (system_users);
+ _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
+ _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
+-#define _DBUS_N_GLOBAL_LOCKS (11)
++_DBUS_DECLARE_GLOBAL_LOCK (win32_fds);
++_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
++#define _DBUS_N_GLOBAL_LOCKS (13)
+ 
+ dbus_bool_t _dbus_threads_init_debug (void);
+ 
+Index: dbus/dbus-address.c
+===================================================================
+--- dbus/dbus-address.c	(revision 55)
++++ dbus/dbus-address.c	(working copy)
+@@ -715,7 +715,7 @@
+ 			   &entries, &len, &error))
+     _dbus_assert_not_reached ("could not parse address");
+   _dbus_assert (len == 2);
+-  _dbus_assert (strcmp (dbus_address_entry_get_value (entries[0], "path"), "/tmp/foo") == 0));
++  _dbus_assert (strcmp (dbus_address_entry_get_value (entries[0], "path"), "/tmp/foo") == 0);
+   _dbus_assert (strcmp (dbus_address_entry_get_value (entries[1], "name"), "test") == 0);
+   _dbus_assert (strcmp (dbus_address_entry_get_value (entries[1], "sliff"), "sloff") == 0);
+   
 Index: tools/dbus-monitor.c
 ===================================================================
 --- tools/dbus-monitor.c	(revision 49)
