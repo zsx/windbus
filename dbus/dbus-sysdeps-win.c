@@ -2323,7 +2323,7 @@ _dbus_poll_win (DBusPollFD *fds,
 /**
  * Measure the message length without terminating nul 
  */
-int _dbus_printf_length (const char *format,
+int _dbus_printf_string_upper_bound (const char *format,
                          va_list args) 
 {
   /* MSVCRT's vsnprintf semantics are a bit different */
