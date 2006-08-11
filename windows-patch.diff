@@ -1,61 +1,3 @@
-Index: dbus/dbus-string.c
-===================================================================
---- dbus/dbus-string.c	(revision 23)
-+++ dbus/dbus-string.c	(working copy)
-@@ -35,6 +35,10 @@
- /* for DBUS_VA_COPY */
- #include "dbus-sysdeps.h"
- 
-+#ifdef DBUS_WIN
-+#include <malloc.h>
-+#endif
-+
- /**
-  * @defgroup DBusString string class
-  * @ingroup  DBusInternals
-@@ -1193,7 +1197,6 @@
-                                     va_list            args)
- {
-   int len;
--  char c;
-   va_list args_copy;
- 
-   DBUS_STRING_PREAMBLE (str);
-@@ -1201,7 +1204,34 @@
-   DBUS_VA_COPY (args_copy, args);
- 
-   /* Measure the message length without terminating nul */
-+#ifndef DBUS_WIN
-+  {
-+    char c;
-   len = vsnprintf (&c, 1, format, args);
-+  }
-+#else
-+  /* MSVCRT's vsnprintf semantics are a bit different */
-+  /* The C library source in the Platform SDK indicates that this
-+   * would work, but alas, it doesn't. At least not on Windows
-+   * 2000. Presumably those sources correspond to the C library on
-+   * some newer or even future Windows version.
-+   *
-+    len = _vsnprintf (NULL, _DBUS_INT_MAX, format, args);
-+   */
-+  {
-+    char p[1024];
-+    len = vsnprintf (p, sizeof(p)-1, format, args);
-+    if (len == -1) // try again
-+      {
-+        char *p;
-+        p = malloc (strlen(format)*3);
-+        len = vsnprintf (p, sizeof(p)-1, format, args);
-+        free(p);
-+      }
-+    if (len == -1)
-+      return FALSE;
-+  }
-+#endif
- 
-   if (!_dbus_string_lengthen (str, len))
-     {
 Index: dbus/dbus-server-unix.c
 ===================================================================
 --- dbus/dbus-server-unix.c	(revision 23)
@@ -1833,33 +1775,7 @@ Index: dbus/dbus-sysdeps.c
  #else
    _dbus_warn ("_dbus_full_duplex_pipe() not implemented on this OS\n");
    dbus_set_error (error, DBUS_ERROR_FAILED,
-Index: dbus/dbus-internals.c
-===================================================================
---- dbus/dbus-internals.c	(revision 23)
-+++ dbus/dbus-internals.c	(working copy)
-@@ -28,7 +28,9 @@
- #include <string.h>
- #include <sys/types.h>
- #include <errno.h>
-+#ifndef DBUS_WIN
- #include <unistd.h>
-+#endif
- #include <fcntl.h>
- #include <stdlib.h>
- 
-@@ -246,7 +248,12 @@
-   
-   if (!verbose_initted)
-     {
-+#ifdef DBUS_WIN
-+      const char *p = _dbus_getenv ("DBUS_VERBOSE"); 
-+      verbose = p != NULL && *p == '1';
-+#else
-       verbose = _dbus_getenv ("DBUS_VERBOSE") != NULL;
-+#endif
-       verbose_initted = TRUE;
-       if (!verbose)
-         return;
+
 Index: dbus/dbus-sysdeps.h
 ===================================================================
 --- dbus/dbus-sysdeps.h	(revision 23)
@@ -1887,49 +1803,6 @@ Index: dbus/dbus-sysdeps.h
  /**
   * Struct representing socket credentials
   */
-Index: dbus/dbus-internals.h
-===================================================================
---- dbus/dbus-internals.h	(revision 23)
-+++ dbus/dbus-internals.h	(working copy)
-@@ -81,9 +81,15 @@
-                                ...) _DBUS_GNUC_PRINTF (1, 2);
- void _dbus_verbose_reset_real (void);
- 
-+#ifdef HAVE_GNUC_VARARGS
-+# define _dbus_verbose(format, rest...) _dbus_verbose_real("[%s %d] " format, __FUNCTION__,__LINE__, ## rest)
-+#else
- #  define _dbus_verbose _dbus_verbose_real
-+#endif
- #  define _dbus_verbose_reset _dbus_verbose_reset_real
-+
- #else
-+
- #  ifdef HAVE_ISO_VARARGS
- #    define _dbus_verbose(...)
- #  elif defined (HAVE_GNUC_VARARGS)
-@@ -270,6 +276,10 @@
- #define _DBUS_LOCK(name)                _dbus_mutex_lock   (_dbus_lock_##name)
- #define _DBUS_UNLOCK(name)              _dbus_mutex_unlock (_dbus_lock_##name)
- 
-+#ifdef DBUS_WIN
-+_DBUS_DECLARE_GLOBAL_LOCK (win32_fds);
-+_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
-+#endif
- _DBUS_DECLARE_GLOBAL_LOCK (list);
- _DBUS_DECLARE_GLOBAL_LOCK (connection_slots);
- _DBUS_DECLARE_GLOBAL_LOCK (pending_call_slots);
-@@ -281,7 +291,11 @@
- _DBUS_DECLARE_GLOBAL_LOCK (system_users);
- _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
- _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
-+#ifdef DBUS_WIN
-+#define _DBUS_N_GLOBAL_LOCKS (13)
-+#else
- #define _DBUS_N_GLOBAL_LOCKS (11)
-+#endif
- 
- dbus_bool_t _dbus_threads_init_debug (void);
- 
 Index: tools/dbus-monitor.c
 ===================================================================
 --- tools/dbus-monitor.c	(revision 23)
@@ -2004,17 +1877,16 @@ Index: test/test-segfault.c
  {
 Index: bus/activation.c
 ===================================================================
---- bus/activation.c	(revision 23)
-+++ bus/activation.c	(working copy)
-@@ -33,7 +33,8 @@
- #include <dbus/dbus-shell.h>
+--- bus/activation.c    (revision 55)
++++ bus/activation.c    (working copy)
+@@ -34,7 +34,7 @@
  #include <dbus/dbus-spawn.h>
  #include <dbus/dbus-timeout.h>
+ #include <dbus/dbus-sysdeps.h>
 -#include <dirent.h>
 +#include <dbus/dbus-dirent.h>
-+
  #include <errno.h>
- 
+
  #define DBUS_SERVICE_SECTION "D-BUS Service"
 @@ -1305,6 +1306,7 @@
    DBusMessage *message;
