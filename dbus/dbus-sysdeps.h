@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-sysdeps.h Wrappers around system/libc features (internal to D-BUS implementation)
+/* dbus-sysdeps.h Wrappers around system/libc features (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003  Red Hat, Inc.
  * Copyright (C) 2003 CodeFactory AB
@@ -36,6 +36,8 @@
 
 /* and it would just be annoying to abstract this */
 #include <errno.h>
+
+#include <stdarg.h>
 
 DBUS_BEGIN_DECLS
 
@@ -272,6 +274,10 @@ void _dbus_fd_set_close_on_exec (int fd);
 
 void _dbus_exit (int code) _DBUS_GNUC_NORETURN;
 
+int _dbus_printf_string_upper_bound (const char *format,
+                                     va_list args);
+
+
 /**
  * Portable struct with stat() results
  */
@@ -317,6 +323,7 @@ void _dbus_set_signal_handler (int               sig,
 dbus_bool_t _dbus_file_exists     (const char *file);
 dbus_bool_t _dbus_user_at_console (const char *username,
                                    DBusError  *error);
+char* _dbus_get_tmpdir();
 
 /* Define DBUS_VA_COPY() to do the right thing for copying va_list variables. 
  * config.h may have already defined DBUS_VA_COPY as va_copy or __va_copy. 

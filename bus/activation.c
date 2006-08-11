@@ -33,6 +33,7 @@
 #include <dbus/dbus-shell.h>
 #include <dbus/dbus-spawn.h>
 #include <dbus/dbus-timeout.h>
+#include <dbus/dbus-sysdeps.h>
 #include <dirent.h>
 #include <errno.h>
 
@@ -633,8 +634,6 @@ update_directory (BusActivation       *activation,
   
   if (iter != NULL)
     _dbus_directory_close (iter);
-  if (desktop_file)
-    bus_desktop_file_free (desktop_file);
   _dbus_string_free (&filename);
   _dbus_string_free (&full_path);
   
@@ -1920,8 +1919,11 @@ bus_activation_service_reload_test (const DBusString *test_data_dir)
 
   if (!_dbus_string_init (&directory))
     return FALSE;
-
-  if (!_dbus_string_append (&directory, "/tmp/dbus-reload-test-") ||
+  
+  if (!_dbus_string_append (&directory, _dbus_get_tmpdir()))
+    return FALSE;
+  
+  if (!_dbus_string_append (&directory, "/dbus-reload-test-") ||
       !_dbus_generate_random_ascii (&directory, 6))
      {
        return FALSE;

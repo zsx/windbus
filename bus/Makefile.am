@@ -16,13 +16,21 @@ config_DATA=					\
 	session.conf				\
 	system.conf
 
-bin_PROGRAMS=dbus-daemon
-
 if DBUS_USE_LIBXML
 XML_SOURCES=config-loader-libxml.c
 endif
 if DBUS_USE_EXPAT
 XML_SOURCES=config-loader-expat.c
+endif
+
+if DBUS_BUS_ENABLE_KQUEUE_ON_FREEBSD
+DIR_WATCH_SOURCE=dir-watch-kqueue.c
+else
+if DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX
+DIR_WATCH_SOURCE=dir-watch-dnotify.c
+else
+DIR_WATCH_SOURCE=dir-watch-default.c
+endif
 endif
 
 BUS_SOURCES=					\
@@ -36,7 +44,7 @@ BUS_SOURCES=					\
 	connection.h				\
 	desktop-file.c				\
 	desktop-file.h				\
-	dir-watch.c				\
+	$(DIR_WATCH_SOURCE)			\
 	dir-watch.h				\
 	dispatch.c				\
 	dispatch.h				\
@@ -79,7 +87,7 @@ endif
 
 ## we use noinst_PROGRAMS not check_PROGRAMS so that we build 
 ## even when not doing "make check"
-noinst_PROGRAMS=$(TESTS) 
+noinst_PROGRAMS=$(TESTS) dbus-daemon
 
 bus_test_SOURCES=				\
 	$(BUS_SOURCES)				\
@@ -91,10 +99,18 @@ bus_test_LDADD=$(top_builddir)/dbus/libdbus-convenience.la $(DBUS_BUS_LIBS)
 clean-local:
 	/bin/rm *.bb *.bbg *.da *.gcov || true
 
+uninstall-hook:
+	rm -f $(DESTDIR)$(DBUS_DAEMONDIR)/dbus-daemon
+
 install-data-hook:
-	$(mkinstalldirs) $(DESTDIR)/$(localstatedir)/run/dbus
-	$(mkinstalldirs) $(DESTDIR)/$(configdir)/system.d
-	$(mkinstalldirs) $(DESTDIR)/$(datadir)/dbus-1/services
+	if test '!' -d $(DESTDIR)$(DBUS_DAEMONDIR); then \
+ 		$(mkinstalldirs) $(DESTDIR)$(DBUS_DAEMONDIR); \
+ 		chmod 755 $(DESTDIR)$(DBUS_DAEMONDIR); \
+ 	fi
+	$(INSTALL_PROGRAM) dbus-daemon $(DESTDIR)$(DBUS_DAEMONDIR)
+	$(mkinstalldirs) $(DESTDIR)$(localstatedir)/run/dbus
+	$(mkinstalldirs) $(DESTDIR)$(configdir)/system.d
+	$(mkinstalldirs) $(DESTDIR)$(datadir)/dbus-1/services
 
 #### Init scripts fun
 SCRIPT_IN_FILES=messagebus.in \

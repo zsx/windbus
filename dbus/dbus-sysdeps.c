@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-sysdeps.c Wrappers around system/libc features (internal to D-BUS implementation)
+/* dbus-sysdeps.c Wrappers around system/libc features (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003  Red Hat, Inc.
  * Copyright (C) 2003 CodeFactory AB
@@ -2653,7 +2653,7 @@ _dbus_disable_sigpipe (void)
 /**
  * Sets the file descriptor to be close
  * on exec. Should be called for all file
- * descriptors in D-BUS code.
+ * descriptors in D-Bus code.
  *
  * @param fd the file descriptor
  */
@@ -2876,7 +2876,7 @@ _dbus_print_backtrace (void)
 
   free (syms);
 #else
-  _dbus_verbose ("  D-BUS not compiled with backtrace support\n");
+  _dbus_verbose ("  D-Bus not compiled with backtrace support\n");
 #endif
 }
 #endif /* asserts or tests enabled */
@@ -2981,6 +2981,50 @@ _dbus_full_duplex_pipe (int        *fd1,
                   "_dbus_full_duplex_pipe() not implemented on this OS");
   return FALSE;
 #endif
+}
+
+
+#ifndef DBUS_WIN
+/**
+ * Measure the message length without terminating nul
+ */
+int _dbus_printf_string_upper_bound (const char *format,
+                                     va_list args)
+{
+  char c;
+  return vsnprintf (&c, 1, format, args);
+}
+#endif
+
+
+
+/**
+ * Gets the temporary files directory by inspecting the environment variables 
+ * TMPDIR, TMP, and TEMP in that order. If none of those are set "/tmp" is returned
+ *
+ * @returns char* - location of temp directory
+ */
+char*
+_dbus_get_tmpdir()
+{
+  char* tmpdir;
+
+  tmpdir = getenv("TMPDIR");
+  if (tmpdir) {
+     return tmpdir;
+  }
+
+  tmpdir = getenv("TMP");
+  if (tmpdir) {
+     return tmpdir;
+  }
+  
+  tmpdir = getenv("TEMP");
+  if (tmpdir) {
+     return tmpdir;
+  }
+
+  return "/tmp";
 }
 
 /** @} end of sysdeps */

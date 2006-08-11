@@ -1,3 +1,182 @@
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-address.c (_dbus_address_test): Revert leaking strcmp.  
+	In any case it was wrong since this is a test checking to see if
+	address parsing is correct.  There was no need to get the true
+	tmp directory.  
+
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-macros.h: Revert the addition of stddef.h
+	as we should not be adding it to library headers 
+
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-signature.c:
+	Fix the unit tests so that they work if assertions are not enabled.
+	(patch from Julio M. Merino Vidal  <jmmv at NetBSD dot org>)
+
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/run-with-tmp-session-bus.sh:
+	* test/name-test/run-test.sh:
+	Remove bashisms (patch from Julio M. Merino Vidal
+	<jmmv at NetBSD dot org>)
+
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: add a version (>= 2.6.0) check for libxml2
+
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: make sure the compiler supports -Wfloat-equal
+	
+	* bus/dir-watch-dnotify.c: move functional code after 
+	variable declerations (C99 fix)  (patches from Jens Granseuer
+	<jensgr at gmx dot net>
+
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-macros.h:
+	add #include <stddef.h> so that Sun compilers don't complain about
+	the defining NULL
+
+2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-sysdeps.c:
+	* dbus/dbus-address.c:
+	* bus/activation.c:
+	* test/shell-test.c:
+	don't hardcode tmp directory (patch from Dave Meikle 
+	<dmk at davemeikle dot co dot uk>)
+
+2006-08-09  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-dataslot.c (_dbus_data_slot_allocator_alloc):
+	Change an assert to a detailed warning and abort.  
+	When allocator->lock != mutex it indicates that the user has failed
+	to initalize threads before using the D-Bus library.  This warning
+	helps the user identify the issue and fix their app.
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	These are all patches from Kjartan Maraas <kmaraas at gnome dot org>
+	with cleanups of bugs found from Coverity reports:
+
+	* dbus/dbus-sysdeps-util.c (_dbus_write_pid_file):
+	close the file on error to avoid a leak
+
+	* bus/expirelist.c (bus_expire_list_test):
+	Check for NULL on dbus_new0
+
+	* bus/activation.c (update_directory):
+	remove dead code
+
+	* bus/config-parser.c (merge_service_context_hash, start_selinux_child):
+	Fix some leaks
+
+	* bus/bus.c (process_config_every_time):
+	Fixed a leak
+
+	* bus/desktop-file.c (parse_key_value):
+	Fixed leak
+
+	* bus/selinux.c (bus_selinux_id_table_insert):
+	Fixed leak
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-object-tree.c (_dbus_object_subtree_new):
+	remove dead code
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/run-with-tmp-session-bus.sh: use #!/bin/sh instead of
+	#!/bin/bash
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Doxyfile.in: fix the INPUT line so we can generate docs 
+	when sourcedir != builddir (patch from Cygwin Ports maintainer
+	<yselkowitz at users dot sourceforge dot net>
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-sysdeps.h:
+	* dbus/dbus-sysdeps.c: 
+	* dbus/dbus-string.c: 
+	s/_dbus_printf_length/_dbus_printf_string_upper_bound to comform with
+	GLib's function which does the same thing
+
+	* configure.in:
+	* bus/Makefile.am:
+	* bus/dir-watch-default.c:
+	* bus/dir-watch-dnotify.c:
+	* bus/dir-watch-kqueue.c:
+	Add kqueue directory watching for freebsd and split the directory
+	watching code into seperate files per method/arch
+	(patches from Timothy Redaelli <drizzt at gufi dotorg>)
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in:
+	* tools/Makefile.am:
+	* tools/dbus-launch.c:
+	* bus/Makefile.am:
+	allow --with-dbus-daemondir switch to be used to make the
+	daemon install to a seperate bindir like /usr/libexec
+	(patch from Brian Cameron <brian dot cameron at sun dot com)
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/Makefile.am (install-data-hook): removed the slash after 
+	$(DESTDIR) so we don't get the double slash which does not work
+	in windows (patch from Andras Porjesz 
+	<andras dot porjesz at siemens dot com>)
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-sysdeps.h:
+	* dbus/dbus-sysdeps.c: 
+	  add _dbus_printf_length (patch from Peter Kümmel 
+	  <syntheticpp at gmx dot net>)
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-internals.c: unistd.h is not used 
+	(_dbus_verbose_real): only enable verbose printing 
+	if DBUS_VERBOSE environment var is set to '1'
+	(patch from Peter Kümmel <syntheticpp at gmx dot net>)
+
+2006-08-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: add a GCC flag check for -Wdeclaration-after-statement
+	so we still compile on older gcc (patch from Frederic Peters 
+	<fpeters at 0d dot be>
+
+2006-08-04  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in: add -Wdeclaration-after-statement
+
+	* dbus/dbus-connection.c: change all the pending call stuff to
+	reflect the fact that pending call operations use the connection
+	lock
+
+	* dbus/dbus-pending-call.c: add locking here
+
+	* dbus/dbus-errors.c (struct DBusRealError): don't make the name
+	field const consistent with how message field is done
+
+2006-08-03  John (J5) Palmieri  <johnp@redhat.com>
+
+	* s/D-BUS/D-Bus/g
+
+2006-08-03  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-object-tree.c: Patch by Benjamin Otte 
+	<in7y118 at public.uni-hamburg dot de> - fix invalid
+	read/write reported by valgrind
+
 2006-07-24  John (J5) Palmieri  <johnp@redhat.com>
 
 	* Released 0.91

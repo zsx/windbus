@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*-
- * selinux.c  SELinux security checks for D-BUS
+ * selinux.c  SELinux security checks for D-Bus
  *
  * Author: Matthew Rickard <mjricka@epoch.ncsc.mil>
  *
@@ -243,7 +243,7 @@ bus_selinux_pre_init (void)
 }
 
 /**
- * Initialize the user space access vector cache (AVC) for D-BUS and set up
+ * Initialize the user space access vector cache (AVC) for D-Bus and set up
  * logging callbacks.
  */
 dbus_bool_t
@@ -756,7 +756,11 @@ bus_selinux_id_table_insert (DBusHashTable *service_table,
   if (avc_context_to_sid ((char *) service_context, &sid) < 0)
     {
       if (errno == ENOMEM)
-        return FALSE;
+        {
+	  dbus_free (key);
+          return FALSE;
+	}
+
       _dbus_warn ("Error getting SID from context \"%s\": %s\n",
 		  (char *) service_context,
                   _dbus_strerror (errno));
@@ -834,7 +838,7 @@ bus_selinux_id_table_lookup (DBusHashTable    *service_table,
 }
 
 /**
- * Get the SELinux policy root.  This is used to find the D-BUS
+ * Get the SELinux policy root.  This is used to find the D-Bus
  * specific config file within the policy.
  */
 const char *

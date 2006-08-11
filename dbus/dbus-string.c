@@ -1,5 +1,5 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-string.c String utility class (internal to D-BUS implementation)
+/* dbus-string.c String utility class (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003, 2004, 2005 Red Hat, Inc.
  *
@@ -1193,7 +1193,6 @@ _dbus_string_append_printf_valist  (DBusString        *str,
                                     va_list            args)
 {
   int len;
-  char c;
   va_list args_copy;
 
   DBUS_STRING_PREAMBLE (str);
@@ -1201,7 +1200,7 @@ _dbus_string_append_printf_valist  (DBusString        *str,
   DBUS_VA_COPY (args_copy, args);
 
   /* Measure the message length without terminating nul */
-  len = vsnprintf (&c, 1, format, args);
+  len = _dbus_printf_string_upper_bound (format, args);
 
   if (!_dbus_string_lengthen (str, len))
     {
@@ -2549,7 +2548,7 @@ _dbus_string_validate_utf8  (const DBusString *str,
   _dbus_assert (len >= 0);
 
   /* we are doing _DBUS_UNLIKELY() here which might be
-   * dubious in a generic library like GLib, but in D-BUS
+   * dubious in a generic library like GLib, but in D-Bus
    * we know we're validating messages and that it would
    * only be evil/broken apps that would have invalid
    * UTF-8. Also, this function seems to be a performance
@@ -2572,7 +2571,7 @@ _dbus_string_validate_utf8  (const DBusString *str,
         break;
       
       /* Special-case ASCII; this makes us go a lot faster in
-       * D-BUS profiles where we are typically validating
+       * D-Bus profiles where we are typically validating
        * function names and such. We have to know that
        * all following checks will pass for ASCII though,
        * comments follow ...
