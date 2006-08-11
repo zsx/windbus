@@ -36,7 +36,10 @@ file(GLOB BUS_HEADERS ${CMAKE_SOURCE_DIR}/../bus/*.h)
 list(REMOVE_ITEM BUS_SOURCES
 	${CMAKE_SOURCE_DIR}/../bus/main.c					
 	${CMAKE_SOURCE_DIR}/../bus/test-main.c
-	${CMAKE_SOURCE_DIR}/../bus/config-loader-expat.c)
+	${CMAKE_SOURCE_DIR}/../bus/config-loader-expat.c
+	${CMAKE_SOURCE_DIR}/../bus/dir-watch-kqueue.c
+	${CMAKE_SOURCE_DIR}/../bus/dir-watch-dnotify.c
+	${CMAKE_SOURCE_DIR}/../bus/dir-watch-default.c)
 
 add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_HEADERS} ${CMAKE_SOURCE_DIR}/../bus/main.c)
 target_link_libraries(dbus-daemon dbus-1 ${LIBS})
