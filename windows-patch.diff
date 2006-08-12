@@ -1925,18 +1925,6 @@ Index: dbus/dbus-internals.h
  
  dbus_bool_t _dbus_threads_init_debug (void);
  
-Index: dbus/dbus-address.c
-===================================================================
---- dbus/dbus-address.c	(revision 55)
-+++ dbus/dbus-address.c	(working copy)
-@@ -715,7 +715,7 @@
- 			   &entries, &len, &error))
-     _dbus_assert_not_reached ("could not parse address");
-   _dbus_assert (len == 2);
--  _dbus_assert (strcmp (dbus_address_entry_get_value (entries[0], "path"), "/tmp/foo") == 0));
-+  _dbus_assert (strcmp (dbus_address_entry_get_value (entries[0], "path"), "/tmp/foo") == 0);
-   _dbus_assert (strcmp (dbus_address_entry_get_value (entries[1], "name"), "test") == 0);
-   _dbus_assert (strcmp (dbus_address_entry_get_value (entries[1], "sliff"), "sloff") == 0);
    
 Index: tools/dbus-monitor.c
 ===================================================================
