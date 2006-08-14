@@ -16,12 +16,11 @@ FOREACH(file ${config_DATA})
 ENDFOREACH(file)
 
 
-if (CACHED_LIBXML2)
-	set (XML_SOURCES config-loader-libxml.c)
-	include_directories(${LIBXML2_INCLUDE_DIR})
-	# xml2 requires iconv 
-	SET (LIBS ${LIBXML2_LIBRARIES} iconv)
-endif (CACHED_LIBXML2)
+set (XML_SOURCES config-loader-libxml.c)
+include_directories(${LIBXML2_INCLUDE_DIR})
+# xml2 requires iconv 
+SET (LIBS ${LIBXML2_LIBRARIES} iconv)
+
 
 if (DBUS_USE_EXPAT)
 set (XML_SOURCES config-loader-expat.c)
