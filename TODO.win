@@ -639,4 +639,17 @@ Havoc
 
 bus\desktop-file.c:parse_section_start() does not support windows eol (0x0d0a), the debug-echo.service file must have unix eol
 
+bin\bus-test: Running message dispatch test
+Did not get the expected org.freedesktop.DBus.TestSuiteEchoService from ListActivatableNames
+File "C:\Daten\windbus\trunk\bus\dispatch.c" line 3972 process 3096 should not have been reached: ListActivatableNames message failed
+
+There are two names 
+	bin\dbus-send  --dest=org.freedesktop.DBus --print-reply --type=method_call / org.freedesktop.DBus.ListActivatableNames
+	method return sender=org.freedesktop.DBus -> dest=:1.2
+   array [
+      string "org.freedesktop.DBus"
+      string "org.freedesktop.DBus.TestSuiteEchoService"
+   ]
+but bus/dispatch.c:check_get_services() does only return the first name
+
 
