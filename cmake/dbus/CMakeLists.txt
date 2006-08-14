@@ -176,7 +176,6 @@ else(MSVC)
 	add_library(dbus-1 ${libdbus_SOURCES} ${libdbus_HEADERS} )
 endif(MSVC)
 
-message("STATUS ${LIBS}")
 target_link_libraries(dbus-1 ${LIBS} )
 
 install_targets(/lib dbus-1 )
@@ -197,7 +196,6 @@ install_files(/include/dbus FILES ${dbusinclude_HEADERS})
 #endif
 
 if (DBUS_BUILD_TESTS)
-	MESSAGE("TEST")
 	set (TESTS_ENVIRONMENT "DBUS_TEST_DATA=${CMAKE_SOURCE_DIR}/test/data DBUS_TEST_HOMEDIR=${CMAKE_BUILD_DIR}/dbus")
 	ADD_EXECUTABLE(dbus-test  ${CMAKE_SOURCE_DIR}/../dbus/dbus-test-main.c)
 	target_link_libraries(dbus-test dbus-1 ${LIBS})

@@ -18,7 +18,6 @@ ENDFOREACH(file)
 if (CACHED_LIBXML2)
 	set (XML_SOURCES config-loader-libxml.c)
 	include_directories(${LIBXML2_INCLUDE_DIR})
-	MESSAGE(${LIBXML2_LIBRARIES})
 	# xml2 requires iconv 
 	SET (LIBS ${LIBXML2_LIBRARIES} iconv)
 endif (CACHED_LIBXML2)
