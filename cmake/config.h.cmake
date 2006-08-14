@@ -71,3 +71,7 @@
 #ifdef interface
 #undef interface
 #endif
+
+#ifndef SIGHUP
+#define SIGHUP	1
+#endif

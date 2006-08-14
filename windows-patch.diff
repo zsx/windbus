@@ -92,20 +92,6 @@ Index: bus/activation.c
                                            child_setup, activation, 
                                            error))
      {
-Index: bus/main.c
-===================================================================
---- bus/main.c	(revision 55)
-+++ bus/main.c	(working copy)
-@@ -36,6 +36,9 @@
- #define RELOAD_READ_END 0
- #define RELOAD_WRITE_END 1
- 
-+#ifndef SIGHUP
-+#define SIGHUP	1
-+#endif
- 
- static void
- signal_handler (int sig)
 Index: dbus/dbus-server-unix.c
 ===================================================================
 --- dbus/dbus-server-unix.c	(revision 49)
