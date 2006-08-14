@@ -6,6 +6,8 @@ include_directories(${CMAKE_SOURCE_DIR}/..)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-arch-deps.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/dbus-arch-deps.h )
 
+add_definitions(-DDBUS_COMPILATION)
+
 set (dbusinclude_HEADERS
 	../../dbus/dbus.h
 	../../dbus/dbus-address.h

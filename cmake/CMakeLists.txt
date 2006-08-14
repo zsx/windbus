@@ -224,7 +224,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/env.bat.cmake ${CMAKE_BINARY_DIR}/bin
 
 # compiler definitions 
 add_definitions(-DHAVE_CONFIG_H=1)
-add_definitions(${DBUS_BUS_CFLAGS} -DDBUS_API_SUBJECT_TO_CHANGE -DDBUS_COMPILATION )
+add_definitions(${DBUS_BUS_CFLAGS} -DDBUS_API_SUBJECT_TO_CHANGE)
 
 
 ########### subdirs ###############
