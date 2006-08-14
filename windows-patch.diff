@@ -1926,27 +1926,3 @@ Index: dbus/dbus-internals.h
  dbus_bool_t _dbus_threads_init_debug (void);
  
    
-Index: tools/dbus-monitor.c
-===================================================================
---- tools/dbus-monitor.c	(revision 49)
-+++ tools/dbus-monitor.c	(working copy)
-@@ -19,6 +19,7 @@
-  *
-  */
- 
-+#include <config.h>
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
-Index: tools/dbus-send.c
-===================================================================
---- tools/dbus-send.c	(revision 55)
-+++ tools/dbus-send.c	(working copy)
-@@ -19,6 +19,7 @@
-  *
-  */
- 
-+#include <config.h>
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
