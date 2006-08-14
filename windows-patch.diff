@@ -272,7 +272,7 @@ Index: dbus/dbus-threads.c
    DBusMutex **global_locks[] = {
  #define LOCK_ADDR(name) (& _dbus_lock_##name)
 +#ifdef DBUS_WIN
-+    LOCK_ADDR (win32_fds),
++    LOCK_ADDR (win_fds),
 +    LOCK_ADDR (sid_atom_cache),
 +#endif
      LOCK_ADDR (list),
@@ -1905,7 +1905,7 @@ Index: dbus/dbus-internals.h
  _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
  _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
 -#define _DBUS_N_GLOBAL_LOCKS (11)
-+_DBUS_DECLARE_GLOBAL_LOCK (win32_fds);
++_DBUS_DECLARE_GLOBAL_LOCK (win_fds);
 +_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
 +#define _DBUS_N_GLOBAL_LOCKS (13)
  

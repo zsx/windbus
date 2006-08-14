@@ -72,7 +72,7 @@
 #include "dbus-sysdeps-win.h"
 
 int win32_n_fds = 0;
-DBusWin32FD *win32_fds = NULL;
+DBusWin32FD *win_fds = NULL;
 
 
 static int  win32_encap_randomizer;
@@ -80,7 +80,7 @@ static DBusHashTable *sid_atom_cache = NULL;
 
 
 
-_DBUS_DEFINE_GLOBAL_LOCK (win32_fds);
+_DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
 /**
@@ -522,17 +522,17 @@ _dbus_read_win (int               fd,
 #ifndef DBUS_WIN
 #else
 
-  _DBUS_LOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
 
   fd = UNRANDOMIZE (fd);
 
   _dbus_assert (fd >= 0 && fd < win32_n_fds);
-  _dbus_assert (win32_fds != NULL);
+  _dbus_assert (win_fds != NULL);
 
-  type = win32_fds[fd].type;
-  fd = win32_fds[fd].fd;
+  type = win_fds[fd].type;
+  fd = win_fds[fd].fd;
 
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_UNLOCK (win_fds);
     
   switch (type)
     {
@@ -601,17 +601,17 @@ _dbus_write_win (int               fd,
 #ifndef DBUS_WIN
 #else
 
-  _DBUS_LOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
 
   fd = UNRANDOMIZE (fd);
 
   _dbus_assert (fd >= 0 && fd < win32_n_fds);
-  _dbus_assert (win32_fds != NULL);
+  _dbus_assert (win_fds != NULL);
 
-  type = win32_fds[fd].type;
-  fd = win32_fds[fd].fd;
+  type = win_fds[fd].type;
+  fd = win_fds[fd].fd;
 
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_UNLOCK (win_fds);
 
   switch (type)
     {
@@ -661,60 +661,60 @@ _dbus_close_win (int        fd,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _DBUS_LOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
 
   fd = UNRANDOMIZE (fd);
 
   _dbus_assert (fd >= 0 && fd < win32_n_fds);
-  _dbus_assert (win32_fds != NULL);
+  _dbus_assert (win_fds != NULL);
 
-  switch (win32_fds[fd].type)
+  switch (win_fds[fd].type)
     {
     case DBUS_win_FD_SOCKET:
-      if (win32_fds[fd].port_file_fd >= 0)
+      if (win_fds[fd].port_file_fd >= 0)
 	{
-	  _chsize (win32_fds[fd].port_file_fd, 0);
-	  close (win32_fds[fd].port_file_fd);
-	  win32_fds[fd].port_file_fd = -1;
-	  unlink (_dbus_string_get_const_data (&win32_fds[fd].port_file));
-	  free ((char *) _dbus_string_get_const_data (&win32_fds[fd].port_file));
+	  _chsize (win_fds[fd].port_file_fd, 0);
+	  close (win_fds[fd].port_file_fd);
+	  win_fds[fd].port_file_fd = -1;
+	  unlink (_dbus_string_get_const_data (&win_fds[fd].port_file));
+	  free ((char *) _dbus_string_get_const_data (&win_fds[fd].port_file));
 	}
       
-      if (closesocket (win32_fds[fd].fd) == SOCKET_ERROR)
+      if (closesocket (win_fds[fd].fd) == SOCKET_ERROR)
 	{
 	  DBUS_SOCKET_SET_ERRNO ();
 	  dbus_set_error (error, _dbus_error_from_errno (errno),
 			  "Could not close socket %d:%d:%d %s",
-			  encapsulated_fd, fd, win32_fds[fd].fd,
+			  encapsulated_fd, fd, win_fds[fd].fd,
 			  _dbus_strerror (errno));
-	  _DBUS_UNLOCK (win32_fds);
+	  _DBUS_UNLOCK (win_fds);
 	  return FALSE;
 	}
       _dbus_verbose ("closed socket %d:%d:%d\n",
-		     encapsulated_fd, fd, win32_fds[fd].fd);
-      _DBUS_UNLOCK (win32_fds);
+		     encapsulated_fd, fd, win_fds[fd].fd);
+      _DBUS_UNLOCK (win_fds);
       break;
 
     case DBUS_WIN_FD_C_LIB:
-      if (close (win32_fds[fd].fd) == -1)
+      if (close (win_fds[fd].fd) == -1)
 	{
 	  dbus_set_error (error, _dbus_error_from_errno (errno),
 			  "Could not close fd %d:%d:%d: %s",
-			  encapsulated_fd, fd, win32_fds[fd].fd,
+			  encapsulated_fd, fd, win_fds[fd].fd,
 			  _dbus_strerror (errno));
-	  _DBUS_UNLOCK (win32_fds);
+	  _DBUS_UNLOCK (win_fds);
 	  return FALSE;
 	}
       _dbus_verbose ("closed C file descriptor %d:%d:%d\n",
-		     encapsulated_fd, fd, win32_fds[fd].fd);
-      _DBUS_UNLOCK (win32_fds);
+		     encapsulated_fd, fd, win_fds[fd].fd);
+      _DBUS_UNLOCK (win_fds);
       break;
 
     default:
       _dbus_assert_not_reached ("unhandled fd type");
     }
 
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_UNLOCK (win_fds);
 
   _dbus_win_deallocate_fd (encapsulated_fd);
 
@@ -728,16 +728,16 @@ _dbus_fd_set_close_on_exec_win (int fd)
   int fd2;
   if (fd < 0) 
     return;
-  _DBUS_LOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
 
   fd2 = UNRANDOMIZE (fd);
   _dbus_verbose("fd %d %d %d\n",fd,fd2,win32_n_fds);
   _dbus_assert (fd2 >= 0 && fd2 < win32_n_fds);
-  _dbus_assert (win32_fds != NULL);
+  _dbus_assert (win_fds != NULL);
 
-  win32_fds[fd2].close_on_exec = TRUE;
+  win_fds[fd2].close_on_exec = TRUE;
 
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_UNLOCK (win_fds);
 }
 
 dbus_bool_t
@@ -749,23 +749,23 @@ _dbus_set_fd_nonblocking_win (int             fd,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  _DBUS_LOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
 
   fd = UNRANDOMIZE (fd);
 
   _dbus_assert (fd >= 0 && fd < win32_n_fds);
-  _dbus_assert (win32_fds != NULL);
+  _dbus_assert (win_fds != NULL);
 
-  switch (win32_fds[fd].type)
+  switch (win_fds[fd].type)
     {
     case DBUS_win_FD_SOCKET:
-      if (ioctlsocket (win32_fds[fd].fd, FIONBIO, &one) == SOCKET_ERROR)
+      if (ioctlsocket (win_fds[fd].fd, FIONBIO, &one) == SOCKET_ERROR)
 	{
 	  dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
 			  "Failed to set socket %d:%d to nonblocking: %s",
-			  encapsulated_fd, win32_fds[fd].fd,
+			  encapsulated_fd, win_fds[fd].fd,
 			  _dbus_strerror (WSAGetLastError ()));
-	  _DBUS_UNLOCK (win32_fds);
+	  _DBUS_UNLOCK (win_fds);
 	  return FALSE;
 	}
       break;
@@ -778,7 +778,7 @@ _dbus_set_fd_nonblocking_win (int             fd,
       _dbus_assert_not_reached ("unhandled fd type");
     }
 
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_UNLOCK (win_fds);
 
   return TRUE;
 }
@@ -801,17 +801,17 @@ _dbus_write_two_win (int               fd,
   DWORD bytes_written;
   int ret1;
 
-  _DBUS_LOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
 
   fd = UNRANDOMIZE (fd);
 
   _dbus_assert (fd >= 0 && fd < win32_n_fds);
-  _dbus_assert (win32_fds != NULL);
+  _dbus_assert (win_fds != NULL);
 
-  type = win32_fds[fd].type;
-  fd = win32_fds[fd].fd;
+  type = win_fds[fd].type;
+  fd = win_fds[fd].fd;
 
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_UNLOCK (win_fds);
 
   data1 = _dbus_string_get_const_data_len (buffer1, start1, len1);
   
@@ -948,7 +948,7 @@ _dbus_listen_unix_socket_win (const char     *path,
   if (listen_fd == -1)
     return -1;
 
-  sock = win32_fds[UNRANDOMIZE (listen_fd)].fd;
+  sock = win_fds[UNRANDOMIZE (listen_fd)].fd;
 
   addr_len = sizeof (sa);
   if (getsockname (sock, &sa, &addr_len) == SOCKET_ERROR)
@@ -974,7 +974,7 @@ _dbus_listen_unix_socket_win (const char     *path,
       return -1;
     }
 
-  win32_fds[UNRANDOMIZE (listen_fd)].port_file_fd = filefd;
+  win_fds[UNRANDOMIZE (listen_fd)].port_file_fd = filefd;
 
   /* Use strdup() to avoid memory leak in dbus-test */
   path = strdup (path);
@@ -985,7 +985,7 @@ _dbus_listen_unix_socket_win (const char     *path,
       return -1;
     }
 
-  _dbus_string_init_const (&win32_fds[UNRANDOMIZE (listen_fd)].port_file, path);
+  _dbus_string_init_const (&win_fds[UNRANDOMIZE (listen_fd)].port_file, path);
 
   if (!_dbus_string_init (&portstr))
     {
@@ -1050,20 +1050,20 @@ _dbus_win_allocate_fd (void)
 {
   int i;
 
-  _DBUS_LOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
 
-  if (win32_fds == NULL)
+  if (win_fds == NULL)
     {
       DBusString random;
 
       win32_n_fds = 16;
       /* Use malloc to avoid memory leak failure in dbus-test */
-      win32_fds = malloc (win32_n_fds * sizeof (*win32_fds));
+      win_fds = malloc (win32_n_fds * sizeof (*win_fds));
 
-      _dbus_assert (win32_fds != NULL);
+      _dbus_assert (win_fds != NULL);
 
       for (i = 0; i < win32_n_fds; i++)
-	win32_fds[i].type = DBUS_win_FD_UNUSED;
+	win_fds[i].type = DBUS_win_FD_UNUSED;
 
       _dbus_string_init (&random);
       _dbus_generate_random_bytes (&random, sizeof (int));
@@ -1072,7 +1072,7 @@ _dbus_win_allocate_fd (void)
       _dbus_string_free (&random);
     }
 
-  for (i = 0; i < win32_n_fds && win32_fds[i].type != DBUS_win_FD_UNUSED; i++)
+  for (i = 0; i < win32_n_fds && win_fds[i].type != DBUS_win_FD_UNUSED; i++)
     ;
 
   if (i == win32_n_fds)
@@ -1081,21 +1081,21 @@ _dbus_win_allocate_fd (void)
       int j;
 
       win32_n_fds += 16;
-      win32_fds = realloc (win32_fds, win32_n_fds * sizeof (*win32_fds));
+      win_fds = realloc (win_fds, win32_n_fds * sizeof (*win_fds));
 
-      _dbus_assert (win32_fds != NULL);
+      _dbus_assert (win_fds != NULL);
 
       for (j = oldn; j < win32_n_fds; j++)
-	win32_fds[i].type = DBUS_win_FD_UNUSED;
+	win_fds[i].type = DBUS_win_FD_UNUSED;
     }
 
-  win32_fds[i].type = DBUS_win_FD_BEING_OPENED;
-  win32_fds[i].fd = -1;
-  win32_fds[i].port_file_fd = -1;
-  win32_fds[i].close_on_exec = FALSE;
-  win32_fds[i].non_blocking = FALSE;
+  win_fds[i].type = DBUS_win_FD_BEING_OPENED;
+  win_fds[i].fd = -1;
+  win_fds[i].port_file_fd = -1;
+  win_fds[i].close_on_exec = FALSE;
+  win_fds[i].non_blocking = FALSE;
 
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_UNLOCK (win_fds);
 
   return i;
 }
@@ -1514,9 +1514,9 @@ fill_win_user_info_from_uid (dbus_uid_t    uid,
 void
 _dbus_win_deallocate_fd (int fd)
 {
-  _DBUS_LOCK (win32_fds);
-  win32_fds[UNRANDOMIZE (fd)].type = DBUS_win_FD_UNUSED;
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
+  win_fds[UNRANDOMIZE (fd)].type = DBUS_win_FD_UNUSED;
+  _DBUS_UNLOCK (win_fds);
 }
 
 void
@@ -1563,8 +1563,8 @@ _dbus_encapsulate_socket (int socket)
   int i = _dbus_win_allocate_fd ();
   int retval;
 
-  win32_fds[i].fd = socket;
-  win32_fds[i].type = DBUS_win_FD_SOCKET;
+  win_fds[i].fd = socket;
+  win_fds[i].type = DBUS_win_FD_SOCKET;
 
   retval = RANDOMIZE (i);
 
@@ -1579,19 +1579,19 @@ _dbus_re_encapsulate_socket (int socket)
   int i;
   int retval = -1;
 
-  _DBUS_LOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
 
-  _dbus_assert (win32_fds != NULL);
+  _dbus_assert (win_fds != NULL);
 
   for (i = 0; i < win32_n_fds; i++)
-    if (win32_fds[i].type == DBUS_win_FD_SOCKET &&
-	win32_fds[i].fd == socket)
+    if (win_fds[i].type == DBUS_win_FD_SOCKET &&
+	win_fds[i].fd == socket)
       {
 	retval = RANDOMIZE (i);
 	break;
       }
   
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_UNLOCK (win_fds);
 
   return retval;
 }
@@ -1602,8 +1602,8 @@ _dbus_encapsulate_fd (int fd)
   int i = _dbus_win_allocate_fd ();
   int retval;
 
-  win32_fds[i].fd = fd;
-  win32_fds[i].type = DBUS_WIN_FD_C_LIB;
+  win_fds[i].fd = fd;
+  win_fds[i].type = DBUS_WIN_FD_C_LIB;
 
   retval = RANDOMIZE (i);
 
@@ -1618,19 +1618,19 @@ _dbus_re_encapsulate_fd (int fd)
   int i;
   int retval = -1;
 
-  _DBUS_LOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
 
-  _dbus_assert (win32_fds != NULL);
+  _dbus_assert (win_fds != NULL);
 
   for (i = 0; i < win32_n_fds; i++)
-    if (win32_fds[i].type == DBUS_WIN_FD_C_LIB &&
-	win32_fds[i].fd == fd)
+    if (win_fds[i].type == DBUS_WIN_FD_C_LIB &&
+	win_fds[i].fd == fd)
       {
 	retval = RANDOMIZE (i);
 	break;
       }
   
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_UNLOCK (win_fds);
 
   return retval;
 }
@@ -1641,16 +1641,16 @@ _dbus_decapsulate (int fd)
   if (fd == -1)
     return -1;
 
-  _DBUS_LOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
 
   fd = UNRANDOMIZE (fd);
 
   _dbus_assert (fd >= 0 && fd < win32_n_fds);
-  _dbus_assert (win32_fds != NULL);
+  _dbus_assert (win_fds != NULL);
 
-  fd = win32_fds[fd].fd;
+  fd = win_fds[fd].fd;
   
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_UNLOCK (win_fds);
 
   return fd;
 }
@@ -2199,9 +2199,9 @@ _dbus_poll_win (DBusPollFD *fds,
   FD_ZERO (&err_set);
 
 #ifdef DBUS_WIN
-  _DBUS_LOCK (win32_fds);
+  _DBUS_LOCK (win_fds);
 
-  _dbus_assert (win32_fds != NULL);
+  _dbus_assert (win_fds != NULL);
 
   msgp = msg;
   msgp += sprintf (msgp, "select: to=%d ", timeout_milliseconds);
@@ -2214,7 +2214,7 @@ _dbus_poll_win (DBusPollFD *fds,
       _dbus_assert (fd >= 0 && fd < win32_n_fds);
 
       if (!warned &&
-	  win32_fds[fd].type != DBUS_win_FD_SOCKET)
+	  win_fds[fd].type != DBUS_win_FD_SOCKET)
 	{
 	  _dbus_warn ("Can poll only sockets on Win32");
 	  warned = TRUE;
@@ -2238,7 +2238,7 @@ _dbus_poll_win (DBusPollFD *fds,
       DBusPollFD *fdp = &fds[i];
 
 #ifdef DBUS_WIN
-      if (win32_fds[UNRANDOMIZE (fdp->fd)].type != DBUS_win_FD_SOCKET)
+      if (win_fds[UNRANDOMIZE (fdp->fd)].type != DBUS_win_FD_SOCKET)
 	continue;
 #endif
 
@@ -2254,7 +2254,7 @@ _dbus_poll_win (DBusPollFD *fds,
     }
     
 #ifdef DBUS_WIN
-  _DBUS_UNLOCK (win32_fds);
+  _DBUS_UNLOCK (win_fds);
 #endif
     
   tv.tv_sec = timeout_milliseconds / 1000;
@@ -2279,7 +2279,7 @@ _dbus_poll_win (DBusPollFD *fds,
 #ifdef DBUS_WIN
       msgp = msg;
       msgp += sprintf (msgp, "select: = %d:", ready);
-      _DBUS_LOCK (win32_fds);
+      _DBUS_LOCK (win_fds);
       for (i = 0; i < n_fds; i++)
         {
 	      DBusPollFD *f = fds+i;
@@ -2313,7 +2313,7 @@ _dbus_poll_win (DBusPollFD *fds,
 	    fdp->revents |= _DBUS_POLLERR;
 	}
 #ifdef DBUS_WIN
-      _DBUS_UNLOCK (win32_fds);
+      _DBUS_UNLOCK (win_fds);
 #endif
     }
   return ready;

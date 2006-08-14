@@ -77,7 +77,7 @@ typedef struct
   dbus_bool_t non_blocking;
 } DBusWin32FD;
 
-extern DBusWin32FD *win32_fds;
+extern DBusWin32FD *win_fds;
 extern int win32_n_fds;
 
 
@@ -90,7 +90,7 @@ extern int win32_n_fds;
 #endif
 
 
-#define _dbus_decapsulate_quick(i) win32_fds[UNRANDOMIZE (i)].fd
+#define _dbus_decapsulate_quick(i) win_fds[UNRANDOMIZE (i)].fd
 
 
 extern const char*
