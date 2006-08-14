@@ -78,7 +78,7 @@ Index: bus/activation.c
    DBusMessage *message;
    DBusString service_str;
    char **argv;
-+  char **envp;
++  char **envp = NULL;
    int argc;
    dbus_bool_t retval;
    DBusHashIter iter;
