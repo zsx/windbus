@@ -6,7 +6,7 @@ Index: dbus/dbus-threads.c
    
    DBusMutex **global_locks[] = {
  #define LOCK_ADDR(name) (& _dbus_lock_##name)
-+    LOCK_ADDR (win32_fds),
++    LOCK_ADDR (win_fds),
 +    LOCK_ADDR (sid_atom_cache),
      LOCK_ADDR (list),
      LOCK_ADDR (connection_slots),
