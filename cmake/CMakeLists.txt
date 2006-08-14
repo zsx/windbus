@@ -212,6 +212,7 @@ if (MINGW)
 endif(MINGW)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h )
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/env.bat.cmake ${CMAKE_BINARY_DIR}/bin/env.bat )
 
 # compiler definitions 
 add_definitions(-DHAVE_CONFIG_H=1)
@@ -226,6 +227,7 @@ add_subdirectory( test )
 add_subdirectory( tools )
 # is now located in kde svn
 #add_subdirectory( qt )
+
 
 
 message("                  D-BUS ${VERSION}                                    ")
