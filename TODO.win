@@ -636,3 +636,7 @@ Should not need this #ifdef if spawn_async is fixed.
 Havoc
 
 
+
+bus\desktop-file.c:parse_section_start() does not support windows eol (0x0d0a), the debug-echo.service file must have unix eol
+
+
