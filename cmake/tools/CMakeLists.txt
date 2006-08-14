@@ -1,10 +1,5 @@
-#INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_X_CFLAGS) $(DBUS_GTK_THREADS_CFLAGS) -DDBUS_LOCALEDIR="$(prefix)/@DATADIRNAME@/locale" -DDBUS_COMPILATION
 
-#if HAVE_GLIB
-#GLIB_TOOLS=dbus-monitor
-if (GLIB_FOUND)
-	set (GLIB_TOOLS dbus-monitor)
-endif (GLIB_FOUND)
+include_directories(${CMAKE_SOURCE_DIR}/..)
 
 #nodist_libdbus_glib_HEADERS = dbus-glib-bindings.h
 #libdbus_glibdir = $(includedir)/dbus-1.0/dbus
@@ -32,30 +27,31 @@ endif (GLIB_FOUND)
 #bin_PROGRAMS=dbus-send $(GLIB_TOOLS) dbus-launch dbus-cleanup-sockets $(GTK_TOOLS)
 
 set (dbus_send_SOURCES
-	dbus-print-message.c			
-	dbus-print-message.h			
-	dbus-send.c
+	../../tools/dbus-print-message.c			
+	../../tools/dbus-print-message.h			
+	../../tools/dbus-send.c
 )
 
 set (dbus_monitor_SOURCES
-	dbus-monitor.c				
-	dbus-print-message.c			
-	dbus-print-message.h
+	../../tools/dbus-monitor.c				
+	../../tools/dbus-print-message.c			
+	../../tools/dbus-print-message.h
 )
 
 set (dbus_launch_SOURCES
-	dbus-launch.c
+	../../tools/dbus-launch.c
 )
 
 set (dbus_cleanup_sockets_SOURCES
-	dbus-cleanup-sockets.c
+	../../tools/dbus-cleanup-sockets.c
 )
+
 set (dbus_viewer_SOURCES
-	dbus-names-model.c			
-	dbus-names-model.h			
-	dbus-tree-view.c			
-	dbus-tree-view.h			
-	dbus-viewer.c
+	../../tools/dbus-names-model.c			
+	../../tools/dbus-names-model.h			
+	../../tools/dbus-tree-view.c			
+	../../tools/dbus-tree-view.h			
+	../../tools/dbus-viewer.c
 )
 
 add_executable(dbus-send ${dbus_send_SOURCES})
@@ -68,7 +64,6 @@ install_targets(/bin dbus-send )
 add_executable(dbus-monitor ${dbus_monitor_SOURCES})
 target_link_libraries(dbus-monitor dbus-1)
 install_targets(/bin dbus-monitor )
-
 
 #dbus_send_LDADD= $(top_builddir)/dbus/libdbus-1.la
 #dbus_monitor_LDADD= $(top_builddir)/glib/libdbus-glib-1.la

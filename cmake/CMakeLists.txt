@@ -223,7 +223,7 @@ add_definitions(${DBUS_BUS_CFLAGS} -DDBUS_API_SUBJECT_TO_CHANGE -DDBUS_COMPILATI
 add_subdirectory( dbus )
 add_subdirectory( bus )
 add_subdirectory( test )
-#add_subdirectory( tools )
+add_subdirectory( tools )
 # is now located in kde svn
 #add_subdirectory( qt )
 
