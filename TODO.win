@@ -32,14 +32,6 @@ The #ifdef here should be somewhere else; I think there was a previous discussio
 
 But if it does make sense, there should at least be an abstraction that addresses environment variables vs. however things work on Windows.
 
-> +#ifndef SIGHUP
-> +#define SIGHUP    1
-> +#endif
-
-This at least needs a comment about when SIGHUP would not be defined.
-
-
-
 > --- dbus/dbus-mainloop.c    15 Jan 2005 07:15:38 -0000    1.18
 > +++ dbus/dbus-mainloop.c    3 Jul 2006 12:56:30 -0000
 > @@ -609,7 +609,7 @@
