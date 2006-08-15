@@ -294,535 +294,725 @@ Index: dbus/dbus-spawn.h
                                                     DBusError                 *error);
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 55)
+--- dbus/dbus-sysdeps-util.c	(revision 84)
 +++ dbus/dbus-sysdeps-util.c	(working copy)
-@@ -28,20 +28,25 @@
- #define DBUS_USERDB_INCLUDES_PRIVATE 1
+@@ -29,154 +29,18 @@
  #include "dbus-userdb.h"
  #include "dbus-test.h"
-+#include "dbus-dirent.h"
  
- #include <sys/types.h>
- #include <stdlib.h>
- #include <string.h>
- #include <signal.h>
+-#include <sys/types.h>
+-#include <stdlib.h>
+-#include <string.h>
+-#include <signal.h>
 -#include <unistd.h>
- #include <stdio.h>
- #include <errno.h>
- #include <fcntl.h>
- #include <sys/stat.h>
-+#ifdef DBUS_WIN
-+#include "dbus-sysdeps-win.h"
-+#include <aclapi.h>
-+#define F_OK 0
-+#else
-+#include <dirent.h>
-+#include <unistd.h>
- #include <grp.h>
+-#include <stdio.h>
+-#include <errno.h>
+-#include <fcntl.h>
+-#include <sys/stat.h>
+-#include <grp.h>
 -#include <sys/socket.h>
 -#include <dirent.h>
 -#include <sys/un.h>
-+#endif
+-
+-#ifndef O_BINARY
+-#define O_BINARY 0
+-#endif
+-
+ /**
+  * @addtogroup DBusInternalsUtils
+  * @{
+  */
  
- #ifndef O_BINARY
- #define O_BINARY 0
-@@ -65,6 +70,8 @@
- 		     int               print_pid_fd,
-                      DBusError        *error)
- {
-+#ifndef DBUS_WIN
-+
-   const char *s;
-   pid_t child_pid;
-   int dev_null_fd;
-@@ -174,6 +181,14 @@
-     _dbus_assert_not_reached ("setsid() failed");
-   
-   return TRUE;
-+
-+#else  /* DBUS_WIN */
-+
-+  dbus_set_error_const (error, DBUS_ERROR_FAILED,
-+			"Not implemented: _dbus_become_daemon\n");
-+  return FALSE;
-+
-+#endif /* DBUS_WIN */
- }
- 
- 
-@@ -249,6 +264,8 @@
-                         dbus_gid_t     gid,
-                         DBusError     *error)
- {
-+#ifndef DBUS_WIN
-+
-   /* setgroups() only works if we are a privileged process,
-    * so we don't return error on failure; the only possible
-    * failure is that we don't have perms to do it.
-@@ -279,6 +296,15 @@
-     }
-   
-   return TRUE;
-+
-+#else  /* DBUS_WIN */
-+
-+  dbus_set_error_const (error, DBUS_ERROR_FAILED,
-+			"Not implemented: _dbus_change_identity\n");
-+
-+  return FALSE;
-+
-+#endif /* DBUS_WIN */
- }
- 
- /** Installs a UNIX signal handler
-@@ -290,6 +316,7 @@
- _dbus_set_signal_handler (int               sig,
-                           DBusSignalHandler handler)
- {
-+#ifndef DBUS_WIN
-   struct sigaction act;
-   sigset_t empty_mask;
-   
-@@ -298,6 +325,7 @@
-   act.sa_mask    = empty_mask;
-   act.sa_flags   = 0;
-   sigaction (sig,  &act, 0);
-+#endif
- }
- 
- 
-@@ -350,6 +378,7 @@
- _dbus_user_at_console (const char *username,
-                        DBusError  *error)
- {
-+#ifndef DBUS_WIN
- 
-   DBusString f;
-   dbus_bool_t result;
-@@ -380,6 +409,80 @@
-   _dbus_string_free (&f);
- 
-   return result;
-+
+-/**
+- * Does the chdir, fork, setsid, etc. to become a daemon process.
+- *
+- * @param pidfile #NULL, or pidfile to create
+- * @param print_pid_fd file descriptor to print daemon's pid to, or -1 for none
+- * @param error return location for errors
+- * @returns #FALSE on failure
+- */
+-dbus_bool_t
+-_dbus_become_daemon (const DBusString *pidfile,
+-		     int               print_pid_fd,
+-                     DBusError        *error)
+-{
+-  const char *s;
+-  pid_t child_pid;
+-  int dev_null_fd;
++#ifdef DBUS_WIN
++#include "dbus-sysdeps-util-win.c"
 +#else
-+
-+  dbus_bool_t retval = FALSE;
-+  wchar_t *wusername;
-+  DWORD sid_length;
-+  PSID user_sid, console_user_sid;
-+  HWINSTA winsta;
-+
-+  wusername = _dbus_win_utf8_to_utf16 (username, error);
-+  if (!wusername)
-+    return FALSE;
-+
-+  if (!_dbus_account_to_win_sid (wusername, &user_sid, error))
-+    goto out0;
-+
-+  /* Now we have the SID for username. Get the SID of the
-+   * user at the "console" (window station WinSta0)
-+   */
-+  if (!(winsta = OpenWindowStation ("WinSta0", FALSE, READ_CONTROL)))
-+    {
-+      _dbus_win_set_error_from_win_error (error, GetLastError ());
-+      goto out2;
-+    }
-+
-+  sid_length = 0;
-+  GetUserObjectInformation (winsta, UOI_USER_SID,
-+			    NULL, 0, &sid_length);
-+  if (sid_length == 0)
-+    {
-+      /* Nobody is logged on */
-+      goto out2;
-+    }
-+  
-+  if (sid_length < 0 || sid_length > 1000)
-+    {
-+      dbus_set_error_const (error, DBUS_ERROR_FAILED, "Invalid SID length");
-+      goto out3;
-+    }
-+
-+  console_user_sid = dbus_malloc (sid_length);
-+  if (!console_user_sid)
-+    {
-+      _DBUS_SET_OOM (error);
-+      goto out3;
-+    }
-+
-+  if (!GetUserObjectInformation (winsta, UOI_USER_SID,
-+				 console_user_sid, sid_length, &sid_length))
-+    {
-+      _dbus_win_set_error_from_win_error (error, GetLastError ());
-+      goto out4;
-+    }
-+
-+  if (!IsValidSid (console_user_sid))
-+    {
-+      dbus_set_error_const (error, DBUS_ERROR_FAILED, "Invalid SID");
-+      goto out4;
-+    }
-+
-+  retval = EqualSid (user_sid, console_user_sid);
-+
-+ out4:
-+  dbus_free (console_user_sid);
-+ out3:
-+  CloseWindowStation (winsta);
-+ out2:
-+  dbus_free (user_sid);
-+ out0:
-+  dbus_free (wusername);
-+
-+  return retval;
-+
++#include "dbus-sysdeps-util-unix.c"
 +#endif
+ 
+-  _dbus_verbose ("Becoming a daemon...\n");
+ 
+-  _dbus_verbose ("chdir to /\n");
+-  if (chdir ("/") < 0)
+-    {
+-      dbus_set_error (error, DBUS_ERROR_FAILED,
+-                      "Could not chdir() to root directory");
+-      return FALSE;
+-    }
+-
+-  _dbus_verbose ("forking...\n");
+-  switch ((child_pid = fork ()))
+-    {
+-    case -1:
+-      _dbus_verbose ("fork failed\n");
+-      dbus_set_error (error, _dbus_error_from_errno (errno),
+-                      "Failed to fork daemon: %s", _dbus_strerror (errno));
+-      return FALSE;
+-      break;
+-
+-    case 0:
+-      _dbus_verbose ("in child, closing std file descriptors\n");
+-
+-      /* silently ignore failures here, if someone
+-       * doesn't have /dev/null we may as well try
+-       * to continue anyhow
+-       */
+-      
+-      dev_null_fd = open ("/dev/null", O_RDWR);
+-      if (dev_null_fd >= 0)
+-        {
+-          dup2 (dev_null_fd, 0);
+-          dup2 (dev_null_fd, 1);
+-          
+-          s = _dbus_getenv ("DBUS_DEBUG_OUTPUT");
+-          if (s == NULL || *s == '\0')
+-            dup2 (dev_null_fd, 2);
+-          else
+-            _dbus_verbose ("keeping stderr open due to DBUS_DEBUG_OUTPUT\n");
+-        }
+-
+-      /* Get a predictable umask */
+-      _dbus_verbose ("setting umask\n");
+-      umask (022);
+-      break;
+-
+-    default:
+-      if (pidfile)
+-        {
+-          _dbus_verbose ("parent writing pid file\n");
+-          if (!_dbus_write_pid_file (pidfile,
+-                                     child_pid,
+-                                     error))
+-            {
+-              _dbus_verbose ("pid file write failed, killing child\n");
+-              kill (child_pid, SIGTERM);
+-              return FALSE;
+-            }
+-        }
+-
+-      /* Write PID if requested */
+-      if (print_pid_fd >= 0)
+-	{
+-	  DBusString pid;
+-	  int bytes;
+-	  
+-	  if (!_dbus_string_init (&pid))
+-	    {
+-	      _DBUS_SET_OOM (error);
+-              kill (child_pid, SIGTERM);
+-	      return FALSE;
+-	    }
+-	  
+-	  if (!_dbus_string_append_int (&pid, child_pid) ||
+-	      !_dbus_string_append (&pid, "\n"))
+-	    {
+-	      _dbus_string_free (&pid);
+-	      _DBUS_SET_OOM (error);
+-              kill (child_pid, SIGTERM);
+-	      return FALSE;
+-	    }
+-	  
+-	  bytes = _dbus_string_get_length (&pid);
+-	  if (_dbus_write (print_pid_fd, &pid, 0, bytes) != bytes)
+-	    {
+-	      dbus_set_error (error, DBUS_ERROR_FAILED,
+-			      "Printing message bus PID: %s\n",
+-			      _dbus_strerror (errno));
+-	      _dbus_string_free (&pid);
+-              kill (child_pid, SIGTERM);
+-	      return FALSE;
+-	    }
+-	  
+-	  _dbus_string_free (&pid);
+-	}
+-      _dbus_verbose ("parent exiting\n");
+-      _exit (0);
+-      break;
+-    }
+-
+-  _dbus_verbose ("calling setsid()\n");
+-  if (setsid () == -1)
+-    _dbus_assert_not_reached ("setsid() failed");
+-  
+-  return TRUE;
+-}
+-
+-
+ /**
+  * Creates a file containing the process ID.
+  *
+@@ -235,73 +99,7 @@
+   return TRUE;
  }
  
+-
+ /**
+- * Changes the user and group the bus is running as.
+- *
+- * @param uid the new user ID
+- * @param gid the new group ID
+- * @param error return location for errors
+- * @returns #FALSE on failure
+- */
+-dbus_bool_t
+-_dbus_change_identity  (dbus_uid_t     uid,
+-                        dbus_gid_t     gid,
+-                        DBusError     *error)
+-{
+-  /* setgroups() only works if we are a privileged process,
+-   * so we don't return error on failure; the only possible
+-   * failure is that we don't have perms to do it.
+-   * FIXME not sure this is right, maybe if setuid()
+-   * is going to work then setgroups() should also work.
+-   */
+-  if (setgroups (0, NULL) < 0)
+-    _dbus_warn ("Failed to drop supplementary groups: %s\n",
+-                _dbus_strerror (errno));
+-  
+-  /* Set GID first, or the setuid may remove our permission
+-   * to change the GID
+-   */
+-  if (setgid (gid) < 0)
+-    {
+-      dbus_set_error (error, _dbus_error_from_errno (errno),
+-                      "Failed to set GID to %lu: %s", gid,
+-                      _dbus_strerror (errno));
+-      return FALSE;
+-    }
+-  
+-  if (setuid (uid) < 0)
+-    {
+-      dbus_set_error (error, _dbus_error_from_errno (errno),
+-                      "Failed to set UID to %lu: %s", uid,
+-                      _dbus_strerror (errno));
+-      return FALSE;
+-    }
+-  
+-  return TRUE;
+-}
+-
+-/** Installs a UNIX signal handler
+- *
+- * @param sig the signal to handle
+- * @param handler the handler
+- */
+-void
+-_dbus_set_signal_handler (int               sig,
+-                          DBusSignalHandler handler)
+-{
+-  struct sigaction act;
+-  sigset_t empty_mask;
+-  
+-  sigemptyset (&empty_mask);
+-  act.sa_handler = handler;
+-  act.sa_mask    = empty_mask;
+-  act.sa_flags   = 0;
+-  sigaction (sig,  &act, 0);
+-}
+-
+-
+-/**
+  * Removes a directory; Directory must be empty
+  * 
+  * @param filename directory filename
+@@ -329,115 +127,42 @@
+   return TRUE;
+ }
  
-@@ -392,10 +495,26 @@
+-/** Checks if a file exists
+-*
+-* @param file full path to the file
+-* @returns #TRUE if file exists
+-*/
+-dbus_bool_t 
+-_dbus_file_exists (const char *file)
+-{
+-  return (access (file, F_OK) == 0);
+-}
+-
+-/** Checks if user is at the console
+-*
+-* @param username user to check
+-* @param error return location for errors
+-* @returns #TRUE is the user is at the consolei and there are no errors
+-*/
+-dbus_bool_t 
+-_dbus_user_at_console (const char *username,
+-                       DBusError  *error)
+-{
+-
+-  DBusString f;
+-  dbus_bool_t result;
+-
+-  result = FALSE;
+-  if (!_dbus_string_init (&f))
+-    {
+-      _DBUS_SET_OOM (error);
+-      return FALSE;
+-    }
+-
+-  if (!_dbus_string_append (&f, DBUS_CONSOLE_AUTH_DIR))
+-    {
+-      _DBUS_SET_OOM (error);
+-      goto out;
+-    }
+-
+-
+-  if (!_dbus_string_append (&f, username))
+-    {
+-      _DBUS_SET_OOM (error);
+-      goto out;
+-    }
+-
+-  result = _dbus_file_exists (_dbus_string_get_const_data (&f));
+-
+- out:
+-  _dbus_string_free (&f);
+-
+-  return result;
+-}
+-
+-
+ /**
+- * Checks whether the filename is an absolute path
++ * Initializes the given DBusGroupInfo struct
++ * with information about the given group ID.
+  *
+- * @param filename the filename
+- * @returns #TRUE if an absolute path
++ * @param info the group info struct
++ * @param gid group ID
++ * @param error the error return
++ * @returns #FALSE if error is set
+  */
  dbus_bool_t
- _dbus_path_is_absolute (const DBusString *filename)
+-_dbus_path_is_absolute (const DBusString *filename)
++_dbus_group_info_fill_gid (DBusGroupInfo *info,
++                           dbus_gid_t     gid,
++                           DBusError     *error)
  {
-+#ifndef DBUS_WIN
-   if (_dbus_string_get_length (filename) > 0)
-     return _dbus_string_get_byte (filename, 0) == '/';
-   else
-     return FALSE;
-+#else
-+  if (_dbus_string_get_length (filename) > 0 &&
-+      (_dbus_string_get_byte (filename, 0) == '/' ||
-+       _dbus_string_get_byte (filename, 0) == '\\'))
-+    return TRUE;
-+  
-+  if (_dbus_string_get_length (filename) >= 3 &&
-+      isalpha (_dbus_string_get_byte (filename, 0)) &&
-+      _dbus_string_get_byte (filename, 1) == ':' &&
-+      (_dbus_string_get_byte (filename, 2) == '/' ||
-+       _dbus_string_get_byte (filename, 2) == '\\'))
-+    return TRUE;
-+
-+  return FALSE;
-+#endif
+-  if (_dbus_string_get_length (filename) > 0)
+-    return _dbus_string_get_byte (filename, 0) == '/';
+-  else
+-    return FALSE;
++  return fill_group_info (info, gid, NULL, error);
  }
  
  /**
-@@ -412,12 +531,21 @@
-             DBusError        *error)
+- * stat() wrapper.
++ * Initializes the given DBusGroupInfo struct
++ * with information about the given group name.
+  *
+- * @param filename the filename to stat
+- * @param statbuf the stat info to fill in
+- * @param error return location for error
+- * @returns #FALSE if error was set
++ * @param info the group info struct
++ * @param groupname name of group
++ * @param error the error return
++ * @returns #FALSE if error is set
+  */
+ dbus_bool_t
+-_dbus_stat (const DBusString *filename,
+-            DBusStat         *statbuf,
+-            DBusError        *error)
++_dbus_group_info_fill (DBusGroupInfo    *info,
++                       const DBusString *groupname,
++                       DBusError        *error)
  {
-   const char *filename_c;
-+#ifndef DBUS_WIN
-   struct stat sb;
-+#else
-+  WIN32_FILE_ATTRIBUTE_DATA wfad;
-+  char *lastdot;
-+  DWORD rc;
-+  PSID owner_sid, group_sid;
-+  PSECURITY_DESCRIPTOR sd;
-+#endif
+-  const char *filename_c;
+-  struct stat sb;
++  return fill_group_info (info, DBUS_GID_UNSET,
++                          groupname, error);
  
-   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+-  
+-  filename_c = _dbus_string_get_const_data (filename);
+-
+-  if (stat (filename_c, &sb) < 0)
+-    {
+-      dbus_set_error (error, _dbus_error_from_errno (errno),
+-                      "%s", _dbus_strerror (errno));
+-      return FALSE;
+-    }
+-
+-  statbuf->mode = sb.st_mode;
+-  statbuf->nlink = sb.st_nlink;
+-  statbuf->uid = sb.st_uid;
+-  statbuf->gid = sb.st_gid;
+-  statbuf->size = sb.st_size;
+-  statbuf->atime = sb.st_atime;
+-  statbuf->mtime = sb.st_mtime;
+-  statbuf->ctime = sb.st_ctime;
+-
+-  return TRUE;
+ }
+ 
+-
+ /**
+  * Internals of directory iterator
+  */
+@@ -466,7 +191,7 @@
    
    filename_c = _dbus_string_get_const_data (filename);
  
-+#ifndef DBUS_WIN
-   if (stat (filename_c, &sb) < 0)
+-  d = opendir (filename_c);
++  d = _dbus_opendir (filename_c);
+   if (d == NULL)
      {
        dbus_set_error (error, _dbus_error_from_errno (errno),
-@@ -433,7 +561,67 @@
-   statbuf->atime = sb.st_atime;
-   statbuf->mtime = sb.st_mtime;
-   statbuf->ctime = sb.st_ctime;
-+#else
-+  if (!GetFileAttributesEx (filename_c, GetFileExInfoStandard, &wfad))
-+    {
-+      _dbus_win_set_error_from_win_error (error, GetLastError ());
-+      return FALSE;
-+    }
- 
-+  if (wfad.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
-+    statbuf->mode = _S_IFDIR;
-+  else
-+    statbuf->mode = _S_IFREG;
-+
-+  statbuf->mode |= _S_IREAD;
-+  if (wfad.dwFileAttributes & FILE_ATTRIBUTE_READONLY)
-+    statbuf->mode |= _S_IWRITE;
-+
-+  lastdot = strrchr (filename_c, '.');
-+  if (lastdot && stricmp (lastdot, ".exe") == 0)
-+    statbuf->mode |= _S_IEXEC;
-+
-+  statbuf->mode |= (statbuf->mode & 0700) >> 3;
-+  statbuf->mode |= (statbuf->mode & 0700) >> 6;
-+
-+  statbuf->nlink = 1;
-+    
-+  sd = NULL;
-+  rc = GetNamedSecurityInfo ((char *) filename_c, SE_FILE_OBJECT,
-+			     OWNER_SECURITY_INFORMATION |
-+			     GROUP_SECURITY_INFORMATION,
-+			     &owner_sid, &group_sid,
-+			     NULL, NULL,
-+			     &sd);
-+  if (rc != ERROR_SUCCESS)
-+    {
-+      _dbus_win_set_error_from_win_error (error, rc);
-+      if (sd != NULL)
-+	LocalFree (sd);
-+      return FALSE;
-+    }
-+
-+  statbuf->uid = _dbus_win_sid_to_uid_t (owner_sid);
-+  statbuf->gid = _dbus_win_sid_to_uid_t (group_sid);
-+
-+  LocalFree (sd);
-+			
-+  statbuf->size = ((dbus_int64_t) wfad.nFileSizeHigh << 32) + wfad.nFileSizeLow;
-+  
-+  statbuf->atime =
-+    (((dbus_int64_t) wfad.ftLastAccessTime.dwHighDateTime << 32) +
-+     wfad.ftLastAccessTime.dwLowDateTime) / 10000000 - DBUS_INT64_CONSTANT (116444736000000000);
-+
-+  statbuf->mtime = 
-+    (((dbus_int64_t) wfad.ftLastWriteTime.dwHighDateTime << 32) +
-+     wfad.ftLastWriteTime.dwLowDateTime) / 10000000 - DBUS_INT64_CONSTANT (116444736000000000);
-+
-+  statbuf->ctime =
-+    (((dbus_int64_t) wfad.ftCreationTime.dwHighDateTime << 32) +
-+     wfad.ftCreationTime.dwLowDateTime) / 10000000 - DBUS_INT64_CONSTANT (116444736000000000);
-+  
-+#endif
-+
-   return TRUE;
- }
- 
-@@ -516,7 +704,11 @@
-   ent = readdir (iter->d);
+@@ -478,7 +203,7 @@
+   iter = dbus_new0 (DBusDirIter, 1);
+   if (iter == NULL)
+     {
+-      closedir (d);
++      _dbus_closedir (d);
+       dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                       "Could not allocate memory for directory iterator");
+       return NULL;
+@@ -513,7 +238,7 @@
+   
+  again:
+   errno = 0;
+-  ent = readdir (iter->d);
++  ent = _dbus_readdir (iter->d);
    if (ent == NULL)
      {
-+#ifdef DBUS_WIN
-+      if (errno != 0 && iter->d->finished != 1)
-+#else
        if (errno != 0)
-+#endif
-         dbus_set_error (error,
-                         _dbus_error_from_errno (errno),
-                         "%s", _dbus_strerror (errno));
-@@ -550,6 +742,7 @@
+@@ -546,317 +271,9 @@
+ void
+ _dbus_directory_close (DBusDirIter *iter)
+ {
+-  closedir (iter->d);
++  _dbus_closedir (iter->d);
    dbus_free (iter);
  }
  
-+#ifndef DBUS_WIN
- static dbus_bool_t
- fill_user_info_from_group (struct group  *g,
-                            DBusGroupInfo *info,
-@@ -570,6 +763,7 @@
+-static dbus_bool_t
+-fill_user_info_from_group (struct group  *g,
+-                           DBusGroupInfo *info,
+-                           DBusError     *error)
+-{
+-  _dbus_assert (g->gr_name != NULL);
+-  
+-  info->gid = g->gr_gid;
+-  info->groupname = _dbus_strdup (g->gr_name);
  
-   return TRUE;
- }
-+#endif /* DBUS_WIN */
- 
- static dbus_bool_t
- fill_group_info (DBusGroupInfo    *info,
-@@ -587,6 +781,8 @@
-   else
-     group_c_str = NULL;
-   
-+#ifndef DBUS_WIN
-+
-   /* For now assuming that the getgrnam() and getgrgid() flavors
-    * always correspond to the pwnam flavors, if not we have
-    * to add more configure checks.
-@@ -644,6 +840,67 @@
-       }
-   }
- #endif  /* ! HAVE_GETPWNAM_R */
-+#else  /* DBUS_WIN */
-+
-+  if (group_c_str)
-+    {
-+      PSID group_sid;
-+      wchar_t *wgroupname = _dbus_win_utf8_to_utf16 (group_c_str, error);
-+
-+      if (!wgroupname)
-+	return FALSE;
-+
-+      if (!_dbus_account_to_win_sid (wgroupname, &group_sid, error))
-+	{
-+	  dbus_free (wgroupname);
-+	  return FALSE;
-+	}
-+
-+      info->gid = _dbus_win_sid_to_uid_t (group_sid);
-+      info->groupname = _dbus_strdup (group_c_str);
-+
-+      dbus_free (group_sid);
-+      dbus_free (wgroupname);
-+
-+      return TRUE;
-+    }
-+  else
-+    {
-+      dbus_bool_t retval = FALSE;
-+      wchar_t *wname, *wdomain;
-+      char *name, *domain;
-+
-+      info->gid = gid;
-+
-+      if (!_dbus_win_sid_to_name_and_domain (gid, &wname, &wdomain, error))
-+	return FALSE;
-+
-+      name = _dbus_win_utf16_to_utf8 (wname, error);
-+      if (!name)
-+	goto out0;
-+      
-+      domain = _dbus_win_utf16_to_utf8 (wdomain, error);
-+      if (!domain)
-+	goto out1;
-+
-+      info->groupname = dbus_malloc (strlen (domain) + 1 + strlen (name) + 1);
-+
-+      strcpy (info->groupname, domain);
-+      strcat (info->groupname, "\\");
-+      strcat (info->groupname, name);
-+
-+      retval = TRUE;
-+
-+      dbus_free (domain);
-+    out1:
-+      dbus_free (name);
-+    out0:
-+      dbus_free (wname);
-+      dbus_free (wdomain);
-+
-+      return retval;
-+    }
-+#endif /* DBUS_WIN */
- }
- 
- /**
-@@ -710,6 +967,8 @@
-   if (sep == 0)
-     return _dbus_string_append (dirname, "."); /* empty string passed in */
-     
-+#ifndef DBUS_WIN
-+
-   while (sep > 0 && _dbus_string_get_byte (filename, sep - 1) == '/')
-     --sep;
- 
-@@ -735,6 +994,52 @@
-   else
-     return _dbus_string_copy_len (filename, 0, sep - 0,
-                                   dirname, _dbus_string_get_length (dirname));
-+#else
-+  
-+  while (sep > 0 &&
-+	 (_dbus_string_get_byte (filename, sep - 1) == '/' ||
-+	  _dbus_string_get_byte (filename, sep - 1) == '\\'))
-+    --sep;
-+
-+  _dbus_assert (sep >= 0);
-+  
-+  if (sep == 0 ||
-+      (sep == 2 &&
-+       _dbus_string_get_byte (filename, 1) == ':' &&
-+       isalpha (_dbus_string_get_byte (filename, 0))))
-+    return _dbus_string_copy_len (filename, 0, sep + 1,
-+				  dirname, _dbus_string_get_length (dirname));
-+
-+  {
-+    int sep1, sep2;
-+    _dbus_string_find_byte_backward (filename, sep, '/', &sep1);
-+    _dbus_string_find_byte_backward (filename, sep, '\\', &sep2);
-+
-+    sep = MAX (sep1, sep2);
-+  }
-+  if (sep < 0)
-+    return _dbus_string_append (dirname, ".");
-+  
-+  while (sep > 0 &&
-+	 (_dbus_string_get_byte (filename, sep - 1) == '/' ||
-+	  _dbus_string_get_byte (filename, sep - 1) == '\\'))
-+    --sep;
-+
-+  _dbus_assert (sep >= 0);
-+  
-+  if ((sep == 0 ||
-+       (sep == 2 &&
-+	_dbus_string_get_byte (filename, 1) == ':' &&
-+	isalpha (_dbus_string_get_byte (filename, 0))))
-+      &&
-+      (_dbus_string_get_byte (filename, sep) == '/' ||
-+       _dbus_string_get_byte (filename, sep) == '\\'))
-+    return _dbus_string_copy_len (filename, 0, sep + 1,
-+				  dirname, _dbus_string_get_length (dirname));
-+  else
-+    return _dbus_string_copy_len (filename, 0, sep - 0,
-+                                  dirname, _dbus_string_get_length (dirname));
-+#endif
- }
+-  /* info->members = dbus_strdupv (g->gr_mem) */
+-  
+-  if (info->groupname == NULL)
+-    {
+-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+-      return FALSE;
+-    }
+-
+-  return TRUE;
+-}
+-
+-static dbus_bool_t
+-fill_group_info (DBusGroupInfo    *info,
+-                 dbus_gid_t        gid,
+-                 const DBusString *groupname,
+-                 DBusError        *error)
+-{
+-  const char *group_c_str;
+-
+-  _dbus_assert (groupname != NULL || gid != DBUS_GID_UNSET);
+-  _dbus_assert (groupname == NULL || gid == DBUS_GID_UNSET);
+-
+-  if (groupname)
+-    group_c_str = _dbus_string_get_const_data (groupname);
+-  else
+-    group_c_str = NULL;
+-  
+-  /* For now assuming that the getgrnam() and getgrgid() flavors
+-   * always correspond to the pwnam flavors, if not we have
+-   * to add more configure checks.
+-   */
+-  
+-#if defined (HAVE_POSIX_GETPWNAM_R) || defined (HAVE_NONPOSIX_GETPWNAM_R)
+-  {
+-    struct group *g;
+-    int result;
+-    char buf[1024];
+-    struct group g_str;
+-
+-    g = NULL;
+-#ifdef HAVE_POSIX_GETPWNAM_R
+-
+-    if (group_c_str)
+-      result = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf),
+-                           &g);
+-    else
+-      result = getgrgid_r (gid, &g_str, buf, sizeof (buf),
+-                           &g);
+-#else
+-    g = getgrnam_r (group_c_str, &g_str, buf, sizeof (buf));
+-    result = 0;
+-#endif /* !HAVE_POSIX_GETPWNAM_R */
+-    if (result == 0 && g == &g_str)
+-      {
+-        return fill_user_info_from_group (g, info, error);
+-      }
+-    else
+-      {
+-        dbus_set_error (error, _dbus_error_from_errno (errno),
+-                        "Group %s unknown or failed to look it up\n",
+-                        group_c_str ? group_c_str : "???");
+-        return FALSE;
+-      }
+-  }
+-#else /* ! HAVE_GETPWNAM_R */
+-  {
+-    /* I guess we're screwed on thread safety here */
+-    struct group *g;
+-
+-    g = getgrnam (group_c_str);
+-
+-    if (g != NULL)
+-      {
+-        return fill_user_info_from_group (g, info, error);
+-      }
+-    else
+-      {
+-        dbus_set_error (error, _dbus_error_from_errno (errno),
+-                        "Group %s unknown or failed to look it up\n",
+-                        group_c_str ? group_c_str : "???");
+-        return FALSE;
+-      }
+-  }
+-#endif  /* ! HAVE_GETPWNAM_R */
+-}
+-
+-/**
+- * Initializes the given DBusGroupInfo struct
+- * with information about the given group name.
+- *
+- * @param info the group info struct
+- * @param groupname name of group
+- * @param error the error return
+- * @returns #FALSE if error is set
+- */
+-dbus_bool_t
+-_dbus_group_info_fill (DBusGroupInfo    *info,
+-                       const DBusString *groupname,
+-                       DBusError        *error)
+-{
+-  return fill_group_info (info, DBUS_GID_UNSET,
+-                          groupname, error);
+-
+-}
+-
+-/**
+- * Initializes the given DBusGroupInfo struct
+- * with information about the given group ID.
+- *
+- * @param info the group info struct
+- * @param gid group ID
+- * @param error the error return
+- * @returns #FALSE if error is set
+- */
+-dbus_bool_t
+-_dbus_group_info_fill_gid (DBusGroupInfo *info,
+-                           dbus_gid_t     gid,
+-                           DBusError     *error)
+-{
+-  return fill_group_info (info, gid, NULL, error);
+-}
+-
+-/** @} */ /* End of DBusInternalsUtils functions */
+-
+-/**
+- * @addtogroup DBusString
+- *
+- * @{
+- */
+-/**
+- * Get the directory name from a complete filename
+- * @param filename the filename
+- * @param dirname string to append directory name to
+- * @returns #FALSE if no memory
+- */
+-dbus_bool_t
+-_dbus_string_get_dirname  (const DBusString *filename,
+-                           DBusString       *dirname)
+-{
+-  int sep;
+-  
+-  _dbus_assert (filename != dirname);
+-  _dbus_assert (filename != NULL);
+-  _dbus_assert (dirname != NULL);
+-
+-  /* Ignore any separators on the end */
+-  sep = _dbus_string_get_length (filename);
+-  if (sep == 0)
+-    return _dbus_string_append (dirname, "."); /* empty string passed in */
+-    
+-  while (sep > 0 && _dbus_string_get_byte (filename, sep - 1) == '/')
+-    --sep;
+-
+-  _dbus_assert (sep >= 0);
+-  
+-  if (sep == 0)
+-    return _dbus_string_append (dirname, "/");
+-  
+-  /* Now find the previous separator */
+-  _dbus_string_find_byte_backward (filename, sep, '/', &sep);
+-  if (sep < 0)
+-    return _dbus_string_append (dirname, ".");
+-  
+-  /* skip multiple separators */
+-  while (sep > 0 && _dbus_string_get_byte (filename, sep - 1) == '/')
+-    --sep;
+-
+-  _dbus_assert (sep >= 0);
+-  
+-  if (sep == 0 &&
+-      _dbus_string_get_byte (filename, 0) == '/')
+-    return _dbus_string_append (dirname, "/");
+-  else
+-    return _dbus_string_copy_len (filename, 0, sep - 0,
+-                                  dirname, _dbus_string_get_length (dirname));
+-}
  /** @} */ /* DBusString stuff */
- 
-@@ -814,6 +1119,26 @@
-   check_dirname ("///", "/");
-   check_dirname ("", ".");  
- 
-+#ifdef DBUS_WIN
-+  check_dirname ("foo\\bar", "foo");
-+  check_dirname ("foo\\\\bar", "foo");
-+  check_dirname ("foo/\\/bar", "foo");
-+  check_dirname ("foo\\bar/", "foo");
-+  check_dirname ("foo//bar\\", "foo");
-+  check_dirname ("foo\\bar/", "foo");
-+  check_dirname ("foo/bar\\\\", "foo");
-+  check_dirname ("\\foo", "\\");
-+  check_dirname ("\\\\foo", "\\");
-+  check_dirname ("\\", "\\");
-+  check_dirname ("\\\\", "\\");
-+  check_dirname ("\\/", "\\");
-+  check_dirname ("/\\/", "/");
-+  check_dirname ("a:\\foo\\bar", "a:\\foo");
-+  check_dirname ("a:\\foo", "a:\\");
-+  check_dirname ("a:/foo", "a:/");
-+  check_dirname ("a:\\", "a:\\");
-+  check_dirname ("a:/", "a:/");
-+#endif
- 
-   _dbus_string_init_const (&str, "3.5");
-   if (!_dbus_string_parse_double (&str,
-@@ -833,6 +1158,7 @@
-       exit (1);
-     }
- 
-+#ifndef DBUS_WIN
-   _dbus_string_init_const (&str, "0xff");
-   if (!_dbus_string_parse_double (&str,
- 				  0, &val, &pos))
-@@ -850,12 +1176,23 @@
-       _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
-       exit (1);
-     }
-+#endif
-   
-   check_path_absolute ("/", TRUE);
-   check_path_absolute ("/foo", TRUE);
-   check_path_absolute ("", FALSE);
-   check_path_absolute ("foo", FALSE);
-   check_path_absolute ("foo/bar", FALSE);
-+#ifdef DBUS_WIN
-+  check_path_absolute ("\\", TRUE);
-+  check_path_absolute ("\\foo", TRUE);
-+  check_path_absolute ("", FALSE);
-+  check_path_absolute ("foo\\bar", FALSE);
-+  check_path_absolute ("a:\\", TRUE);
-+  check_path_absolute ("a:\\foo", TRUE);
-+  check_path_absolute ("a:", FALSE);
-+  check_path_absolute ("a:foo\\bar", FALSE);
-+#endif
-   
-   return TRUE;
- }
+-
+-
+-#ifdef DBUS_BUILD_TESTS
+-#include <stdlib.h>
+-static void
+-check_dirname (const char *filename,
+-               const char *dirname)
+-{
+-  DBusString f, d;
+-  
+-  _dbus_string_init_const (&f, filename);
+-
+-  if (!_dbus_string_init (&d))
+-    _dbus_assert_not_reached ("no memory");
+-
+-  if (!_dbus_string_get_dirname (&f, &d))
+-    _dbus_assert_not_reached ("no memory");
+-
+-  if (!_dbus_string_equal_c_str (&d, dirname))
+-    {
+-      _dbus_warn ("For filename \"%s\" got dirname \"%s\" and expected \"%s\"\n",
+-                  filename,
+-                  _dbus_string_get_const_data (&d),
+-                  dirname);
+-      exit (1);
+-    }
+-
+-  _dbus_string_free (&d);
+-}
+-
+-static void
+-check_path_absolute (const char *path,
+-                     dbus_bool_t expected)
+-{
+-  DBusString p;
+-
+-  _dbus_string_init_const (&p, path);
+-
+-  if (_dbus_path_is_absolute (&p) != expected)
+-    {
+-      _dbus_warn ("For path \"%s\" expected absolute = %d got %d\n",
+-                  path, expected, _dbus_path_is_absolute (&p));
+-      exit (1);
+-    }
+-}
+-
+-/**
+- * Unit test for dbus-sysdeps.c.
+- * 
+- * @returns #TRUE on success.
+- */
+-dbus_bool_t
+-_dbus_sysdeps_test (void)
+-{
+-  DBusString str;
+-  double val;
+-  int pos;
+-  
+-  check_dirname ("foo", ".");
+-  check_dirname ("foo/bar", "foo");
+-  check_dirname ("foo//bar", "foo");
+-  check_dirname ("foo///bar", "foo");
+-  check_dirname ("foo/bar/", "foo");
+-  check_dirname ("foo//bar/", "foo");
+-  check_dirname ("foo///bar/", "foo");
+-  check_dirname ("foo/bar//", "foo");
+-  check_dirname ("foo//bar////", "foo");
+-  check_dirname ("foo///bar///////", "foo");
+-  check_dirname ("/foo", "/");
+-  check_dirname ("////foo", "/");
+-  check_dirname ("/foo/bar", "/foo");
+-  check_dirname ("/foo//bar", "/foo");
+-  check_dirname ("/foo///bar", "/foo");
+-  check_dirname ("/", "/");
+-  check_dirname ("///", "/");
+-  check_dirname ("", ".");  
+-
+-
+-  _dbus_string_init_const (&str, "3.5");
+-  if (!_dbus_string_parse_double (&str,
+-				  0, &val, &pos))
+-    {
+-      _dbus_warn ("Failed to parse double");
+-      exit (1);
+-    }
+-  if (ABS(3.5 - val) > 1e-6)
+-    {
+-      _dbus_warn ("Failed to parse 3.5 correctly, got: %f", val);
+-      exit (1);
+-    }
+-  if (pos != 3)
+-    {
+-      _dbus_warn ("_dbus_string_parse_double of \"3.5\" returned wrong position %d", pos);
+-      exit (1);
+-    }
+-
+-  _dbus_string_init_const (&str, "0xff");
+-  if (!_dbus_string_parse_double (&str,
+-				  0, &val, &pos))
+-    {
+-      _dbus_warn ("Failed to parse double");
+-      exit (1);
+-    }
+-  if (ABS (0xff - val) > 1e-6)
+-    {
+-      _dbus_warn ("Failed to parse 0xff correctly, got: %f\n", val);
+-      exit (1);
+-    }
+-  if (pos != 4)
+-    {
+-      _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
+-      exit (1);
+-    }
+-  
+-  check_path_absolute ("/", TRUE);
+-  check_path_absolute ("/foo", TRUE);
+-  check_path_absolute ("", FALSE);
+-  check_path_absolute ("foo", FALSE);
+-  check_path_absolute ("foo/bar", FALSE);
+-  
+-  return TRUE;
+-}
+-#endif /* DBUS_BUILD_TESTS */
 Index: dbus/dbus-watch.c
 ===================================================================
 --- dbus/dbus-watch.c	(revision 55)
