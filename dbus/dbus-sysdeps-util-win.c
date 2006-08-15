@@ -29,6 +29,7 @@
 #include "dbus-userdb.h"
 #include "dbus-test.h"
 
+#include <io.h>
 #include <sys/types.h>
 #include <stdlib.h>
 #include <string.h>
