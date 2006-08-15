@@ -1072,7 +1072,7 @@ Index: dbus/dbus-sysdeps.c
  #include "dbus-threads.h"
  #include "dbus-protocol.h"
  #include "dbus-string.h"
-+#include "dbus-dirent.h"
++
  #include <sys/types.h>
  #include <stdlib.h>
  #include <string.h>
@@ -1083,7 +1083,7 @@ Index: dbus/dbus-sysdeps.c
  #include <fcntl.h>
 +
 +#ifdef DBUS_WIN
-+#include "dbus-sysdeps-win.h"
++
 +#include "dbus-hash.h"
 +#include "dbus-sockets-win.h"
 +#else
