@@ -1,6 +1,6 @@
 Index: test/spawn-test.c
 ===================================================================
---- test/spawn-test.c	(revision 49)
+--- test/spawn-test.c	(revision 97)
 +++ test/spawn-test.c	(working copy)
 @@ -31,7 +31,11 @@
      argv_copy [i] = argv[i + 1];
@@ -16,7 +16,7 @@ Index: test/spawn-test.c
  	       error.message);
 Index: test/test-segfault.c
 ===================================================================
---- test/test-segfault.c	(revision 49)
+--- test/test-segfault.c	(revision 97)
 +++ test/test-segfault.c	(working copy)
 @@ -1,10 +1,27 @@
  /* This is simply a process that segfaults */
@@ -48,7 +48,7 @@ Index: test/test-segfault.c
  {
 Index: test/test-sleep-forever.c
 ===================================================================
---- test/test-sleep-forever.c	(revision 49)
+--- test/test-sleep-forever.c	(revision 97)
 +++ test/test-sleep-forever.c	(working copy)
 @@ -1,6 +1,10 @@
  /* This is a process that just sleeps infinitely. */
@@ -63,18 +63,17 @@ Index: test/test-sleep-forever.c
  main (int argc, char **argv)
 Index: bus/activation.c
 ===================================================================
---- bus/activation.c	(revision 55)
+--- bus/activation.c	(revision 97)
 +++ bus/activation.c	(working copy)
-@@ -34,7 +34,7 @@
+@@ -34,7 +34,6 @@
  #include <dbus/dbus-spawn.h>
  #include <dbus/dbus-timeout.h>
  #include <dbus/dbus-sysdeps.h>
 -#include <dirent.h>
-+#include <dbus/dbus-dirent.h>
  #include <errno.h>
  
  #define DBUS_SERVICE_SECTION "D-BUS Service"
-@@ -1304,6 +1304,7 @@
+@@ -1304,6 +1303,7 @@
    DBusMessage *message;
    DBusString service_str;
    char **argv;
@@ -82,19 +81,44 @@ Index: bus/activation.c
    int argc;
    dbus_bool_t retval;
    DBusHashIter iter;
-@@ -1535,6 +1536,9 @@
+@@ -1535,6 +1535,7 @@
  
    _dbus_verbose ("Spawning %s ...\n", argv[0]);
    if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
-+#ifdef DBUS_WIN
 +                                          envp,
-+#endif
                                            child_setup, activation, 
                                            error))
      {
+Index: bus/test-main.c
+===================================================================
+--- bus/test-main.c	(revision 97)
++++ bus/test-main.c	(working copy)
+@@ -123,16 +123,22 @@
+     die ("signals");
+   test_post_hook ();
+ 
++#ifndef DBUS_WIN
+   test_pre_hook ();
+   printf ("%s: Running SHA1 connection test\n", argv[0]);
+   if (!bus_dispatch_sha1_test (&test_data_dir))
+     die ("sha1");
+   test_post_hook ();
++#endif
+ 
+   test_pre_hook ();
+   printf ("%s: Running message dispatch test\n", argv[0]);
+   if (!bus_dispatch_test (&test_data_dir)) 
++#ifndef DBUS_WIN
+     die ("dispatch");
++#else
++    printf("failed");
++#endif
+   test_post_hook ();
+ 
+   test_pre_hook ();
 Index: dbus/dbus-server-unix.c
 ===================================================================
---- dbus/dbus-server-unix.c	(revision 49)
+--- dbus/dbus-server-unix.c	(revision 97)
 +++ dbus/dbus-server-unix.c	(working copy)
 @@ -27,12 +27,16 @@
  #include "dbus-connection-internal.h"
@@ -251,7 +275,7 @@ Index: dbus/dbus-server-unix.c
      }
 Index: dbus/dbus-test.c
 ===================================================================
---- dbus/dbus-test.c	(revision 49)
+--- dbus/dbus-test.c	(revision 97)
 +++ dbus/dbus-test.c	(working copy)
 @@ -154,7 +154,9 @@
    
@@ -265,22 +289,20 @@ Index: dbus/dbus-test.c
    
 Index: dbus/dbus-threads.c
 ===================================================================
---- dbus/dbus-threads.c	(revision 55)
+--- dbus/dbus-threads.c	(revision 97)
 +++ dbus/dbus-threads.c	(working copy)
-@@ -222,6 +222,10 @@
+@@ -222,6 +222,8 @@
    
    DBusMutex **global_locks[] = {
  #define LOCK_ADDR(name) (& _dbus_lock_##name)
-+#ifdef DBUS_WIN
-+    LOCK_ADDR (win_fds),
++    LOCK_ADDR (win32_fds),
 +    LOCK_ADDR (sid_atom_cache),
-+#endif
      LOCK_ADDR (list),
      LOCK_ADDR (connection_slots),
      LOCK_ADDR (pending_call_slots),
 Index: dbus/dbus-spawn.h
 ===================================================================
---- dbus/dbus-spawn.h	(revision 49)
+--- dbus/dbus-spawn.h	(revision 97)
 +++ dbus/dbus-spawn.h	(working copy)
 @@ -37,6 +37,9 @@
  
@@ -294,7 +316,7 @@ Index: dbus/dbus-spawn.h
                                                     DBusError                 *error);
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 84)
+--- dbus/dbus-sysdeps-util.c	(revision 97)
 +++ dbus/dbus-sysdeps-util.c	(working copy)
 @@ -29,154 +29,18 @@
  #include "dbus-userdb.h"
@@ -1015,7 +1037,7 @@ Index: dbus/dbus-sysdeps-util.c
 -#endif /* DBUS_BUILD_TESTS */
 Index: dbus/dbus-watch.c
 ===================================================================
---- dbus/dbus-watch.c	(revision 55)
+--- dbus/dbus-watch.c	(revision 97)
 +++ dbus/dbus-watch.c	(working copy)
 @@ -486,7 +486,10 @@
  int
@@ -1031,7 +1053,7 @@ Index: dbus/dbus-watch.c
  /**
 Index: dbus/dbus-transport-unix.c
 ===================================================================
---- dbus/dbus-transport-unix.c	(revision 49)
+--- dbus/dbus-transport-unix.c	(revision 97)
 +++ dbus/dbus-transport-unix.c	(working copy)
 @@ -26,6 +26,9 @@
  #include "dbus-transport-unix.h"
@@ -1045,7 +1067,7 @@ Index: dbus/dbus-transport-unix.c
  /**
 Index: dbus/dbus-mainloop.c
 ===================================================================
---- dbus/dbus-mainloop.c	(revision 49)
+--- dbus/dbus-mainloop.c	(revision 97)
 +++ dbus/dbus-mainloop.c	(working copy)
 @@ -609,7 +609,7 @@
                    
@@ -1056,9 +1078,21 @@ Index: dbus/dbus-mainloop.c
                fds[n_fds].revents = 0;
                fds[n_fds].events = 0;
                if (flags & DBUS_WATCH_READABLE)
+Index: dbus/dbus-sysdeps-win.c
+===================================================================
+--- dbus/dbus-sysdeps-win.c	(revision 97)
++++ dbus/dbus-sysdeps-win.c	(working copy)
+@@ -28,7 +28,6 @@
+ #include "dbus-threads.h"
+ #include "dbus-protocol.h"
+ #include "dbus-hash.h"
+-#include "dbus-dirent.h"
+ #include "dbus-sockets-win.h"
+ #include "dbus-string.h"
+ #include <sys/types.h>
 Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus/dbus-sysdeps.c	(revision 55)
+--- dbus/dbus-sysdeps.c	(revision 97)
 +++ dbus/dbus-sysdeps.c	(working copy)
 @@ -3,6 +3,7 @@
   * 
@@ -1068,12 +1102,7 @@ Index: dbus/dbus-sysdeps.c
   *
   * Licensed under the Academic Free License version 2.1
   * 
-@@ -27,27 +28,36 @@
- #include "dbus-threads.h"
- #include "dbus-protocol.h"
- #include "dbus-string.h"
-+
- #include <sys/types.h>
+@@ -31,23 +32,31 @@
  #include <stdlib.h>
  #include <string.h>
  #include <signal.h>
@@ -1083,7 +1112,7 @@ Index: dbus/dbus-sysdeps.c
  #include <fcntl.h>
 +
 +#ifdef DBUS_WIN
-+
++#include "dbus-sysdeps-win.h"
 +#include "dbus-hash.h"
 +#include "dbus-sockets-win.h"
 +#else
@@ -1109,7 +1138,7 @@ Index: dbus/dbus-sysdeps.c
  #ifdef HAVE_WRITEV
  #include <sys/uio.h>
  #endif
-@@ -69,6 +79,14 @@
+@@ -69,6 +78,14 @@
  #define socklen_t int
  #endif
  
@@ -1124,7 +1153,7 @@ Index: dbus/dbus-sysdeps.c
  /**
   * @addtogroup DBusInternalsUtils
   * @{
-@@ -86,6 +104,10 @@
+@@ -86,6 +103,10 @@
    if (s && *s)
      _dbus_print_backtrace ();
  #endif
@@ -1135,7 +1164,7 @@ Index: dbus/dbus-sysdeps.c
    abort ();
    _exit (1); /* in case someone manages to ignore SIGABRT */
  }
-@@ -123,11 +145,18 @@
+@@ -123,11 +144,18 @@
         * will get upset about.
         */
        
@@ -1154,7 +1183,7 @@ Index: dbus/dbus-sysdeps.c
        
        return (putenv (putenv_value) == 0);
  #endif
-@@ -194,6 +223,9 @@
+@@ -194,6 +222,9 @@
              DBusString       *buffer,
              int               count)
  {
@@ -1164,7 +1193,7 @@ Index: dbus/dbus-sysdeps.c
    int bytes_read;
    int start;
    char *data;
-@@ -237,6 +269,7 @@
+@@ -237,6 +268,7 @@
        
        return bytes_read;
      }
@@ -1172,7 +1201,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -255,6 +288,9 @@
+@@ -255,6 +287,9 @@
               int               start,
               int               len)
  {
@@ -1182,7 +1211,7 @@ Index: dbus/dbus-sysdeps.c
    const char *data;
    int bytes_written;
    
-@@ -273,6 +309,7 @@
+@@ -273,6 +308,7 @@
  #endif
    
    return bytes_written;
@@ -1190,7 +1219,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -310,6 +347,10 @@
+@@ -310,6 +346,10 @@
    _dbus_assert (len1 >= 0);
    _dbus_assert (len2 >= 0);
    
@@ -1201,7 +1230,7 @@ Index: dbus/dbus-sysdeps.c
  #ifdef HAVE_WRITEV
    {
      struct iovec vectors[2];
-@@ -361,6 +402,8 @@
+@@ -361,6 +401,8 @@
        return ret1;
    }
  #endif /* !HAVE_WRITEV */   
@@ -1210,7 +1239,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  #define _DBUS_MAX_SUN_PATH_LENGTH 99
-@@ -383,6 +426,10 @@
+@@ -383,6 +425,10 @@
   * given path.  The connection fd is returned, and is set up as
   * nonblocking.
   * 
@@ -1221,7 +1250,7 @@ Index: dbus/dbus-sysdeps.c
   * Uses abstract sockets instead of filesystem-linked sockets if
   * requested (it's possible only on Linux; see "man 7 unix" on Linux).
   * On non-Linux abstract socket usage always fails.
-@@ -397,6 +444,10 @@
+@@ -397,6 +443,10 @@
                             dbus_bool_t     abstract,
                             DBusError      *error)
  {
@@ -1232,7 +1261,7 @@ Index: dbus/dbus-sysdeps.c
    int fd;
    size_t path_len;
    struct sockaddr_un addr;  
-@@ -482,6 +533,7 @@
+@@ -482,6 +532,7 @@
      }
  
    return fd;
@@ -1240,7 +1269,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -504,6 +556,10 @@
+@@ -504,6 +555,10 @@
                            dbus_bool_t     abstract,
                            DBusError      *error)
  {
@@ -1251,7 +1280,7 @@ Index: dbus/dbus-sysdeps.c
    int listen_fd;
    struct sockaddr_un addr;
    size_t path_len;
-@@ -617,6 +673,7 @@
+@@ -617,6 +672,7 @@
                  path);
    
    return listen_fd;
@@ -1259,7 +1288,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -624,7 +681,7 @@
+@@ -624,7 +680,7 @@
   * and port. The connection fd is returned, and is set up as
   * nonblocking.
   *
@@ -1268,7 +1297,7 @@ Index: dbus/dbus-sysdeps.c
   * @param port the prot to connect to
   * @param error return location for error code
   * @returns connection file descriptor or -1 on error
-@@ -638,13 +695,21 @@
+@@ -638,13 +694,21 @@
    struct sockaddr_in addr;
    struct hostent *he;
    struct in_addr *haddr;
@@ -1291,7 +1320,7 @@ Index: dbus/dbus-sysdeps.c
        dbus_set_error (error,
                        _dbus_error_from_errno (errno),
                        "Failed to create socket: %s",
-@@ -654,16 +719,23 @@
+@@ -654,16 +718,23 @@
      }
  
    if (host == NULL)
@@ -1316,7 +1345,7 @@ Index: dbus/dbus-sysdeps.c
        return -1;
      }
    
-@@ -674,22 +746,26 @@
+@@ -674,22 +745,26 @@
    addr.sin_family = AF_INET;
    addr.sin_port = htons (port);
    
@@ -1346,7 +1375,7 @@ Index: dbus/dbus-sysdeps.c
        fd = -1;
  
        return -1;
-@@ -699,12 +775,12 @@
+@@ -699,12 +774,12 @@
  }
  
  /**
@@ -1362,7 +1391,7 @@ Index: dbus/dbus-sysdeps.c
   * @param error return location for errors
   * @returns the listening file descriptor or -1 on error
   */
-@@ -717,31 +793,58 @@
+@@ -717,31 +792,58 @@
    struct sockaddr_in addr;
    struct hostent *he;
    struct in_addr *haddr;
@@ -1424,7 +1453,7 @@ Index: dbus/dbus-sysdeps.c
  
    _DBUS_ZERO (addr);
    memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
-@@ -750,25 +853,29 @@
+@@ -750,25 +852,29 @@
  
    if (bind (listen_fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
      {
@@ -1458,7 +1487,7 @@ Index: dbus/dbus-sysdeps.c
        return -1;
      }
    
-@@ -779,6 +886,33 @@
+@@ -779,6 +885,33 @@
  write_credentials_byte (int             server_fd,
                          DBusError      *error)
  {
@@ -1492,7 +1521,7 @@ Index: dbus/dbus-sysdeps.c
    int bytes_written;
    char buf[1] = { '\0' };
  #if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
-@@ -838,6 +972,8 @@
+@@ -838,6 +971,8 @@
        _dbus_verbose ("wrote credentials byte\n");
        return TRUE;
      }
@@ -1501,7 +1530,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -863,6 +999,8 @@
+@@ -863,6 +998,8 @@
                                       DBusCredentials *credentials,
                                       DBusError       *error)
  {
@@ -1510,7 +1539,7 @@ Index: dbus/dbus-sysdeps.c
    struct msghdr msg;
    struct iovec iov;
    char buf;
-@@ -1002,6 +1140,15 @@
+@@ -1002,6 +1139,15 @@
  		 credentials->gid);
      
    return TRUE;
@@ -1526,7 +1555,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -1049,16 +1196,23 @@
+@@ -1049,16 +1195,23 @@
  
    addrlen = sizeof (addr);
    
@@ -1552,7 +1581,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /** @} */
-@@ -1238,6 +1392,7 @@
+@@ -1238,6 +1391,7 @@
  	
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
      
@@ -1560,7 +1589,7 @@ Index: dbus/dbus-sysdeps.c
    directory = _dbus_string_get_const_data (dir);
  	
    if (stat (directory, &sb) < 0)
-@@ -1255,7 +1410,7 @@
+@@ -1255,7 +1409,7 @@
                       "%s directory is not private to the user", directory);
        return FALSE;
      }
@@ -1569,7 +1598,7 @@ Index: dbus/dbus-sysdeps.c
    return TRUE;
  }
  
-@@ -1339,6 +1494,10 @@
+@@ -1339,6 +1493,10 @@
  ascii_strtod (const char *nptr,
  	      char      **endptr)
  {
@@ -1580,7 +1609,7 @@ Index: dbus/dbus-sysdeps.c
    char *fail_pos;
    double val;
    struct lconv *locale_data;
-@@ -1507,6 +1666,9 @@
+@@ -1507,6 +1665,9 @@
   * @addtogroup DBusInternalsUtils
   * @{
   */
@@ -1590,7 +1619,7 @@ Index: dbus/dbus-sysdeps.c
  static dbus_bool_t
  fill_user_info_from_passwd (struct passwd *p,
                              DBusUserInfo  *info,
-@@ -1529,6 +1691,7 @@
+@@ -1529,6 +1690,7 @@
  
    return TRUE;
  }
@@ -1598,7 +1627,7 @@ Index: dbus/dbus-sysdeps.c
  
  static dbus_bool_t
  fill_user_info (DBusUserInfo       *info,
-@@ -1554,6 +1717,7 @@
+@@ -1554,6 +1716,7 @@
    else
      username_c = NULL;
  
@@ -1606,7 +1635,7 @@ Index: dbus/dbus-sysdeps.c
    /* For now assuming that the getpwnam() and getpwuid() flavors
     * are always symmetrical, if not we have to add more configure
     * checks
-@@ -1704,8 +1868,36 @@
+@@ -1704,8 +1867,36 @@
   failed:
    _DBUS_ASSERT_ERROR_IS_SET (error);
    return FALSE;
@@ -1643,7 +1672,7 @@ Index: dbus/dbus-sysdeps.c
  /**
   * Gets user info for the given username.
   *
-@@ -1753,7 +1945,7 @@
+@@ -1753,7 +1944,7 @@
    dbus_free (info->homedir);
  }
  
@@ -1652,7 +1681,7 @@ Index: dbus/dbus-sysdeps.c
   * Frees the members of info (but not info itself).
   *
   * @param info the group info
-@@ -1786,6 +1978,7 @@
+@@ -1786,6 +1977,7 @@
  void
  _dbus_credentials_from_current_process (DBusCredentials *credentials)
  {
@@ -1660,7 +1689,7 @@ Index: dbus/dbus-sysdeps.c
    /* The POSIX spec certainly doesn't promise this, but
     * we need these assertions to fail as soon as we're wrong about
     * it so we can do the porting fixups
-@@ -1793,10 +1986,11 @@
+@@ -1793,10 +1985,11 @@
    _dbus_assert (sizeof (pid_t) <= sizeof (credentials->pid));
    _dbus_assert (sizeof (uid_t) <= sizeof (credentials->uid));
    _dbus_assert (sizeof (gid_t) <= sizeof (credentials->gid));
@@ -1675,7 +1704,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -1830,7 +2024,11 @@
+@@ -1830,7 +2023,11 @@
  unsigned long
  _dbus_getpid (void)
  {
@@ -1687,7 +1716,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /** Gets our UID
-@@ -1839,7 +2037,11 @@
+@@ -1839,7 +2036,11 @@
  dbus_uid_t
  _dbus_getuid (void)
  {
@@ -1699,7 +1728,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  #ifdef DBUS_BUILD_TESTS
-@@ -1849,7 +2051,11 @@
+@@ -1849,7 +2050,11 @@
  dbus_gid_t
  _dbus_getgid (void)
  {
@@ -1711,7 +1740,7 @@ Index: dbus/dbus-sysdeps.c
  }
  #endif
  
-@@ -1931,6 +2137,9 @@
+@@ -1931,6 +2136,9 @@
              int         n_fds,
              int         timeout_milliseconds)
  {
@@ -1721,7 +1750,7 @@ Index: dbus/dbus-sysdeps.c
  #ifdef HAVE_POLL
    /* This big thing is a constant expression and should get optimized
     * out of existence. So it's more robust than a configure check at
-@@ -2016,8 +2225,10 @@
+@@ -2016,8 +2224,10 @@
  
    return ready;
  #endif
@@ -1732,7 +1761,7 @@ Index: dbus/dbus-sysdeps.c
  /** nanoseconds in a second */
  #define NANOSECONDS_PER_SECOND       1000000000
  /** microseconds in a second */
-@@ -2036,6 +2247,7 @@
+@@ -2036,6 +2246,7 @@
  void
  _dbus_sleep_milliseconds (int milliseconds)
  {
@@ -1740,7 +1769,7 @@ Index: dbus/dbus-sysdeps.c
  #ifdef HAVE_NANOSLEEP
    struct timespec req;
    struct timespec rem;
-@@ -2052,18 +2264,22 @@
+@@ -2052,18 +2263,22 @@
  #else /* ! HAVE_USLEEP */
    sleep (MAX (milliseconds / 1000, 1));
  #endif
@@ -1764,7 +1793,7 @@ Index: dbus/dbus-sysdeps.c
    struct timeval t;
  
    gettimeofday (&t, NULL);
-@@ -2072,6 +2288,24 @@
+@@ -2072,6 +2287,24 @@
      *tv_sec = t.tv_sec;
    if (tv_usec)
      *tv_usec = t.tv_usec;
@@ -1789,7 +1818,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -2099,7 +2333,7 @@
+@@ -2099,7 +2332,7 @@
    
    filename_c = _dbus_string_get_const_data (filename);
    
@@ -1798,7 +1827,7 @@ Index: dbus/dbus-sysdeps.c
    fd = open (filename_c, O_RDONLY | O_BINARY);
    if (fd < 0)
      {
-@@ -2139,10 +2373,11 @@
+@@ -2139,10 +2372,11 @@
    if (sb.st_size > 0 && S_ISREG (sb.st_mode))
      {
        int bytes_read;
@@ -1811,7 +1840,7 @@ Index: dbus/dbus-sysdeps.c
                                     sb.st_size - total);
            if (bytes_read <= 0)
              {
-@@ -2154,7 +2389,7 @@
+@@ -2154,7 +2388,7 @@
                _dbus_verbose ("read() failed: %s",
                               _dbus_strerror (errno));
                
@@ -1820,7 +1849,7 @@ Index: dbus/dbus-sysdeps.c
                _dbus_string_set_length (str, orig_len);
                return FALSE;
              }
-@@ -2162,7 +2397,7 @@
+@@ -2162,7 +2396,7 @@
              total += bytes_read;
          }
  
@@ -1829,7 +1858,7 @@ Index: dbus/dbus-sysdeps.c
        return TRUE;
      }
    else if (sb.st_size != 0)
-@@ -2251,6 +2486,8 @@
+@@ -2251,6 +2485,8 @@
        goto out;
      }
  
@@ -1838,7 +1867,7 @@ Index: dbus/dbus-sysdeps.c
    need_unlink = TRUE;
    
    total = 0;
-@@ -2275,7 +2512,7 @@
+@@ -2275,7 +2511,7 @@
        total += bytes_written;
      }
  
@@ -1847,7 +1876,7 @@ Index: dbus/dbus-sysdeps.c
      {
        dbus_set_error (error, _dbus_error_from_errno (errno),
                        "Could not close file %s: %s",
-@@ -2286,7 +2523,11 @@
+@@ -2286,7 +2522,11 @@
  
    fd = -1;
    
@@ -1860,7 +1889,7 @@ Index: dbus/dbus-sysdeps.c
      {
        dbus_set_error (error, _dbus_error_from_errno (errno),
                        "Could not rename %s to %s: %s",
-@@ -2306,7 +2547,7 @@
+@@ -2306,7 +2546,7 @@
     */
  
    if (fd >= 0)
@@ -1869,7 +1898,7 @@ Index: dbus/dbus-sysdeps.c
          
    if (need_unlink && unlink (tmp_filename_c) < 0)
      _dbus_verbose ("Failed to unlink temp file %s: %s\n",
-@@ -2444,6 +2685,7 @@
+@@ -2444,6 +2684,7 @@
        _dbus_string_get_length (next_component) == 0)
      return TRUE;
    
@@ -1877,7 +1906,7 @@ Index: dbus/dbus-sysdeps.c
    dir_ends_in_slash = '/' == _dbus_string_get_byte (dir,
                                                      _dbus_string_get_length (dir) - 1);
  
-@@ -2458,7 +2700,26 @@
+@@ -2458,7 +2699,26 @@
        if (!_dbus_string_append_byte (dir, '/'))
          return FALSE;
      }
@@ -1904,7 +1933,7 @@ Index: dbus/dbus-sysdeps.c
    return _dbus_string_copy (next_component, 0, dir,
                              _dbus_string_get_length (dir));
  }
-@@ -2565,14 +2826,18 @@
+@@ -2565,14 +2825,18 @@
    old_len = _dbus_string_get_length (str);
    fd = -1;
  
@@ -1924,7 +1953,7 @@ Index: dbus/dbus-sysdeps.c
        _dbus_string_set_length (str, old_len);
        return pseudorandom_generate_random_bytes (str, n_bytes);
      }
-@@ -2583,6 +2848,10 @@
+@@ -2583,6 +2847,10 @@
    close (fd);
    
    return TRUE;
@@ -1935,7 +1964,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -2632,6 +2901,7 @@
+@@ -2632,6 +2900,7 @@
  const char*
  _dbus_strerror (int error_number)
  {
@@ -1943,7 +1972,7 @@ Index: dbus/dbus-sysdeps.c
    const char *msg;
    
    msg = strerror (error_number);
-@@ -2639,6 +2909,9 @@
+@@ -2639,6 +2908,9 @@
      msg = "unknown";
  
    return msg;
@@ -1953,7 +1982,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -2647,7 +2920,9 @@
+@@ -2647,7 +2919,9 @@
  void
  _dbus_disable_sigpipe (void)
  {
@@ -1963,7 +1992,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -2660,6 +2935,9 @@
+@@ -2660,6 +2934,9 @@
  void
  _dbus_fd_set_close_on_exec (int fd)
  {
@@ -1973,7 +2002,7 @@ Index: dbus/dbus-sysdeps.c
    int val;
    
    val = fcntl (fd, F_GETFD, 0);
-@@ -2670,15 +2948,16 @@
+@@ -2670,15 +2947,16 @@
    val |= FD_CLOEXEC;
    
    fcntl (fd, F_SETFD, val);
@@ -1992,7 +2021,7 @@ Index: dbus/dbus-sysdeps.c
   * @returns an error name
   */
  const char*
-@@ -2792,6 +3071,10 @@
+@@ -2792,6 +3070,10 @@
  _dbus_close (int        fd,
               DBusError *error)
  {
@@ -2003,7 +2032,7 @@ Index: dbus/dbus-sysdeps.c
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
    
   again:
-@@ -2806,6 +3089,7 @@
+@@ -2806,6 +3088,7 @@
      }
  
    return TRUE;
@@ -2011,7 +2040,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  /**
-@@ -2819,6 +3103,9 @@
+@@ -2819,6 +3102,9 @@
  _dbus_set_fd_nonblocking (int             fd,
                            DBusError      *error)
  {
@@ -2021,7 +2050,7 @@ Index: dbus/dbus-sysdeps.c
    int val;
  
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-@@ -2846,6 +3133,7 @@
+@@ -2846,6 +3132,7 @@
      }
  
    return TRUE;
@@ -2029,7 +2058,7 @@ Index: dbus/dbus-sysdeps.c
  }
  
  #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
-@@ -2893,8 +3181,8 @@
+@@ -2893,8 +3180,8 @@
  _dbus_parse_uid (const DBusString      *uid_str,
                   dbus_uid_t            *uid)
  {
@@ -2039,7 +2068,7 @@ Index: dbus/dbus-sysdeps.c
    
    if (_dbus_string_get_length (uid_str) == 0)
      {
-@@ -2904,8 +3192,7 @@
+@@ -2904,8 +3191,7 @@
  
    val = -1;
    end = 0;
@@ -2049,7 +2078,7 @@ Index: dbus/dbus-sysdeps.c
      {
        _dbus_verbose ("could not parse string as a UID\n");
        return FALSE;
-@@ -2975,6 +3262,9 @@
+@@ -2975,6 +3261,9 @@
                   *fd1, *fd2);
    
    return TRUE;  
@@ -2061,7 +2090,7 @@ Index: dbus/dbus-sysdeps.c
    dbus_set_error (error, DBUS_ERROR_FAILED,
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 55)
+--- dbus/dbus-sysdeps.h	(revision 97)
 +++ dbus/dbus-sysdeps.h	(working copy)
 @@ -101,6 +101,22 @@
  #define DBUS_UID_FORMAT "%lu"
@@ -2088,7 +2117,7 @@ Index: dbus/dbus-sysdeps.h
   */
 Index: dbus/dbus-internals.h
 ===================================================================
---- dbus/dbus-internals.h	(revision 55)
+--- dbus/dbus-internals.h	(revision 97)
 +++ dbus/dbus-internals.h	(working copy)
 @@ -281,7 +281,9 @@
  _DBUS_DECLARE_GLOBAL_LOCK (system_users);
@@ -2101,28 +2130,3 @@ Index: dbus/dbus-internals.h
  
  dbus_bool_t _dbus_threads_init_debug (void);
  
-   
-Index: tools/dbus-monitor.c
-===================================================================
---- tools/dbus-monitor.c	(revision 49)
-+++ tools/dbus-monitor.c	(working copy)
-@@ -19,6 +19,7 @@
-  *
-  */
- 
-+#include <config.h>
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
-Index: tools/dbus-send.c
-===================================================================
---- tools/dbus-send.c	(revision 55)
-+++ tools/dbus-send.c	(working copy)
-@@ -19,6 +19,7 @@
-  *
-  */
- 
-+#include <config.h>
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
