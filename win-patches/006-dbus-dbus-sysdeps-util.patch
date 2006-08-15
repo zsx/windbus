@@ -689,6 +689,16 @@
 +
 +
 +
+--- dbus\dbus-sysdeps-util-win.c	(revision 94)
++++ dbus\dbus-sysdeps-util-win.c	(revision 102)
+@@ -29,6 +29,7 @@
+ #include "dbus-userdb.h"
+ #include "dbus-test.h"
+ 
++#include <io.h>
+ #include <sys/types.h>
+ #include <stdlib.h>
+ #include <string.h>
 --- dbus\empty	2006-08-15 02:03:46.320520000 +0200
 +++ dbus\dbus-sysdeps-util-unix.c	2006-08-15 01:03:53.123756800 +0200
 @@ -0,0 +1,629 @@
