@@ -89,34 +89,46 @@ endif (WIN32)
 ########### command line options ###############
 # TODO: take check from configure.in 
 
-#AC_ARG_ENABLE(qt, AS_HELP_STRING([--enable-qt],[enable Qt-friendly client library]),enable_qt=$enableval,enable_qt=auto)
-#AC_ARG_ENABLE(qt-debug, AS_HELP_STRING([--enable-qt-debug],[enable Qt-friendly client library, linked to debug Qt libraries]),enable_qt_debug=$enableval,enable_qt_debug=no)
-#AC_ARG_WITH(qt_moc, AS_HELP_STRING([--with-qt-moc=<path>],[moc for Qt]))
-#AC_ARG_ENABLE(qt3, AS_HELP_STRING([--enable-qt3],[enable Qt3-friendly client library]),enable_qt3=$enableval,enable_qt3=auto)
-#AC_ARG_WITH(qt3_moc, AS_HELP_STRING([--with-qt3-moc=<path>],[moc for Qt3]))
-#AC_ARG_ENABLE(glib, AS_HELP_STRING([--enable-glib],[enable GLib-friendly client library]),enable_glib=$enableval,enable_glib=auto)
-#AC_ARG_ENABLE(gtk, AS_HELP_STRING([--enable-gtk],[enable GTK-requiring executables]),enable_gtk=$enableval,enable_gtk=auto)
+if (WIN32)
+	set(enable-asserts 1)
+	set(enable-tests 1)
+	set(enable-verbose-mode 1)
+	set(enable-checks 1)
+endif (WIN32)
+
 #AC_ARG_ENABLE(tests, AS_HELP_STRING([--enable-tests],[enable unit test code]),enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
 
-set (DBUS_BUILD_TESTS 1)
+if (enable-tests)	
+	set (DBUS_BUILD_TESTS 1)
 
-if (DBUS_BUILD_TESTS)
 	add_definitions(-DDBUS_BUILD_TESTS=1)
 	if(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
 		add_definitions(-g)
 	endif(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
-endif (DBUS_BUILD_TESTS)
+endif (enable-tests)	
 
 #AC_ARG_ENABLE(ansi, AS_HELP_STRING([--enable-ansi],[enable -ansi -pedantic gcc flags]),enable_ansi=$enableval,enable_ansi=no)
+
 #AC_ARG_ENABLE(verbose-mode, AS_HELP_STRING([--enable-verbose-mode],[support verbose debug mode]),enable_verbose_mode=$enableval,enable_verbose_mode=$USE_MAINTAINER_MODE)
 
-set (DBUS_ENABLE_VERBOSE_MODE 1)
-
-if (DBUS_ENABLE_VERBOSE_MODE)
+if (enable-verbose-mode)	
+	set (DBUS_ENABLE_VERBOSE_MODE 1)
 	add_definitions(-DDBUS_ENABLE_VERBOSE_MODE=1)
-endif (DBUS_ENABLE_VERBOSE_MODE)
+endif (enable-verbose-mode)
 
 #AC_ARG_ENABLE(asserts, AS_HELP_STRING([--enable-asserts],[include assertion checks]),enable_asserts=$enableval,enable_asserts=$USE_MAINTAINER_MODE)
+#    AC_DEFINE(DBUS_DISABLE_ASSERT,1,[Disable assertion checking])
+
+if (enable-asserts)	
+	set (DBUS_ENABLE_ASSERTS 1)
+	set (DBUS_DISABLE_ASSERTS 0)
+	add_definitions(-DDBUS_DISABLE_ASSERTS=0)
+else (enable-asserts)
+	set (DBUS_ENABLE_ASSERTS 0)
+	set (DBUS_DISABLE_ASSERTS 1)
+	add_definitions(-DDBUS_DISABLE_ASSERTS=1)
+endif (enable-asserts)
+
 #AC_ARG_ENABLE(checks, AS_HELP_STRING([--enable-checks],[include sanity checks on public API]),enable_checks=$enableval,enable_checks=yes)
 #AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentation (requires xmlto)]),enable_xml_docs=$enableval,enable_xml_docs=auto)
 #AC_ARG_ENABLE(doxygen-docs, AS_HELP_STRING([--enable-doxygen-docs],[build DOXYGEN documentation (requires Doxygen)]),enable_doxygen_docs=$enableval,enable_doxygen_docs=auto)
@@ -177,18 +189,16 @@ endif (WIN32)
 
 set (DBUS_USER )
 
-#    AC_DEFINE(DBUS_DISABLE_ASSERT,1,[Disable assertion checking])
 
 #if test x$enable_checks = xno; then
 #    AC_DEFINE(DBUS_DISABLE_CHECKS,1,[Disable public API sanity checking])
 
-set (DBUS_ENABLE_CHECKS 1)
-if (DBUS_ENABLE_CHECKS)
+if (enable-checks)
+	set (DBUS_ENABLE_CHECKS 1)
 	set (DBUS_DISABLE_CHECKS 0)
-else (DBUS_ENABLE_CHECKS)
+else (enable-checks)
 	set (DBUS_DISABLE_CHECKS 1)
-endif (DBUS_ENABLE_CHECKS)
-
+endif (enable-checks)
 
 if (WIN32)
   set (DBUS_SESSION_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=12434")
@@ -264,7 +274,7 @@ message("        16-bit int:            	  ${DBUS_INT16_TYPE}                  "
 #message("        gcc coverage profiling:   ${enable_gcov}                      ")
 message("        Building unit tests:      ${DBUS_BUILD_TESTS}                 ")
 message("        Building verbose mode:    ${DBUS_ENABLE_VERBOSE_MODE}         ")
-#message("        Building assertions:      ${enable_asserts}                   ")
+message("        Building assertions:      ${DBUS_ENABLE_ASSERTS}               ")
 message("        Building checks:          ${DBUS_ENABLE_CHECKS}               ")
 #message("        Building SELinux support: ${have_selinux}                     ")
 #message("        Building dnotify support: ${have_dnotify}                     ")
