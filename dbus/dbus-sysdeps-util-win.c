@@ -28,7 +28,6 @@
 #define DBUS_USERDB_INCLUDES_PRIVATE 1
 #include "dbus-userdb.h"
 #include "dbus-test.h"
-#include "dbus-dirent.h"
 
 #include <sys/types.h>
 #include <stdlib.h>
@@ -55,6 +54,37 @@
 #endif
 
 
+/**
+ * Does the chdir, fork, setsid, etc. to become a daemon process.
+ *
+ * @param pidfile #NULL, or pidfile to create
+ * @param print_pid_fd file descriptor to print daemon's pid to, or -1 for none
+ * @param error return location for errors
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_become_daemon (const DBusString *pidfile,
+		     int               print_pid_fd,
+                     DBusError        *error)
+{
+  return TRUE;
+}
+
+/**
+ * Changes the user and group the bus is running as.
+ *
+ * @param uid the new user ID
+ * @param gid the new group ID
+ * @param error return location for errors
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_change_identity  (dbus_uid_t     uid,
+                        dbus_gid_t     gid,
+                        DBusError     *error)
+{
+  return TRUE;
+}
 
 /** Checks if user is at the console
 *
@@ -63,7 +93,7 @@
 * @returns #TRUE is the user is at the consolei and there are no errors
 */
 dbus_bool_t 
-_dbus_user_at_console_win (const char *username,
+_dbus_user_at_console(const char *username,
                        DBusError  *error)
 {
   dbus_bool_t retval = FALSE;
@@ -137,7 +167,17 @@ _dbus_user_at_console_win (const char *username,
   return retval;
 }
 
-
+/** Installs a signal handler
+ *
+ * @param sig the signal to handle
+ * @param handler the handler
+ */
+void
+_dbus_set_signal_handler (int               sig,
+                          DBusSignalHandler handler)
+{
+  _dbus_warn ("_dbus_set_signal_handler() has to be implemented\n");
+}
 
 /**
  * stat() wrapper.
@@ -148,7 +188,7 @@ _dbus_user_at_console_win (const char *username,
  * @returns #FALSE if error was set
  */
 dbus_bool_t
-_dbus_stat_win (const DBusString *filename,
+_dbus_stat(const DBusString *filename,
             DBusStat         *statbuf,
             DBusError        *error)
 {
@@ -228,11 +268,24 @@ _dbus_stat_win (const DBusString *filename,
   return TRUE;
 }
 
-
+/**
+ * Checks whether the filename is an absolute path
+ *
+ * @param filename the filename
+ * @returns #TRUE if an absolute path
+ */
+dbus_bool_t
+_dbus_path_is_absolute (const DBusString *filename)
+{
+  if (_dbus_string_get_length (filename) > 0)
+    return _dbus_string_get_byte (filename, 1) == ':';
+  else
+    return FALSE;
+}
 
 
 dbus_bool_t
-fill_group_info_win (DBusGroupInfo    *info,
+fill_group_info(DBusGroupInfo    *info,
                  dbus_gid_t        gid,
                  const DBusString *groupname,
                  DBusError        *error)
@@ -247,9 +300,6 @@ fill_group_info_win (DBusGroupInfo    *info,
   else
     group_c_str = NULL;
   
-#ifndef DBUS_WIN
-#else  /* DBUS_WIN */
-
   if (group_c_str)
     {
       PSID group_sid;
@@ -308,11 +358,130 @@ fill_group_info_win (DBusGroupInfo    *info,
 
       return retval;
     }
-#endif /* DBUS_WIN */
+}
+
+/* This file is part of the KDE project
+   Copyright (C) 2000 Werner Almesberger
+
+   libc/sys/linux/sys/dirent.h - Directory entry as returned by readdir
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Library General Public
+   License as published by the Free Software Foundation; either
+   version 2 of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Library General Public License for more details.
+
+   You should have received a copy of the GNU Library General Public License
+   along with this program; see the file COPYING.  If not, write to
+   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.
+*/
+
+#define HAVE_NO_D_NAMLEN	/* no struct dirent->d_namlen */
+#define HAVE_DD_LOCK  		/* have locking mechanism */
+
+#define MAXNAMLEN 255		/* sizeof(struct dirent.d_name)-1 */
+
+#define __dirfd(dir) (dir)->dd_fd
+
+/* struct dirent - same as Unix */
+struct dirent {
+    long d_ino;                    /* inode (always 1 in WIN32) */
+    off_t d_off;                /* offset to this dirent */
+    unsigned short d_reclen;    /* length of d_name */
+    char d_name[_MAX_FNAME+1];    /* filename (null terminated) */
+};
+
+/* typedef DIR - not the same as Unix */
+typedef struct {
+    long handle;                /* _findfirst/_findnext handle */
+    short offset;                /* offset into directory */
+    short finished;             /* 1 if there are not more files */
+    struct _finddata_t fileinfo;  /* from _findfirst/_findnext */
+    char *dir;                  /* the dir we are reading */
+    struct dirent dent;         /* the dirent to return */
+} DIR;
+
+/**********************************************************************
+ * Implement dirent-style opendir/readdir/closedir on Window 95/NT
+ *
+ * Functions defined are opendir(), readdir() and closedir() with the
+ * same prototypes as the normal dirent.h implementation.
+ *
+ * Does not implement telldir(), seekdir(), rewinddir() or scandir(). 
+ * The dirent struct is compatible with Unix, except that d_ino is 
+ * always 1 and d_off is made up as we go along.
+ *
+ * The DIR typedef is not compatible with Unix.
+ **********************************************************************/
+
+DIR * _dbus_opendir(const char *dir)
+{
+    DIR *dp;
+    char *filespec;
+    long handle;
+    int index;
+
+    filespec = malloc(strlen(dir) + 2 + 1);
+    strcpy(filespec, dir);
+    index = strlen(filespec) - 1;
+    if (index >= 0 && (filespec[index] == '/' || filespec[index] == '\\'))
+        filespec[index] = '\0';
+    strcat(filespec, "\\*");
+
+    dp = (DIR *)malloc(sizeof(DIR));
+    dp->offset = 0;
+    dp->finished = 0;
+    dp->dir = strdup(dir);
+
+    if ((handle = _findfirst(filespec, &(dp->fileinfo))) < 0) {
+        if (errno == ENOENT)
+            dp->finished = 1;
+        else
+        return NULL;
+    }
+
+    dp->handle = handle;
+    free(filespec);
+
+    return dp;
+}
+
+struct dirent * _dbus_readdir(DIR *dp)
+{
+    if (!dp || dp->finished) return NULL;
+
+    if (dp->offset != 0) {
+        if (_findnext(dp->handle, &(dp->fileinfo)) < 0) {
+            dp->finished = 1;
+			errno = 0;
+            return NULL;
+        }
+    }
+    dp->offset++;
+
+    strncpy(dp->dent.d_name, dp->fileinfo.name, _MAX_FNAME);
+    dp->dent.d_ino = 1;
+    dp->dent.d_reclen = strlen(dp->dent.d_name);
+    dp->dent.d_off = dp->offset;
+
+    return &(dp->dent);
 }
 
 
+int _dbus_closedir(DIR *dp)
+{
+    if (!dp) return 0;
+    _findclose(dp->handle);
+    if (dp->dir) free(dp->dir);
+    if (dp) free(dp);
 
+    return 0;
+}
 
 /** @} */ /* End of DBusInternalsUtils functions */
 
@@ -328,7 +497,7 @@ fill_group_info_win (DBusGroupInfo    *info,
  * @returns #FALSE if no memory
  */
 dbus_bool_t
-_dbus_string_get_dirname_win  (const DBusString *filename,
+_dbus_string_get_dirname(const DBusString *filename,
                            DBusString       *dirname)
 {
   int sep;
@@ -342,9 +511,6 @@ _dbus_string_get_dirname_win  (const DBusString *filename,
   if (sep == 0)
     return _dbus_string_append (dirname, "."); /* empty string passed in */
     
-#ifndef DBUS_WIN
-#else
-  
   while (sep > 0 &&
 	 (_dbus_string_get_byte (filename, sep - 1) == '/' ||
 	  _dbus_string_get_byte (filename, sep - 1) == '\\'))
@@ -388,10 +554,134 @@ _dbus_string_get_dirname_win  (const DBusString *filename,
   else
     return _dbus_string_copy_len (filename, 0, sep - 0,
                                   dirname, _dbus_string_get_length (dirname));
-#endif
 }
 
+/** @} */ /* DBusString stuff */
 
+#ifdef DBUS_BUILD_TESTS
+#include <stdlib.h>
+static void
+check_dirname (const char *filename,
+               const char *dirname)
+{
+  DBusString f, d;
+  
+  _dbus_string_init_const (&f, filename);
+
+  if (!_dbus_string_init (&d))
+    _dbus_assert_not_reached ("no memory");
+
+  if (!_dbus_string_get_dirname (&f, &d))
+    _dbus_assert_not_reached ("no memory");
+
+  if (!_dbus_string_equal_c_str (&d, dirname))
+    {
+      _dbus_warn ("For filename \"%s\" got dirname \"%s\" and expected \"%s\"\n",
+                  filename,
+                  _dbus_string_get_const_data (&d),
+                  dirname);
+      exit (1);
+    }
+
+  _dbus_string_free (&d);
+}
+
+static void
+check_path_absolute (const char *path,
+                     dbus_bool_t expected)
+{
+  DBusString p;
+
+  _dbus_string_init_const (&p, path);
+
+  if (_dbus_path_is_absolute (&p) != expected)
+    {
+      _dbus_warn ("For path \"%s\" expected absolute = %d got %d\n",
+                  path, expected, _dbus_path_is_absolute (&p));
+      exit (1);
+    }
+}
+
+/**
+ * Unit test for dbus-sysdeps.c.
+ * 
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_sysdeps_test (void)
+{
+  DBusString str;
+  double val;
+  int pos;
+  
+  check_dirname ("foo", ".");
+  check_dirname ("foo/bar", "foo");
+  check_dirname ("foo//bar", "foo");
+  check_dirname ("foo///bar", "foo");
+  check_dirname ("foo/bar/", "foo");
+  check_dirname ("foo//bar/", "foo");
+  check_dirname ("foo///bar/", "foo");
+  check_dirname ("foo/bar//", "foo");
+  check_dirname ("foo//bar////", "foo");
+  check_dirname ("foo///bar///////", "foo");
+  check_dirname ("/foo", "/");
+  check_dirname ("////foo", "/");
+  check_dirname ("/foo/bar", "/foo");
+  check_dirname ("/foo//bar", "/foo");
+  check_dirname ("/foo///bar", "/foo");
+  check_dirname ("/", "/");
+  check_dirname ("///", "/");
+  check_dirname ("", ".");  
+
+
+  _dbus_string_init_const (&str, "3.5");
+  if (!_dbus_string_parse_double (&str,
+				  0, &val, &pos))
+    {
+      _dbus_warn ("Failed to parse double");
+      exit (1);
+    }
+  if (ABS(3.5 - val) > 1e-6)
+    {
+      _dbus_warn ("Failed to parse 3.5 correctly, got: %f", val);
+      exit (1);
+    }
+  if (pos != 3)
+    {
+      _dbus_warn ("_dbus_string_parse_double of \"3.5\" returned wrong position %d", pos);
+      exit (1);
+    }
+#if 0
+  _dbus_string_init_const (&str, "0xff");
+  if (!_dbus_string_parse_double (&str,
+				  0, &val, &pos))
+    {
+      _dbus_warn ("Failed to parse double");
+      exit (1);
+    }
+  if (ABS (0xff - val) > 1e-6)
+    {
+      _dbus_warn ("Failed to parse 0xff correctly, got: %f\n", val);
+      exit (1);
+    }
+  if (pos != 4)
+    {
+      _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
+      exit (1);
+    }
+#else
+  _dbus_warn ("_dbus_string_parse_double(0xff) check disabled for now\n");
+#endif
+    
+  check_path_absolute ("c:/", TRUE);
+  check_path_absolute ("c:/foo", TRUE);
+  check_path_absolute ("", FALSE);
+  check_path_absolute ("foo", FALSE);
+  check_path_absolute ("foo/bar", FALSE);
+  
+  return TRUE;
+}
+#endif /* DBUS_BUILD_TESTS */
 
 
 
