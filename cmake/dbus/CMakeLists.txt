@@ -143,9 +143,9 @@ set (DBUS_UTIL_HEADERS
 ### platform specific settings
 if (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
-		../../dbus/dbus-dirent-win.c
+#		../../dbus/dbus-dirent-win.c
 		../../dbus/dbus-sysdeps-win.c
-		../../dbus/dbus-sysdeps-util-win.c
+#		../../dbus/dbus-sysdeps-util-win.c
 		../../dbus/dbus-spawn-win.c
 	)
 	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)
