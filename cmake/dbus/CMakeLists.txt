@@ -128,9 +128,15 @@ set (DBUS_UTIL_SOURCES
 	../../dbus/dbus-message-util.c
 	../../dbus/dbus-shell.c
 	../../dbus/dbus-string-util.c
-	../../dbus/dbus-test.c
 	../../dbus/dbus-userdb-util.c
 )
+
+if (DBUS_BUILD_TESTS)
+	set (DBUS_UTIL_SOURCES 
+		${DBUS_UTIL_SOURCES}
+		../../dbus/dbus-test.c
+	)
+endif (DBUS_BUILD_TESTS)
 
 set (DBUS_UTIL_HEADERS
 	../../dbus/dbus-mainloop.h

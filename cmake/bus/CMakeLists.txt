@@ -35,6 +35,7 @@ file(GLOB BUS_HEADERS ${CMAKE_SOURCE_DIR}/../bus/*.h)
 list(REMOVE_ITEM BUS_SOURCES
 	${CMAKE_SOURCE_DIR}/../bus/main.c					
 	${CMAKE_SOURCE_DIR}/../bus/test-main.c
+	${CMAKE_SOURCE_DIR}/../bus/test.c
 	${CMAKE_SOURCE_DIR}/../bus/config-loader-expat.c
 	${CMAKE_SOURCE_DIR}/../bus/dir-watch-kqueue.c
 	${CMAKE_SOURCE_DIR}/../bus/dir-watch-dnotify.c
@@ -63,15 +64,16 @@ install_files(/etc FILES ${config_DATA})
 #	$(BUS_SOURCES)				
 #	test-main.c
 
-
-set (bus_test_SOURCES
-	${BUS_SOURCES}
-	test-main.c)
-
-add_executable(bus-test ${BUS_SOURCES} ${BUS_HEADERS} ${CMAKE_SOURCE_DIR}/../bus/test-main.c	)
-target_link_libraries(bus-test dbus-1 ${LIBS} )
-install_targets(/bin bus-test)
-add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_SOURCE_DIR}/../test/data)
+if (DBUS_BUILD_TESTS)
+	set (bus_test_SOURCES
+		${BUS_SOURCES}
+		test-main.c)
+	
+	add_executable(bus-test ${BUS_SOURCES} ${BUS_HEADERS} ${CMAKE_SOURCE_DIR}/../bus/test-main.c	)
+	target_link_libraries(bus-test dbus-1 ${LIBS} )
+	install_targets(/bin bus-test)
+	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_SOURCE_DIR}/../test/data)
+endif (DBUS_BUILD_TESTS)
 
 ## mop up the gcov files
 #clean-local:
