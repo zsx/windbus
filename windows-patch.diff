@@ -61,6 +61,19 @@ Index: test/test-sleep-forever.c
  
  int
  main (int argc, char **argv)
+Index: configure.in
+===================================================================
+--- configure.in	(revision 125)
++++ configure.in	(working copy)
+@@ -447,6 +447,8 @@
+ 
+ AC_CHECK_HEADERS(execinfo.h, [AC_CHECK_FUNCS(backtrace)])
+ 
++AC_CHECK_HEADERS(dirent.h, [AC_CHECK_FUNCS(opendir)])
++
+ AC_CACHE_CHECK([for posix getpwnam_r],
+ 		ac_cv_func_posix_getpwnam_r,
+ 		[AC_TRY_RUN([
 Index: bus/activation.c
 ===================================================================
 --- bus/activation.c	(revision 125)
@@ -2105,6 +2118,18 @@ Index: dbus/dbus-sysdeps.h
  /**
   * Struct representing socket credentials
   */
+Index: dbus/Makefile.am
+===================================================================
+--- dbus/Makefile.am	(revision 125)
++++ dbus/Makefile.am	(working copy)
+@@ -129,6 +129,7 @@
+ 	dbus-spawn.h				\
+ 	dbus-string-util.c			\
+ 	dbus-sysdeps-util.c			\
++	dbus-sysdeps-util-unix.c			\
+ 	dbus-test.c				\
+ 	dbus-test.h				\
+ 	dbus-userdb-util.c
 Index: tools/dbus-monitor.c
 ===================================================================
 --- tools/dbus-monitor.c	(revision 125)
