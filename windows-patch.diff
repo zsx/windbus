@@ -1,6 +1,6 @@
 Index: test/spawn-test.c
 ===================================================================
---- test/spawn-test.c	(revision 113)
+--- test/spawn-test.c	(revision 125)
 +++ test/spawn-test.c	(working copy)
 @@ -31,7 +31,11 @@
      argv_copy [i] = argv[i + 1];
@@ -16,7 +16,7 @@ Index: test/spawn-test.c
  	       error.message);
 Index: test/test-segfault.c
 ===================================================================
---- test/test-segfault.c	(revision 113)
+--- test/test-segfault.c	(revision 125)
 +++ test/test-segfault.c	(working copy)
 @@ -1,10 +1,27 @@
  /* This is simply a process that segfaults */
@@ -48,7 +48,7 @@ Index: test/test-segfault.c
  {
 Index: test/test-sleep-forever.c
 ===================================================================
---- test/test-sleep-forever.c	(revision 113)
+--- test/test-sleep-forever.c	(revision 125)
 +++ test/test-sleep-forever.c	(working copy)
 @@ -1,6 +1,10 @@
  /* This is a process that just sleeps infinitely. */
@@ -61,32 +61,9 @@ Index: test/test-sleep-forever.c
  
  int
  main (int argc, char **argv)
-Index: cmake/CMakeLists.txt
-===================================================================
---- cmake/CMakeLists.txt	(revision 113)
-+++ cmake/CMakeLists.txt	(working copy)
-@@ -45,6 +45,18 @@
- # make some more macros available
- include (MacroLibrary)
- 
-+if (WIN32)
-+	set (DBUS_HAVE_INT64 1)
-+	set (DBUS_INT64_TYPE "long long int")
-+	set (DBUS_INT32_TYPE int)
-+	set (DBUS_INT16_TYPE short)
-+else (WIN32)
-+	set (DBUS_HAVE_INT64 1)
-+	set (DBUS_INT64_TYPE "long long int")
-+	set (DBUS_INT32_TYPE int)
-+	set (DBUS_INT16_TYPE short)
-+endif (WIN32)
-+
- if(MSVC)
-     ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
- 	SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Zi " CACHE STRING "runtime-library flags" FORCE)
 Index: bus/activation.c
 ===================================================================
---- bus/activation.c	(revision 113)
+--- bus/activation.c	(revision 125)
 +++ bus/activation.c	(working copy)
 @@ -34,7 +34,6 @@
  #include <dbus/dbus-spawn.h>
@@ -114,7 +91,7 @@ Index: bus/activation.c
      {
 Index: bus/test-main.c
 ===================================================================
---- bus/test-main.c	(revision 113)
+--- bus/test-main.c	(revision 125)
 +++ bus/test-main.c	(working copy)
 @@ -123,16 +123,22 @@
      die ("signals");
@@ -141,7 +118,7 @@ Index: bus/test-main.c
    test_pre_hook ();
 Index: dbus/dbus-server-unix.c
 ===================================================================
---- dbus/dbus-server-unix.c	(revision 113)
+--- dbus/dbus-server-unix.c	(revision 125)
 +++ dbus/dbus-server-unix.c	(working copy)
 @@ -27,12 +27,16 @@
  #include "dbus-connection-internal.h"
@@ -298,7 +275,7 @@ Index: dbus/dbus-server-unix.c
      }
 Index: dbus/dbus-test.c
 ===================================================================
---- dbus/dbus-test.c	(revision 113)
+--- dbus/dbus-test.c	(revision 125)
 +++ dbus/dbus-test.c	(working copy)
 @@ -154,7 +154,9 @@
    
@@ -312,7 +289,7 @@ Index: dbus/dbus-test.c
    
 Index: dbus/dbus-spawn.h
 ===================================================================
---- dbus/dbus-spawn.h	(revision 113)
+--- dbus/dbus-spawn.h	(revision 125)
 +++ dbus/dbus-spawn.h	(working copy)
 @@ -37,6 +37,9 @@
  
@@ -326,36 +303,43 @@ Index: dbus/dbus-spawn.h
                                                     DBusError                 *error);
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 115)
+--- dbus/dbus-sysdeps-util.c	(revision 125)
 +++ dbus/dbus-sysdeps-util.c	(working copy)
-@@ -29,154 +29,18 @@
- #include "dbus-userdb.h"
- #include "dbus-test.h"
+@@ -25,26 +25,13 @@
+ #include "dbus-internals.h"
+ #include "dbus-protocol.h"
+ #include "dbus-string.h"
+-#define DBUS_USERDB_INCLUDES_PRIVATE 1
+-#include "dbus-userdb.h"
+-#include "dbus-test.h"
  
 -#include <sys/types.h>
 -#include <stdlib.h>
 -#include <string.h>
 -#include <signal.h>
 -#include <unistd.h>
--#include <stdio.h>
+ #include <stdio.h>
 -#include <errno.h>
 -#include <fcntl.h>
 -#include <sys/stat.h>
 -#include <grp.h>
 -#include <sys/socket.h>
--#include <dirent.h>
++#ifdef HAVE_DIRENT_H
+ #include <dirent.h>
 -#include <sys/un.h>
 -
 -#ifndef O_BINARY
 -#define O_BINARY 0
--#endif
--
++#define _dbus_opendir opendir
++#define _dbus_readdir readdir
++#define _dbus_closedir closedir
+ #endif
+ 
  /**
-  * @addtogroup DBusInternalsUtils
-  * @{
+@@ -53,131 +40,6 @@
   */
  
--/**
+ /**
 - * Does the chdir, fork, setsid, etc. to become a daemon process.
 - *
 - * @param pidfile #NULL, or pidfile to create
@@ -371,14 +355,9 @@ Index: dbus/dbus-sysdeps-util.c
 -  const char *s;
 -  pid_t child_pid;
 -  int dev_null_fd;
-+#ifdef DBUS_WIN
-+#include "dbus-sysdeps-util-win.c"
-+#else
-+#include "dbus-sysdeps-util-unix.c"
-+#endif
- 
+-
 -  _dbus_verbose ("Becoming a daemon...\n");
- 
+-
 -  _dbus_verbose ("chdir to /\n");
 -  if (chdir ("/") < 0)
 -    {
@@ -485,10 +464,11 @@ Index: dbus/dbus-sysdeps-util.c
 -}
 -
 -
- /**
+-/**
   * Creates a file containing the process ID.
   *
-@@ -235,73 +99,7 @@
+  * @param filename the filename to write to
+@@ -235,73 +97,7 @@
    return TRUE;
  }
  
@@ -562,7 +542,7 @@ Index: dbus/dbus-sysdeps-util.c
   * Removes a directory; Directory must be empty
   * 
   * @param filename directory filename
-@@ -329,115 +127,42 @@
+@@ -329,115 +125,42 @@
    return TRUE;
  }
  
@@ -698,7 +678,7 @@ Index: dbus/dbus-sysdeps-util.c
  /**
   * Internals of directory iterator
   */
-@@ -466,7 +191,7 @@
+@@ -466,7 +189,7 @@
    
    filename_c = _dbus_string_get_const_data (filename);
  
@@ -707,7 +687,7 @@ Index: dbus/dbus-sysdeps-util.c
    if (d == NULL)
      {
        dbus_set_error (error, _dbus_error_from_errno (errno),
-@@ -478,7 +203,7 @@
+@@ -478,7 +201,7 @@
    iter = dbus_new0 (DBusDirIter, 1);
    if (iter == NULL)
      {
@@ -716,7 +696,7 @@ Index: dbus/dbus-sysdeps-util.c
        dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
                        "Could not allocate memory for directory iterator");
        return NULL;
-@@ -513,7 +238,7 @@
+@@ -513,7 +236,7 @@
    
   again:
    errno = 0;
@@ -725,7 +705,7 @@ Index: dbus/dbus-sysdeps-util.c
    if (ent == NULL)
      {
        if (errno != 0)
-@@ -546,317 +271,9 @@
+@@ -546,317 +269,9 @@
  void
  _dbus_directory_close (DBusDirIter *iter)
  {
@@ -1046,7 +1026,7 @@ Index: dbus/dbus-sysdeps-util.c
 -#endif /* DBUS_BUILD_TESTS */
 Index: dbus/dbus-watch.c
 ===================================================================
---- dbus/dbus-watch.c	(revision 113)
+--- dbus/dbus-watch.c	(revision 125)
 +++ dbus/dbus-watch.c	(working copy)
 @@ -486,7 +486,10 @@
  int
@@ -1062,7 +1042,7 @@ Index: dbus/dbus-watch.c
  /**
 Index: dbus/dbus-transport-unix.c
 ===================================================================
---- dbus/dbus-transport-unix.c	(revision 115)
+--- dbus/dbus-transport-unix.c	(revision 125)
 +++ dbus/dbus-transport-unix.c	(working copy)
 @@ -26,6 +26,9 @@
  #include "dbus-transport-unix.h"
@@ -1076,7 +1056,7 @@ Index: dbus/dbus-transport-unix.c
  /**
 Index: dbus/dbus-mainloop.c
 ===================================================================
---- dbus/dbus-mainloop.c	(revision 113)
+--- dbus/dbus-mainloop.c	(revision 125)
 +++ dbus/dbus-mainloop.c	(working copy)
 @@ -609,7 +609,7 @@
                    
@@ -1089,7 +1069,7 @@ Index: dbus/dbus-mainloop.c
                if (flags & DBUS_WATCH_READABLE)
 Index: dbus/dbus-sysdeps-win.c
 ===================================================================
---- dbus/dbus-sysdeps-win.c	(revision 113)
+--- dbus/dbus-sysdeps-win.c	(revision 125)
 +++ dbus/dbus-sysdeps-win.c	(working copy)
 @@ -29,7 +29,7 @@
  #include "dbus-threads.h"
@@ -1102,7 +1082,7 @@ Index: dbus/dbus-sysdeps-win.c
  #include <sys/types.h>
 Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus/dbus-sysdeps.c	(revision 115)
+--- dbus/dbus-sysdeps.c	(revision 125)
 +++ dbus/dbus-sysdeps.c	(working copy)
 @@ -3,6 +3,7 @@
   * 
@@ -2100,7 +2080,7 @@ Index: dbus/dbus-sysdeps.c
    dbus_set_error (error, DBUS_ERROR_FAILED,
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 115)
+--- dbus/dbus-sysdeps.h	(revision 125)
 +++ dbus/dbus-sysdeps.h	(working copy)
 @@ -101,6 +101,22 @@
  #define DBUS_UID_FORMAT "%lu"
@@ -2127,7 +2107,7 @@ Index: dbus/dbus-sysdeps.h
   */
 Index: tools/dbus-monitor.c
 ===================================================================
---- tools/dbus-monitor.c	(revision 113)
+--- tools/dbus-monitor.c	(revision 125)
 +++ tools/dbus-monitor.c	(working copy)
 @@ -19,6 +19,7 @@
   *
@@ -2139,7 +2119,7 @@ Index: tools/dbus-monitor.c
  #include <string.h>
 Index: tools/dbus-send.c
 ===================================================================
---- tools/dbus-send.c	(revision 113)
+--- tools/dbus-send.c	(revision 125)
 +++ tools/dbus-send.c	(working copy)
 @@ -19,6 +19,7 @@
   *
