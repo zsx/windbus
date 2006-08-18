@@ -31,8 +31,8 @@
 
 DBUS_BEGIN_DECLS;
 
-#if @DBUS_HAVE_INT64@
-#define DBUS_HAVE_INT64 1
+#cmakedefine DBUS_HAVE_INT64 1
+#if DBUS_HAVE_INT64
 typedef @DBUS_INT64_TYPE@ dbus_int64_t;
 typedef unsigned @DBUS_INT64_TYPE@ dbus_uint64_t;
 

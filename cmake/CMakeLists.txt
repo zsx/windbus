@@ -5,6 +5,9 @@ project(${PACKAGE})
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/modules")
 
+# do config checks
+INCLUDE(ConfigureChecks.cmake)
+
 #enable building of shared library
 SET(BUILD_SHARED_LIBS ON)
 
@@ -26,7 +29,6 @@ else(LIBEXPAT_FOUND)
     OPTION(DBUS_USE_EXPAT "Use expat (== ON) or libxml2 (==OFF)" OFF)
 endif(LIBEXPAT_FOUND)
 
-message(STATUS "LIBEXPAT_LIBRARIES ${LIBEXPAT_LIBRARIES}")
 if(DBUS_USE_EXPAT)
     SET(XML_LIB "Expat")
     SET(XML_LIBRARY     ${LIBEXPAT_LIBRARIES})
@@ -97,57 +99,51 @@ if (WIN32)
 else (WIN32)
 endif (WIN32)
 
-if (WIN32)
-	set (DBUS_HAVE_INT64 1)
-	set (DBUS_INT64_TYPE "long long int")
-	set (DBUS_INT32_TYPE int)
-	set (DBUS_INT16_TYPE short)
-else (WIN32)
-	set (DBUS_HAVE_INT64 1)
-	set (DBUS_INT64_TYPE "long long int")
-	set (DBUS_INT32_TYPE int)
-	set (DBUS_INT16_TYPE short)
-endif (WIN32)
-
 ########### command line options ###############
 # TODO: take check from configure.in 
 
 OPTION(DBUS_DISABLE_ASSERTS "Disable assertion checking" OFF)
-if (DBUS_DISABLE_ASSERTS)	
-	add_definitions(-DDBUS_DISABLE_ASSERTS=0)
-else (DBUS_DISABLE_ASSERTS)
-	add_definitions(-DDBUS_DISABLE_ASSERTS=1)
-endif (DBUS_DISABLE_ASSERTS)
-
 OPTION(DBUS_BUILD_TESTS "enable unit test code" ON)
 if (DBUS_BUILD_TESTS)	
-	add_definitions(-DDBUS_BUILD_TESTS=1)
 	if(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
 		add_definitions(-g)
 	endif(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
 endif (DBUS_BUILD_TESTS)	
 
-OPTION(DBUS_ENABLE_ANSI "enable -ansi -pedantic gcc flags" OFF)  # not handled yet!
+OPTION(DBUS_ENABLE_ANSI "enable -ansi -pedantic gcc flags" OFF)
+if(DBUS_ENABLE_ANSI)
+   if(NOT MSVC)
+		add_definitions(-ansi -D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE -pedantic)
+   endif(NOT MSVC) 
+endif(DBUS_ENABLE_ANSI)
 
+OPTION(DBUS_ENABLE_GCOV "compile with coverage profiling instrumentation (gcc only)" OFF)
+if(DBUS_ENABLE_GCOV)
+   if(NOT MSVC)
+		add_definitions(-fprofile-arcs -ftest-coverage)
+		# FIXME!!!!
+        ## remove optimization
+#        CFLAGS=`echo "$CFLAGS" | sed -e 's/-O[0-9]*//g'`
+   endif(NOT MSVC) 
+endif(DBUS_ENABLE_GCOV)
 
 OPTION(DBUS_ENABLE_VERBOSE_MODE "support verbose debug mode" ON)
-if (DBUS_ENABLE_VERBOSE_MODE)	
-	add_definitions(-DDBUS_ENABLE_VERBOSE_MODE=1)
-endif (DBUS_ENABLE_VERBOSE_MODE)
 
 OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)    # not handled yet!
+
+if(LINUX)
+    OPTION(DBUS_ENABLE_DNOTIFY "build with dnotify support (linux only)" ON) # add a check
+endif(LINUX)
 
 #AC_ARG_ENABLE(checks, AS_HELP_STRING([--enable-checks],[include sanity checks on public API]),enable_checks=$enableval,enable_checks=yes)
 #AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentation (requires xmlto)]),enable_xml_docs=$enableval,enable_xml_docs=auto)
 #AC_ARG_ENABLE(doxygen-docs, AS_HELP_STRING([--enable-doxygen-docs],[build DOXYGEN documentation (requires Doxygen)]),enable_doxygen_docs=$enableval,enable_doxygen_docs=auto)
-#AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
 #AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use abstract socket namespace (linux only)]),enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
 #AC_ARG_ENABLE(gcj, AS_HELP_STRING([--enable-gcj],[build gcj bindings]),enable_gcj=$enableval,enable_gcj=no)
 #AC_ARG_ENABLE(mono, AS_HELP_STRING([--enable-mono],[build mono bindings]),enable_mono=$enableval,enable_mono=no)
 #AC_ARG_ENABLE(mono_docs, AS_HELP_STRING([--enable-mono-docs],[build mono docs]),enable_mono_docs=$enableval,enable_mono_docs=no)
 #AC_ARG_ENABLE(python, AS_HELP_STRING([--enable-python],[build python bindings]),enable_python=$enableval,enable_python=auto)
 #AC_ARG_ENABLE(selinux, AS_HELP_STRING([--enable-selinux],[build with SELinux support]),enable_selinux=$enableval,enable_selinux=auto)
-#AC_ARG_ENABLE(dnotify, AS_HELP_STRING([--enable-dnotify],[build with dnotify support (linux only)]),enable_dnotify=$enableval,enable_dnotify=auto)
 #
 #AC_ARG_WITH(xml, AS_HELP_STRING([--with-xml=[libxml/expat]],[XML library to use]))
 #AC_ARG_WITH(init-scripts, AS_HELP_STRING([--with-init-scripts=[redhat]],[Style of init scripts to install]))
@@ -271,7 +267,7 @@ message("        16-bit int:            	  ${DBUS_INT16_TYPE}                  "
 
 
 #message("        Maintainer mode:          ${USE_MAINTAINER_MODE}              ")
-#message("        gcc coverage profiling:   ${enable_gcov}                      ")
+message("        gcc coverage profiling:   ${DBUS_ENABLE_GCOV}                 ")
 message("        Building unit tests:      ${DBUS_BUILD_TESTS}                 ")
 message("        Building verbose mode:    ${DBUS_ENABLE_VERBOSE_MODE}         ")
 message("        Building w/o assertions:  ${DBUS_DISABLE_ASSERTS}             ")
