@@ -15,6 +15,7 @@ check_symbol_exists(getgrouplist "grp.h"            HAVE_GETGROUPLIST)       #  
 check_symbol_exists(getpeerucred "ucred.h"          HAVE_GETPEERUCRED)       #  dbus-sysdeps.c, dbus-sysdeps-win.c
 check_symbol_exists(nanosleep    "time.h"           HAVE_NANOSLEEP)          #  dbus-sysdeps.c
 check_symbol_exists(getpwnam_r   "errno.h pwd.h"    HAVE_POSIX_GETPWNAM_R)   #  dbus-sysdeps-util-unix.c
+check_symbol_exists(setenv       "stdlib.h"         HAVE_SETENV)             #  dbus-sysdeps.c
 check_symbol_exists(socketpair   "sys/socket.h.h"   HAVE_SOCKETPAIR)         #  dbus-sysdeps.c
 check_symbol_exists(unsetenv     "stdlib.h"         HAVE_UNSETENV)           #  dbus-sysdeps.c
 check_symbol_exists(writev       "sys/uio.h"        HAVE_WRITEV)             #  dbus-sysdeps.c, dbus-sysdeps-win.c

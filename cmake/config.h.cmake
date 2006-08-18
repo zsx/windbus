@@ -56,6 +56,9 @@
 /* Define to 1 if you have socketpair */
 #cmakedefine   HAVE_SOCKETPAIR 1
 
+/* Define to 1 if you have setenv */
+#cmakedefine   HAVE_SETENV 1
+
 /* Define to 1 if you have unsetenv */
 #cmakedefine   HAVE_UNSETENV 1
 
