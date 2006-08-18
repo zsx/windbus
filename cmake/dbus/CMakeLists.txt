@@ -3,83 +3,84 @@ project(dbus)
 #INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION
 
 include_directories(${CMAKE_SOURCE_DIR}/..)
+SET(DBUS_DIR ${CMAKE_SOURCE_DIR}/../dbus)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-arch-deps.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/dbus-arch-deps.h )
 
 add_definitions(-DDBUS_COMPILATION)
 
 set (dbusinclude_HEADERS
-	../../dbus/dbus.h
-	../../dbus/dbus-address.h
-	../../dbus/dbus-bus.h
-	../../dbus/dbus-connection.h
-	../../dbus/dbus-errors.h
-	../../dbus/dbus-macros.h
-	../../dbus/dbus-memory.h
-	../../dbus/dbus-message.h
-	../../dbus/dbus-pending-call.h
-	../../dbus/dbus-protocol.h
-	../../dbus/dbus-server.h
-	../../dbus/dbus-shared.h
-	../../dbus/dbus-signature.h
-	../../dbus/dbus-threads.h
-	../../dbus/dbus-types.h
+	${DBUS_DIR}/dbus.h
+	${DBUS_DIR}/dbus-address.h
+	${DBUS_DIR}/dbus-bus.h
+	${DBUS_DIR}/dbus-connection.h
+	${DBUS_DIR}/dbus-errors.h
+	${DBUS_DIR}/dbus-macros.h
+	${DBUS_DIR}/dbus-memory.h
+	${DBUS_DIR}/dbus-message.h
+	${DBUS_DIR}/dbus-pending-call.h
+	${DBUS_DIR}/dbus-protocol.h
+	${DBUS_DIR}/dbus-server.h
+	${DBUS_DIR}/dbus-shared.h
+	${DBUS_DIR}/dbus-signature.h
+	${DBUS_DIR}/dbus-threads.h
+	${DBUS_DIR}/dbus-types.h
 	dbus-arch-deps.h
 )
 
 ### source code that goes in the installed client library
 ### and is specific to library functionality
 set (DBUS_LIB_SOURCES
-	../../dbus/dbus-address.c
-	../../dbus/dbus-auth.c
-	../../dbus/dbus-auth-script.c
-	../../dbus/dbus-bus.c
-	../../dbus/dbus-connection.c
-	../../dbus/dbus-errors.c
-	../../dbus/dbus-keyring.c
-	../../dbus/dbus-marshal-header.c
-	../../dbus/dbus-marshal-byteswap.c
-	../../dbus/dbus-marshal-recursive.c
-	../../dbus/dbus-marshal-validate.c
-	../../dbus/dbus-message.c
-	../../dbus/dbus-object-tree.c
-	../../dbus/dbus-pending-call.c
-	../../dbus/dbus-resources.c
-	../../dbus/dbus-server.c
-	../../dbus/dbus-server-debug-pipe.c
-	../../dbus/dbus-server-unix.c
-	../../dbus/dbus-sha.c
-	../../dbus/dbus-signature.c
-	../../dbus/dbus-timeout.c
-	../../dbus/dbus-threads.c
-	../../dbus/dbus-transport.c
-	../../dbus/dbus-transport-unix.c
-	../../dbus/dbus-watch.c
+	${DBUS_DIR}/dbus-address.c
+	${DBUS_DIR}/dbus-auth.c
+	${DBUS_DIR}/dbus-auth-script.c
+	${DBUS_DIR}/dbus-bus.c
+	${DBUS_DIR}/dbus-connection.c
+	${DBUS_DIR}/dbus-errors.c
+	${DBUS_DIR}/dbus-keyring.c
+	${DBUS_DIR}/dbus-marshal-header.c
+	${DBUS_DIR}/dbus-marshal-byteswap.c
+	${DBUS_DIR}/dbus-marshal-recursive.c
+	${DBUS_DIR}/dbus-marshal-validate.c
+	${DBUS_DIR}/dbus-message.c
+	${DBUS_DIR}/dbus-object-tree.c
+	${DBUS_DIR}/dbus-pending-call.c
+	${DBUS_DIR}/dbus-resources.c
+	${DBUS_DIR}/dbus-server.c
+	${DBUS_DIR}/dbus-server-debug-pipe.c
+	${DBUS_DIR}/dbus-server-unix.c
+	${DBUS_DIR}/dbus-sha.c
+	${DBUS_DIR}/dbus-signature.c
+	${DBUS_DIR}/dbus-timeout.c
+	${DBUS_DIR}/dbus-threads.c
+	${DBUS_DIR}/dbus-transport.c
+	${DBUS_DIR}/dbus-transport-unix.c
+	${DBUS_DIR}/dbus-watch.c
 ##dbus-md5.c
 )
 set (DBUS_LIB_HEADERS
-	../../dbus/dbus-auth.h
-	../../dbus/dbus-auth-script.h
-	../../dbus/dbus-connection-internal.h
-	../../dbus/dbus-keyring.h
-	../../dbus/dbus-marshal-header.h
-	../../dbus/dbus-marshal-byteswap.h
-	../../dbus/dbus-marshal-recursive.h
-	../../dbus/dbus-marshal-validate.h
-	../../dbus/dbus-message-internal.h
-	../../dbus/dbus-message-private.h
-	../../dbus/dbus-object-tree.h
-	../../dbus/dbus-resources.h
-	../../dbus/dbus-server-debug-pipe.h
-	../../dbus/dbus-server-protected.h
-	../../dbus/dbus-server-unix.h
-	../../dbus/dbus-sha.h
-	../../dbus/dbus-timeout.h
-	../../dbus/dbus-threads-internal.h
-	../../dbus/dbus-transport.h
-	../../dbus/dbus-transport-protected.h
-	../../dbus/dbus-transport-unix.h
-	../../dbus/dbus-watch.h
+	${DBUS_DIR}/dbus-auth.h
+	${DBUS_DIR}/dbus-auth-script.h
+	${DBUS_DIR}/dbus-connection-internal.h
+	${DBUS_DIR}/dbus-keyring.h
+	${DBUS_DIR}/dbus-marshal-header.h
+	${DBUS_DIR}/dbus-marshal-byteswap.h
+	${DBUS_DIR}/dbus-marshal-recursive.h
+	${DBUS_DIR}/dbus-marshal-validate.h
+	${DBUS_DIR}/dbus-message-internal.h
+	${DBUS_DIR}/dbus-message-private.h
+	${DBUS_DIR}/dbus-object-tree.h
+	${DBUS_DIR}/dbus-resources.h
+	${DBUS_DIR}/dbus-server-debug-pipe.h
+	${DBUS_DIR}/dbus-server-protected.h
+	${DBUS_DIR}/dbus-server-unix.h
+	${DBUS_DIR}/dbus-sha.h
+	${DBUS_DIR}/dbus-timeout.h
+	${DBUS_DIR}/dbus-threads-internal.h
+	${DBUS_DIR}/dbus-transport.h
+	${DBUS_DIR}/dbus-transport-protected.h
+	${DBUS_DIR}/dbus-transport-unix.h
+	${DBUS_DIR}/dbus-watch.h
 ##dbus-md5.h
 )
 ### source code that goes in the installed client library
@@ -87,30 +88,30 @@ set (DBUS_LIB_HEADERS
 ### daemon or test programs (all symbols in here should 
 ### be underscore-prefixed)
 set (DBUS_SHARED_SOURCES
-	../../dbus/dbus-dataslot.c
-	../../dbus/dbus-hash.c
-	../../dbus/dbus-internals.c
-	../../dbus/dbus-list.c
-	../../dbus/dbus-marshal-basic.c
-	../../dbus/dbus-memory.c
-	../../dbus/dbus-mempool.c
-	../../dbus/dbus-string.c
-	../../dbus/dbus-sysdeps.c
-	../../dbus/dbus-sysdeps-util.c
-	../../dbus/dbus-userdb.c
+	${DBUS_DIR}/dbus-dataslot.c
+	${DBUS_DIR}/dbus-hash.c
+	${DBUS_DIR}/dbus-internals.c
+	${DBUS_DIR}/dbus-list.c
+	${DBUS_DIR}/dbus-marshal-basic.c
+	${DBUS_DIR}/dbus-memory.c
+	${DBUS_DIR}/dbus-mempool.c
+	${DBUS_DIR}/dbus-string.c
+	${DBUS_DIR}/dbus-sysdeps.c
+	${DBUS_DIR}/dbus-sysdeps-util.c
+	${DBUS_DIR}/dbus-userdb.c
 )
 
 set (DBUS_SHARED_HEADERS
-	../../dbus/dbus-dataslot.h
-	../../dbus/dbus-hash.h
-	../../dbus/dbus-internals.h
-	../../dbus/dbus-list.h
-	../../dbus/dbus-marshal-basic.h
-	../../dbus/dbus-mempool.h
-	../../dbus/dbus-string.h
-	../../dbus/dbus-string-private.h
-	../../dbus/dbus-sysdeps.h
-	../../dbus/dbus-userdb.h
+	${DBUS_DIR}/dbus-dataslot.h
+	${DBUS_DIR}/dbus-hash.h
+	${DBUS_DIR}/dbus-internals.h
+	${DBUS_DIR}/dbus-list.h
+	${DBUS_DIR}/dbus-marshal-basic.h
+	${DBUS_DIR}/dbus-mempool.h
+	${DBUS_DIR}/dbus-string.h
+	${DBUS_DIR}/dbus-string-private.h
+	${DBUS_DIR}/dbus-sysdeps.h
+	${DBUS_DIR}/dbus-userdb.h
 )
 
 ### source code that is generic utility functionality used
@@ -119,47 +120,47 @@ set (DBUS_SHARED_HEADERS
 ### should be underscore-prefixed but don't really need 
 ### to be unless they move to DBUS_SHARED_SOURCES later)
 set (DBUS_UTIL_SOURCES
-	../../dbus/dbus-auth-util.c
-	../../dbus/dbus-mainloop.c
-	../../dbus/dbus-marshal-byteswap-util.c
-	../../dbus/dbus-marshal-recursive-util.c
-	../../dbus/dbus-marshal-validate-util.c
-	../../dbus/dbus-message-factory.c
-	../../dbus/dbus-message-util.c
-	../../dbus/dbus-shell.c
-	../../dbus/dbus-string-util.c
-	../../dbus/dbus-userdb-util.c
+	${DBUS_DIR}/dbus-auth-util.c
+	${DBUS_DIR}/dbus-mainloop.c
+	${DBUS_DIR}/dbus-marshal-byteswap-util.c
+	${DBUS_DIR}/dbus-marshal-recursive-util.c
+	${DBUS_DIR}/dbus-marshal-validate-util.c
+	${DBUS_DIR}/dbus-message-factory.c
+	${DBUS_DIR}/dbus-message-util.c
+	${DBUS_DIR}/dbus-shell.c
+	${DBUS_DIR}/dbus-string-util.c
+	${DBUS_DIR}/dbus-userdb-util.c
 )
 
 if (DBUS_BUILD_TESTS)
 	set (DBUS_UTIL_SOURCES 
 		${DBUS_UTIL_SOURCES}
-		../../dbus/dbus-test.c
+		${DBUS_DIR}/dbus-test.c
 	)
 endif (DBUS_BUILD_TESTS)
 
 set (DBUS_UTIL_HEADERS
-	../../dbus/dbus-mainloop.h
-	../../dbus/dbus-message-factory.h
-	../../dbus/dbus-shell.h
-	../../dbus/dbus-spawn.h
-	../../dbus/dbus-test.h
+	${DBUS_DIR}/dbus-mainloop.h
+	${DBUS_DIR}/dbus-message-factory.h
+	${DBUS_DIR}/dbus-shell.h
+	${DBUS_DIR}/dbus-spawn.h
+	${DBUS_DIR}/dbus-test.h
 )
 
 ### platform specific settings
 if (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
-#		../../dbus/dbus-dirent-win.c
-		../../dbus/dbus-sysdeps-win.c
-#		../../dbus/dbus-sysdeps-util-win.c
-		../../dbus/dbus-spawn-win.c
+#		${DBUS_DIR}/dbus-dirent-win.c
+		${DBUS_DIR}/dbus-sysdeps-win.c
+#		${DBUS_DIR}/dbus-sysdeps-util-win.c
+		${DBUS_DIR}/dbus-spawn-win.c
 	)
 	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)
 
 else (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
-		../../dbus/dbus-dirent.c
-		../../dbus/dbus-spawn.c
+		${DBUS_DIR}/dbus-dirent.c
+		${DBUS_DIR}/dbus-spawn.c
 	)
 endif (WIN32)
 

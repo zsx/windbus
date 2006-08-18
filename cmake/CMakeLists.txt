@@ -11,6 +11,7 @@ SET(BUILD_SHARED_LIBS ON)
 # search packages used by KDE
 if (WIN32)
 	find_package(GNUWIN32)
+	find_package(LibIconv REQUIRED)
 endif (WIN32)
 find_package(LIBXML2 REQUIRED)
 

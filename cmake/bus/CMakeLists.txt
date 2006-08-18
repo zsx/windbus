@@ -4,7 +4,8 @@ include_directories( ${CMAKE_INCLUDE_PATH} )
 
 add_definitions(-DDBUS_COMPILATION)
 
-SET (EFENCE "")
+SET(EFENCE "")
+SET(BUS_DIR ${CMAKE_SOURCE_DIR}/../bus)
 
 set (config_DATA
 	session.conf				
@@ -17,31 +18,34 @@ ENDFOREACH(file)
 
 
 set (XML_SOURCES config-loader-libxml.c)
-include_directories(${LIBXML2_INCLUDE_DIR})
-# xml2 requires iconv 
-SET (LIBS ${LIBXML2_LIBRARIES} iconv)
-
+if(WIN32)
+    include_directories(${LIBXML2_INCLUDE_DIR} ${LIBICONV_INCLUDE_DIR})
+    SET (LIBS ${LIBXML2_LIBRARIES} ${LIBICONV_LIBRARIES})
+else(WIN32)
+    include_directories(${LIBXML2_INCLUDE_DIR})
+    SET (LIBS ${LIBXML2_LIBRARIES})
+endif(WIN32)
 
 if (DBUS_USE_EXPAT)
 set (XML_SOURCES config-loader-expat.c)
 endif (DBUS_USE_EXPAT)
 
 
-file(GLOB BUS_SOURCES ${CMAKE_SOURCE_DIR}/../bus/*.c)
-file(GLOB BUS_HEADERS ${CMAKE_SOURCE_DIR}/../bus/*.h)
+file(GLOB BUS_SOURCES ${BUS_DIR}/*.c)
+file(GLOB BUS_HEADERS ${BUS_DIR}/*.h)
 
 
 
 list(REMOVE_ITEM BUS_SOURCES
-	${CMAKE_SOURCE_DIR}/../bus/main.c					
-	${CMAKE_SOURCE_DIR}/../bus/test-main.c
-#	${CMAKE_SOURCE_DIR}/../bus/test.c
-	${CMAKE_SOURCE_DIR}/../bus/config-loader-expat.c
-	${CMAKE_SOURCE_DIR}/../bus/dir-watch-kqueue.c
-	${CMAKE_SOURCE_DIR}/../bus/dir-watch-dnotify.c
-	${CMAKE_SOURCE_DIR}/../bus/dir-watch-default.c)
+	${BUS_DIR}/main.c					
+	${BUS_DIR}/test-main.c
+	${BUS_DIR}/config-loader-expat.c
+	${BUS_DIR}/dir-watch-kqueue.c
+	${BUS_DIR}/dir-watch-dnotify.c
+	${BUS_DIR}/dir-watch-default.c)
 
-add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_HEADERS} ${CMAKE_SOURCE_DIR}/../bus/main.c)
+message(STATUS "BUS_SOURCES : " ${BUS_SOURCES})
+add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_HEADERS} ${BUS_DIR}/main.c)
 target_link_libraries(dbus-daemon dbus-1 ${LIBS})
 install_targets(/bin dbus-daemon )
 install_files(/etc FILES ${config_DATA})
@@ -65,11 +69,9 @@ install_files(/etc FILES ${config_DATA})
 #	test-main.c
 
 if (DBUS_BUILD_TESTS)
-	set (bus_test_SOURCES
-		${BUS_SOURCES}
-		test-main.c)
+	set (bus_test_SOURCES ${BUS_DIR}/test-main.c)
 	
-	add_executable(bus-test ${BUS_SOURCES} ${BUS_HEADERS} ${CMAKE_SOURCE_DIR}/../bus/test-main.c	)
+	add_executable(bus-test ${BUS_SOURCES} ${BUS_HEADERS} ${bus_test_SOURCES} )
 	target_link_libraries(bus-test dbus-1 ${LIBS} )
 	install_targets(/bin bus-test)
 	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_SOURCE_DIR}/../test/data)
