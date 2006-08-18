@@ -29,6 +29,7 @@
 #define _WINSOCKAPI_
 
 #include "dbus-hash.h"
+#include "dbus-string.h"
 #include <ctype.h>
 #include <malloc.h>
 #include <windows.h>
