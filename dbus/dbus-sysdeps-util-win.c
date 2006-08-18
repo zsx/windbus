@@ -25,35 +25,12 @@
 #include "dbus-internals.h"
 #include "dbus-protocol.h"
 #include "dbus-string.h"
-#define DBUS_USERDB_INCLUDES_PRIVATE 1
-#include "dbus-userdb.h"
-#include "dbus-test.h"
 
 #include <io.h>
-#include <sys/types.h>
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
 #include <stdio.h>
-#include <errno.h>
-#include <fcntl.h>
+#include <stdlib.h>
 #include <sys/stat.h>
-#ifdef HAVE_GRP_H
-#include <grp.h>
-#endif
-
-#ifdef DBUS_WIN
 #include <aclapi.h>
-#define F_OK 0
-#endif
-
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
-
 
 /**
  * Does the chdir, fork, setsid, etc. to become a daemon process.
@@ -279,7 +256,9 @@ dbus_bool_t
 _dbus_path_is_absolute (const DBusString *filename)
 {
   if (_dbus_string_get_length (filename) > 0)
-    return _dbus_string_get_byte (filename, 1) == ':';
+    return _dbus_string_get_byte (filename, 1) == ':' 
+    		|| _dbus_string_get_byte (filename, 0) == '\\' 
+    		|| _dbus_string_get_byte (filename, 0) == '/';
   else
     return FALSE;
 }
@@ -361,6 +340,7 @@ fill_group_info(DBusGroupInfo    *info,
     }
 }
 
+#ifndef HAVE_DIRENT_H
 /* This file is part of the KDE project
    Copyright (C) 2000 Werner Almesberger
 
@@ -381,7 +361,7 @@ fill_group_info(DBusGroupInfo    *info,
    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
    Boston, MA 02110-1301, USA.
 */
-
+#if 0 // copied to dbus-arch-deps.h.cmake  
 #define HAVE_NO_D_NAMLEN	/* no struct dirent->d_namlen */
 #define HAVE_DD_LOCK  		/* have locking mechanism */
 
@@ -406,6 +386,7 @@ typedef struct {
     char *dir;                  /* the dir we are reading */
     struct dirent dent;         /* the dirent to return */
 } DIR;
+#endif
 
 /**********************************************************************
  * Implement dirent-style opendir/readdir/closedir on Window 95/NT
@@ -483,6 +464,7 @@ int _dbus_closedir(DIR *dp)
 
     return 0;
 }
+#endif
 
 /** @} */ /* End of DBusInternalsUtils functions */
 
@@ -615,25 +597,25 @@ _dbus_sysdeps_test (void)
   double val;
   int pos;
   
-  check_dirname ("foo", ".");
-  check_dirname ("foo/bar", "foo");
-  check_dirname ("foo//bar", "foo");
-  check_dirname ("foo///bar", "foo");
-  check_dirname ("foo/bar/", "foo");
-  check_dirname ("foo//bar/", "foo");
-  check_dirname ("foo///bar/", "foo");
-  check_dirname ("foo/bar//", "foo");
-  check_dirname ("foo//bar////", "foo");
-  check_dirname ("foo///bar///////", "foo");
-  check_dirname ("/foo", "/");
-  check_dirname ("////foo", "/");
-  check_dirname ("/foo/bar", "/foo");
-  check_dirname ("/foo//bar", "/foo");
-  check_dirname ("/foo///bar", "/foo");
-  check_dirname ("/", "/");
-  check_dirname ("///", "/");
+  check_dirname ("foo\\bar", "foo");
+  check_dirname ("foo\\\\bar", "foo");
+  check_dirname ("foo/\\/bar", "foo");
+  check_dirname ("foo\\bar/", "foo");
+  check_dirname ("foo//bar\\", "foo");
+  check_dirname ("foo\\bar/", "foo");
+  check_dirname ("foo/bar\\\\", "foo");
+  check_dirname ("\\foo", "\\");
+  check_dirname ("\\\\foo", "\\");
+  check_dirname ("\\", "\\");
+  check_dirname ("\\\\", "\\");
+  check_dirname ("\\/", "\\");
+  check_dirname ("/\\/", "/");
+  check_dirname ("c:\\foo\\bar", "c:\\foo");
+  check_dirname ("c:\\foo", "c:\\");
+  check_dirname ("c:/foo", "c:/");
+  check_dirname ("c:\\", "c:\\");
+  check_dirname ("c:/", "c:/");
   check_dirname ("", ".");  
-
 
   _dbus_string_init_const (&str, "3.5");
   if (!_dbus_string_parse_double (&str,
@@ -679,11 +661,16 @@ _dbus_sysdeps_test (void)
   check_path_absolute ("", FALSE);
   check_path_absolute ("foo", FALSE);
   check_path_absolute ("foo/bar", FALSE);
+  check_path_absolute ("", FALSE);
+  check_path_absolute ("foo\\bar", FALSE);
+  check_path_absolute ("c:\\", TRUE);
+  check_path_absolute ("c:\\foo", TRUE);
+  check_path_absolute ("c:", TRUE);
+  check_path_absolute ("c:\\foo\\bar", TRUE);
+  check_path_absolute ("\\", TRUE);
+  check_path_absolute ("/", TRUE);
   
   return TRUE;
 }
 #endif /* DBUS_BUILD_TESTS */
-
-
-
 
