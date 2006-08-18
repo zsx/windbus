@@ -16,35 +16,26 @@ FOREACH(file ${config_DATA})
 	CONFIGURE_FILE( "${CMAKE_CURRENT_SOURCE_DIR}/${file}.cmake" "${CMAKE_CURRENT_BINARY_DIR}/${file}" IMMEDIATE @ONLY)
 ENDFOREACH(file)
 
-
-set (XML_SOURCES config-loader-libxml.c)
-if(WIN32)
-    include_directories(${LIBXML2_INCLUDE_DIR} ${LIBICONV_INCLUDE_DIR})
-    SET (LIBS ${LIBXML2_LIBRARIES} ${LIBICONV_LIBRARIES})
-else(WIN32)
-    include_directories(${LIBXML2_INCLUDE_DIR})
-    SET (LIBS ${LIBXML2_LIBRARIES})
-endif(WIN32)
-
-if (DBUS_USE_EXPAT)
-set (XML_SOURCES config-loader-expat.c)
-endif (DBUS_USE_EXPAT)
-
-
 file(GLOB BUS_SOURCES ${BUS_DIR}/*.c)
 file(GLOB BUS_HEADERS ${BUS_DIR}/*.h)
 
+if(DBUS_USE_EXPAT)
+    list(REMOVE_ITEM BUS_SOURCES ${BUS_DIR}/config-loader-libxml.c)
+else(DBUS_USE_EXPAT)
+    list(REMOVE_ITEM BUS_SOURCES ${BUS_DIR}/config-loader-expat.c)
+endif (DBUS_USE_EXPAT)
 
+include_directories(${XML_INCLUDE_DIR})
+SET (LIBS ${XML_LIBRARY})
 
 list(REMOVE_ITEM BUS_SOURCES
 	${BUS_DIR}/main.c					
 	${BUS_DIR}/test-main.c
-	${BUS_DIR}/config-loader-expat.c
 	${BUS_DIR}/dir-watch-kqueue.c
 	${BUS_DIR}/dir-watch-dnotify.c
 	${BUS_DIR}/dir-watch-default.c)
 
-message(STATUS "BUS_SOURCES : " ${BUS_SOURCES})
+
 add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_HEADERS} ${BUS_DIR}/main.c)
 target_link_libraries(dbus-daemon dbus-1 ${LIBS})
 install_targets(/bin dbus-daemon )

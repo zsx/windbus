@@ -11,9 +11,31 @@ SET(BUILD_SHARED_LIBS ON)
 # search packages used by KDE
 if (WIN32)
 	find_package(GNUWIN32)
-	find_package(LibIconv REQUIRED)
+	find_package(LibIconv)
 endif (WIN32)
-find_package(LIBXML2 REQUIRED)
+find_package(LibXML2)
+find_package(LibExpat)
+
+if(NOT LIBXML2_FOUND AND NOT LIBEXPAT_FOUND)
+    message(FATAL "Neither expat nor libxml2 found!")
+endif(NOT LIBXML2_FOUND AND NOT LIBEXPAT_FOUND)
+
+if(LIBEXPAT_FOUND)
+    OPTION(DBUS_USE_EXPAT "Use expat (== ON) or libxml2 (==OFF)" ON)
+else(LIBEXPAT_FOUND)
+    OPTION(DBUS_USE_EXPAT "Use expat (== ON) or libxml2 (==OFF)" OFF)
+endif(LIBEXPAT_FOUND)
+
+message(STATUS "LIBEXPAT_LIBRARIES ${LIBEXPAT_LIBRARIES}")
+if(DBUS_USE_EXPAT)
+    SET(XML_LIB "Expat")
+    SET(XML_LIBRARY     ${LIBEXPAT_LIBRARIES})
+    SET(XML_INCLUDE_DIR ${LIBEXPAT_INCLUDE_DIR})
+else(DBUS_USE_EXPAT)
+    SET(XML_LIB "LibXML2")
+    SET(XML_LIBRARY     ${LIBXML2_LIBRARIES})
+    SET(XML_INCLUDE_DIR ${LIBXML2_INCLUDE_DIR})
+endif(DBUS_USE_EXPAT)
 
 # @TODO: how to remove last dir from ${CMAKE_SOURCE_DIR} ? 
 SET(DBUS_SOURCE_DIR ${CMAKE_SOURCE_DIR}/..)
@@ -271,6 +293,7 @@ message("        32-bit int:            	  ${DBUS_INT32_TYPE}                  "
 message("        16-bit int:            	  ${DBUS_INT16_TYPE}                  ")     
 #message("        Doxygen:                  ${DOXYGEN}                          ")
 #message("        xmlto:                    ${XMLTO}                            ")
+message("        xmlparser:                ${XML_LIB}                          ")
 
 
 #message("        Maintainer mode:          ${USE_MAINTAINER_MODE}              ")
