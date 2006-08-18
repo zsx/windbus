@@ -9,6 +9,7 @@ check_include_file(sys/poll.h   HAVE_POLL)      # dbus-sysdeps.c, dbus-sysdeps-w
 check_include_file(sys/time.h   HAVE_SYS_TIME_H)# dbus-sysdeps-win.c
 check_include_file(sys/wait.h   HAVE_SYS_WAIT_H)# dbus-sysdeps-win.c
 check_include_file(unistd.h     HAVE_UNISTD_H)  # dbus-sysdeps-util-win.c
+check_include_file(dirent.h     HAVE_DIRENT_H)  # dbus-sysdeps-util.c
 
 check_symbol_exists(backtrace    "execinfo.h"       HAVE_BACKTRACE)          #  dbus-sysdeps.c, dbus-sysdeps-win.c
 check_symbol_exists(getgrouplist "grp.h"            HAVE_GETGROUPLIST)       #  dbus-sysdeps.c
