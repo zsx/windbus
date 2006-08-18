@@ -15,7 +15,7 @@ check_function_exists(getpwnam_r   HAVE_POSIX_GETPWNAM_R)   #  dbus-sysdeps-util
 check_type_size(short     SIZEOF_SHORT)
 check_type_size(int       SIZEOF_INT)
 check_type_size(long      SIZEOF_LONG)
-check_type_size(long long SIZEOF_LONG_LONG)
+check_type_size("long long" SIZEOF_LONG_LONG)
 check_type_size(__int64   SIZEOF___INT64)
 
 # DBUS_INT64_TYPE
