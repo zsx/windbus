@@ -9,6 +9,8 @@
 #    QT_SUBDIR=qt
 #endif
 
+add_subdirectory( name-test )
+
 #SUBDIRS=name-test $(GLIB_SUBDIR) $(PYTHON_SUBDIR) $(QT_SUBDIR)
 #DIST_SUBDIRS=glib python qt name-test
 
