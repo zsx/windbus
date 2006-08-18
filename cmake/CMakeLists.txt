@@ -18,6 +18,7 @@ if (WIN32)
 endif (WIN32)
 find_package(LibXML2)
 find_package(LibExpat)
+find_package(X11)
 
 if(NOT LIBXML2_FOUND AND NOT LIBEXPAT_FOUND)
     message(FATAL "Neither expat nor libxml2 found!")
@@ -148,6 +149,9 @@ endif(LINUX)
 #AC_ARG_WITH(xml, AS_HELP_STRING([--with-xml=[libxml/expat]],[XML library to use]))
 #AC_ARG_WITH(init-scripts, AS_HELP_STRING([--with-init-scripts=[redhat]],[Style of init scripts to install]))
 #AC_ARG_WITH(session-socket-dir, AS_HELP_STRING([--with-session-socket-dir=[dirname]],[Where to put sockets for the per-login-session message bus]))
+if(HAVE_X11)
+  SET(DBUS_BUILD_X11 1)
+endif(HAVE_X11)
 
 #### Find socket directories
 #if ! test -z "$TMPDIR" ; then

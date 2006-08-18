@@ -19,7 +19,9 @@
 #cmakedefine DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 1
 #cmakedefine DBUS_DISABLE_ASSERTS 1
 #cmakedefine DBUS_ENABLE_VERBOSE_MODE 1
+#cmakedefine DBUS_BUILD_X11 1
 
+// headers
 /* Define to 1 if you have grp.h */
 #cmakedefine   HAVE_GRP_H 1
 
@@ -29,8 +31,40 @@
 /* Define to 1 if you have sys/poll.h */
 #cmakedefine    HAVE_POLL 1
 
+/* Define to 1 if you have sys/time.h */
+#cmakedefine    HAVE_SYS_TIME 1
+
+/* Define to 1 if you have sys/wait.h */
+#cmakedefine    HAVE_SYS_WAIT 1
+
+// symbols
+/* Define to 1 if you have backtrace */
+#cmakedefine   HAVE_BACKTRACE 1
+
+/* Define to 1 if you have getgrouplist */
+#cmakedefine   HAVE_GETGROUPLIST 1
+
+/* Define to 1 if you have getpeerucred */
+#cmakedefine   HAVE_GETPEERUCRED 1
+
+/* Define to 1 if you have nanosleep */
+#cmakedefine   HAVE_NANOSLEEP 1
+
+/* Define to 1 if you have getpwnam_r */
+#cmakedefine   HAVE_POSIX_GETPWNAM_R 1
+
+/* Define to 1 if you have socketpair */
+#cmakedefine   HAVE_SOCKETPAIR 1
+
+/* Define to 1 if you have unsetenv */
+#cmakedefine   HAVE_UNSETENV 1
+
 /* Define to 1 if you have writev */
 #cmakedefine   HAVE_WRITEV 1
+
+// structs
+/* Define to 1 if you have struct cmsgred */
+#cmakedefine    HAVE_CMSGCRED 1
 
 #if defined(_WIN32) || defined(_WIN64)
 #define DBUS_WIN
