@@ -112,45 +112,30 @@ endif (WIN32)
 ########### command line options ###############
 # TODO: take check from configure.in 
 
-if (WIN32)
-	set(enable-asserts 1)
-	set(enable-tests 1)
-	set(enable-verbose-mode 1)
-	set(enable-checks 1)
-endif (WIN32)
+OPTION(DBUS_DISABLE_ASSERTS "Disable assertion checking" OFF)
+if (DBUS_DISABLE_ASSERTS)	
+	add_definitions(-DDBUS_DISABLE_ASSERTS=0)
+else (DBUS_DISABLE_ASSERTS)
+	add_definitions(-DDBUS_DISABLE_ASSERTS=1)
+endif (DBUS_DISABLE_ASSERTS)
 
-#AC_ARG_ENABLE(tests, AS_HELP_STRING([--enable-tests],[enable unit test code]),enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
-
-if (enable-tests)	
-	set (DBUS_BUILD_TESTS 1)
-
+OPTION(DBUS_BUILD_TESTS "enable unit test code" ON)
+if (DBUS_BUILD_TESTS)	
 	add_definitions(-DDBUS_BUILD_TESTS=1)
 	if(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
 		add_definitions(-g)
 	endif(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
-endif (enable-tests)	
+endif (DBUS_BUILD_TESTS)	
 
-#AC_ARG_ENABLE(ansi, AS_HELP_STRING([--enable-ansi],[enable -ansi -pedantic gcc flags]),enable_ansi=$enableval,enable_ansi=no)
+OPTION(DBUS_ENABLE_ANSI "enable -ansi -pedantic gcc flags" OFF)  # not handled yet!
 
-#AC_ARG_ENABLE(verbose-mode, AS_HELP_STRING([--enable-verbose-mode],[support verbose debug mode]),enable_verbose_mode=$enableval,enable_verbose_mode=$USE_MAINTAINER_MODE)
 
-if (enable-verbose-mode)	
-	set (DBUS_ENABLE_VERBOSE_MODE 1)
+OPTION(DBUS_ENABLE_VERBOSE_MODE "support verbose debug mode" ON)
+if (DBUS_ENABLE_VERBOSE_MODE)	
 	add_definitions(-DDBUS_ENABLE_VERBOSE_MODE=1)
-endif (enable-verbose-mode)
+endif (DBUS_ENABLE_VERBOSE_MODE)
 
-#AC_ARG_ENABLE(asserts, AS_HELP_STRING([--enable-asserts],[include assertion checks]),enable_asserts=$enableval,enable_asserts=$USE_MAINTAINER_MODE)
-#    AC_DEFINE(DBUS_DISABLE_ASSERT,1,[Disable assertion checking])
-
-if (enable-asserts)	
-	set (DBUS_ENABLE_ASSERTS 1)
-	set (DBUS_DISABLE_ASSERTS 0)
-	add_definitions(-DDBUS_DISABLE_ASSERTS=0)
-else (enable-asserts)
-	set (DBUS_ENABLE_ASSERTS)
-	set (DBUS_DISABLE_ASSERTS 1)
-	add_definitions(-DDBUS_DISABLE_ASSERTS=1)
-endif (enable-asserts)
+OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)    # not handled yet!
 
 #AC_ARG_ENABLE(checks, AS_HELP_STRING([--enable-checks],[include sanity checks on public API]),enable_checks=$enableval,enable_checks=yes)
 #AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentation (requires xmlto)]),enable_xml_docs=$enableval,enable_xml_docs=auto)
@@ -212,16 +197,6 @@ endif (WIN32)
 
 set (DBUS_USER )
 
-
-#if test x$enable_checks = xno; then
-#    AC_DEFINE(DBUS_DISABLE_CHECKS,1,[Disable public API sanity checking])
-
-if (enable-checks)
-	set (DBUS_ENABLE_CHECKS 1)
-	set (DBUS_DISABLE_CHECKS 0)
-else (enable-checks)
-	set (DBUS_DISABLE_CHECKS 1)
-endif (enable-checks)
 
 if (WIN32)
   set (DBUS_SESSION_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=12434")
@@ -293,21 +268,20 @@ message("        32-bit int:            	  ${DBUS_INT32_TYPE}                  "
 message("        16-bit int:            	  ${DBUS_INT16_TYPE}                  ")     
 #message("        Doxygen:                  ${DOXYGEN}                          ")
 #message("        xmlto:                    ${XMLTO}                            ")
-message("        xmlparser:                ${XML_LIB}                          ")
 
 
 #message("        Maintainer mode:          ${USE_MAINTAINER_MODE}              ")
 #message("        gcc coverage profiling:   ${enable_gcov}                      ")
 message("        Building unit tests:      ${DBUS_BUILD_TESTS}                 ")
 message("        Building verbose mode:    ${DBUS_ENABLE_VERBOSE_MODE}         ")
-message("        Building assertions:      ${DBUS_ENABLE_ASSERTS}               ")
-message("        Building checks:          ${DBUS_ENABLE_CHECKS}               ")
+message("        Building w/o assertions:  ${DBUS_DISABLE_ASSERTS}             ")
+message("        Building w/o checks:      ${DBUS_DISABLE_CHECKS}              ")
 #message("        Building SELinux support: ${have_selinux}                     ")
 #message("        Building dnotify support: ${have_dnotify}                     ")
 #message("        Building Doxygen docs:    ${enable_doxygen_docs}              ")
 #message("        Building XML docs:        ${enable_xml_docs}                  ")
 #message("        Gettext libs (empty OK):  ${INTLLIBS}                         ")
-#message("        Using XML parser:         ${with_xml}                         ")
+message("        Using XML parser:         ${XML_LIB}                         ")
 if (WIN32)
 message("        System bus address:       ${DBUS_SYSTEM_BUS_DEFAULT_ADDRESS}  ")
 message("        Session bus address:      ${DBUS_SESSION_BUS_DEFAULT_ADDRESS}  ")
