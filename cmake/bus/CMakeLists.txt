@@ -16,27 +16,60 @@ FOREACH(file ${config_DATA})
 	CONFIGURE_FILE( "${CMAKE_CURRENT_SOURCE_DIR}/${file}.cmake" "${CMAKE_CURRENT_BINARY_DIR}/${file}" IMMEDIATE @ONLY)
 ENDFOREACH(file)
 
-file(GLOB BUS_SOURCES ${BUS_DIR}/*.c)
-file(GLOB BUS_HEADERS ${BUS_DIR}/*.h)
-
 if(DBUS_USE_EXPAT)
-    list(REMOVE_ITEM BUS_SOURCES ${BUS_DIR}/config-loader-libxml.c)
+    SET (XML_SOURCES ${BUS_DIR}/config-loader-expat.c)
 else(DBUS_USE_EXPAT)
-    list(REMOVE_ITEM BUS_SOURCES ${BUS_DIR}/config-loader-expat.c)
+    SET (XML_SOURCES ${BUS_DIR}/config-loader-libxml.c)
 endif (DBUS_USE_EXPAT)
+
+# after next cvs update
+#set (DIR_WATCH_SOURCE ${BUS_DIR}/dir-watch-default.c)
+set (DIR_WATCH_SOURCE )
+
+set (BUS_SOURCES 
+	${BUS_DIR}/activation.c				
+	${BUS_DIR}/activation.h				
+	${BUS_DIR}/bus.c					
+	${BUS_DIR}/bus.h					
+	${BUS_DIR}/config-parser.c				
+	${BUS_DIR}/config-parser.h				
+	${BUS_DIR}/connection.c				
+	${BUS_DIR}/connection.h				
+	${BUS_DIR}/desktop-file.c				
+	${BUS_DIR}/desktop-file.h				
+	${BUS_DIR}/dir-watch.c				
+	${BUS_DIR}/dir-watch.h				
+	${BUS_DIR}/dispatch.c				
+	${BUS_DIR}/dispatch.h				
+	${BUS_DIR}/driver.c				
+	${BUS_DIR}/driver.h				
+	${BUS_DIR}/expirelist.c				
+	${BUS_DIR}/expirelist.h				
+	${BUS_DIR}/policy.c				
+	${BUS_DIR}/policy.h				
+	${BUS_DIR}/selinux.h				
+	${BUS_DIR}/selinux.c				
+	${BUS_DIR}/services.c				
+	${BUS_DIR}/services.h				
+	${BUS_DIR}/signals.c				
+	${BUS_DIR}/signals.h				
+	${BUS_DIR}/test.c					
+	${BUS_DIR}/test.h					
+	${BUS_DIR}/utils.c					
+	${BUS_DIR}/utils.h					
+	${XML_SOURCES}
+	${DIR_WATCH_SOURCE}
+)
+
+set (dbus_daemon_SOURCES
+	${BUS_SOURCES}
+	${BUS_DIR}/main.c					
+)
 
 include_directories(${XML_INCLUDE_DIR})
 SET (LIBS ${XML_LIBRARY})
 
-list(REMOVE_ITEM BUS_SOURCES
-	${BUS_DIR}/main.c					
-	${BUS_DIR}/test-main.c
-	${BUS_DIR}/dir-watch-kqueue.c
-	${BUS_DIR}/dir-watch-dnotify.c
-	${BUS_DIR}/dir-watch-default.c)
-
-
-add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_HEADERS} ${BUS_DIR}/main.c)
+add_executable(dbus-daemon ${dbus_daemon_SOURCES})
 target_link_libraries(dbus-daemon dbus-1 ${LIBS})
 install_targets(/bin dbus-daemon )
 install_files(/etc FILES ${config_DATA})
@@ -55,14 +88,13 @@ install_files(/etc FILES ${config_DATA})
 ## even when not doing "make check"
 #noinst_PROGRAMS=$(TESTS) 
 
-#bus_test_SOURCES=				
-#	$(BUS_SOURCES)				
-#	test-main.c
+set (bus_test_SOURCES
+	${BUS_SOURCES}
+	${BUS_DIR}/test-main.c
+)
 
-if (DBUS_BUILD_TESTS)
-	set (bus_test_SOURCES ${BUS_DIR}/test-main.c)
-	
-	add_executable(bus-test ${BUS_SOURCES} ${BUS_HEADERS} ${bus_test_SOURCES} )
+if (DBUS_BUILD_TESTS)	
+	add_executable(bus-test ${bus_test_SOURCES})
 	target_link_libraries(bus-test dbus-1 ${LIBS} )
 	install_targets(/bin bus-test)
 	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_SOURCE_DIR}/../test/data)
