@@ -1,8 +1,8 @@
 D/basic.d////
 D/system.d////
-/.cvsignore/1.2/Fri Aug 11 10:55:44 2006//
-/basic.conf/1.7/Fri Aug 11 10:55:44 2006//
-/debug-allow-all-sha1.conf.in/1.2/Fri Aug 11 10:55:44 2006//
-/debug-allow-all.conf.in/1.4/Fri Aug 11 10:55:44 2006//
-/entities.conf/1.1/Fri Aug 11 10:55:44 2006//
-/many-rules.conf/1.4/Fri Aug 11 10:55:44 2006//
+/.cvsignore/1.2/Fri Aug 18 17:23:08 2006//
+/basic.conf/1.7/Fri Aug 18 17:23:08 2006//
+/debug-allow-all-sha1.conf.in/1.2/Fri Aug 18 17:23:08 2006//
+/debug-allow-all.conf.in/1.4/Fri Aug 18 17:23:08 2006//
+/entities.conf/1.1/Fri Aug 18 17:23:08 2006//
+/many-rules.conf/1.4/Fri Aug 18 17:23:08 2006//

@@ -1,3 +1,149 @@
+2006-08-18  John (J5) Palmieri  <johnp@redhat.com>
+
+	Patch provided by Ralf Habacker (ralf dot habacker at freenet dot de) 
+
+	* dbus/dbus-sysdeps.c, dbus/dbus-threads.c, dbus/dbus-internals.h:
+	Add two more global locks for use on windows platforms.  These are
+	unused on non-windows platforms but are not ifdefed out to avoid
+	potential bugs (i.e. the few bytes lost does not warrent the extra
+	maintanence and complexity that having seperate sets of locks would
+	cause)
+
+2006-08-18  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/services.c (bus_registry_acquire_service): Return an error
+	when an application tries to register the org.freedesktop.DBus Bus Name
+
+	* bus/services.c (bus_registry_release_service): Return an error
+	when an application tries to release the org.freedesktop.DBus Bus Name
+
+2006-08-17  Alp Toker  <alp@atoker.com>
+
+	* doc/dbus-specification.xml: Fix some minor typos.
+
+2006-08-17  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: use $with_init_scripts instead of $operating_system
+	to determine where to store the pid since the init scripts manipulate 
+	the pid file (patch from Marcelo Ricardo Leitner 
+	<marcelo dot leitner at terra dot com dot br>.  
+
+2006-08-16  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-threads.c: Add static DBusList *uninitialized_mutex_list and
+	static DBusList *uninitialized_condvar_list to support new late 
+	initialization threading model.  In this model threads can be initialized
+	even after the D-Bus API has been used but still needs to be initialized 
+	before the second thread has been started.  Mutexes and condvar addresses
+	are stored in the two static lists and are replaced with actuall locks
+	when threads are initalized.
+	(_dbus_mutex_new_at_location): New method for creating a mutex and placing
+	the location into the static list
+	(_dbus_mutex_free_at_location): New method for removing a mutex location 
+	from the static list and freeing the mutex
+	(_dbus_condvar_new_at_location): New method for creating a conditional 
+	variable and placing the location into the static list
+	(_dbus_condvar_free_at_location): New method for removing a conditional
+	variable location from the static list and freeing the conditional variable 
+	(init_uninitialized_locks): Atomic method which goes through the static 
+	lists of mutex and condvar location and updates them with actuall locks
+	(init_global_locks): changed to init_locks
+	
+	* dbus/dbus-connection.c:
+	(_dbus_connection_test_get_locks): New method for tests to check connections
+	(_dbus_connection_new_for_transport): Use the new at_location mutex and
+	condvar API
+	(dbus_connection_allocate_data_slot): Pass in the global lock address
+	to _dbus_data_slot_allocator_alloc
+
+	* dbus/dbus-dataslot.c:
+	(_dbus_data_slot_allocator_alloc): Use the address of the mutex
+	instead of the mutex itself
+
+	* dbus/dbus-message.c:
+	(dbus_message_allocate_data_slot): Pass in the global lock address
+	to _dbus_data_slot_allocator_alloc
+
+	* dbus/dbus-pending-call.c:
+	(dbus_pending_call_allocate_data_slot): Pass in the global lock address
+	to _dbus_data_slot_allocator_alloc
+
+	* dbus/dbus-server.c:
+	(_dbus_server_init_base): Use the new at_location mutex API
+	(dbus_server_allocate_data_slot): Pass in the global lock address
+	to _dbus_data_slot_allocator_alloc
+
+	* test/name-test/test-threads-init.c: New test case for late thread
+	initialization
+
+2006-08-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-dataslot.c (_dbus_data_slot_allocator_alloc):
+	Change _dbus_abort to _dbus_assert_not_reached because _dbus_abort
+	causes compile problems when asserts are turned off
+	Keeping _dbus_warn for printing out the message so even if
+	asserts are turned off the user gets the messages that something is 
+	wrong 
+
+2006-08-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	Patches by Kjartan Maraas <kmaraas at gnome dot org>
+
+	* bus/services.c (bus_service_list_queued_owners):
+	Add a pointer cast to fix compiler warning
+
+	* dbus/dbus-dataslot.c (_dbus_data_slot_list_get):
+	return a NULL instead of FALSE since the return type
+	is not expecting a boolean
+
+	* dbus/dbus-marshal-basic.c (_dbus_marshal_test):
+	Remove unused variable
+
+	* dbus/dbus-marshal-recursive-util.c (node_new):
+	return a NULL instead of FALSE since the return type
+	is not expecting a boolean
+
+	* dbus/dbus-server-debug-pipe.c (_dbus_transport_debug_pipe_new):
+	Send a NULL into _dbus_transport_new_for_fd instead of a FALSE
+	because we are expecting a pointer not a boolean
+
+	* dbus/dbus-sysdeps-util.c (_dbus_get_tmpdir): 
+	add void as the parameter so some compilers
+	don't complain
+
+	* dbus/dbus-transport-unix.c (_dbus_transport_new_for_domain_socket,
+	  _dbus_transport_new_for_tcp_socket):
+	Send a NULL into _dbus_transport_new_for_fd instead of a FALSE
+	because we are expecting a pointer not a boolean
+
+	* test/shell-test.c (test_command_line):
+	cast the second argument to _dbus_list_append to avoid compiler
+	warnings
+
+	* test/test-names.c (main): remove unused variable
+
+	* test/test-service.c (check_hello_from_self_reply):
+	Initialize echo_message and echo_reply to NULL
+	
+	* test/test-shell-service.c (handle_echo):
+	Remove unused variable and cast the third parameter passed to
+	dbus_connection_get_object_path_data to avoid compiler warrnings
+
+	* test/name-test/test-names.c (clear_message_queue):
+	Remove unused function
+
+	* test/name-test/test-pending-call-dispatch.c:
+	Fix format string in printf
+
+
+2006-08-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-bus.c:
+	* test/name-test/test-names.c:
+	Remove test method dbus_bus_connection_get_unique_name because 
+	we already have public method dbus_bus_get_unique_name that 
+	does the exact same thing
+
 2006-08-10  John (J5) Palmieri  <johnp@redhat.com>
 
 	* dbus/dbus-signature.c:

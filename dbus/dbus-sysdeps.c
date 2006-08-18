@@ -69,6 +69,9 @@
 #define socklen_t int
 #endif
 
+_DBUS_DEFINE_GLOBAL_LOCK (win_fds);
+_DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
+
 /**
  * @addtogroup DBusInternalsUtils
  * @{
@@ -3005,7 +3008,7 @@ int _dbus_printf_string_upper_bound (const char *format,
  * @returns char* - location of temp directory
  */
 char*
-_dbus_get_tmpdir()
+_dbus_get_tmpdir(void)
 {
   char* tmpdir;
 

@@ -1,6 +1,6 @@
-/.cvsignore/1.4/Fri Aug 11 10:55:56 2006//
-/debug-echo.service.in/1.2/Fri Aug 11 10:55:55 2006//
-/debug-segfault.service.in/1.1/Fri Aug 11 10:55:55 2006//
-/debug-shell-echo-fail.service.in/1.1/Fri Aug 11 10:55:55 2006//
-/debug-shell-echo-success.service.in/1.1/Fri Aug 11 10:55:55 2006//
+/.cvsignore/1.4/Fri Aug 18 17:23:22 2006//
+/debug-echo.service.in/1.2/Fri Aug 18 17:23:22 2006//
+/debug-segfault.service.in/1.1/Fri Aug 18 17:23:22 2006//
+/debug-shell-echo-fail.service.in/1.1/Fri Aug 18 17:23:22 2006//
+/debug-shell-echo-success.service.in/1.1/Fri Aug 18 17:23:22 2006//
 D
