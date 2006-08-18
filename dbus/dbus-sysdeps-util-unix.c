@@ -444,11 +444,6 @@ fill_group_info (DBusGroupInfo    *info,
 #endif  /* ! HAVE_GETPWNAM_R */
 }
 
-#include <dirent.h>
-#define _dbus_opendir opendir
-#define _dbus_readdir readdir
-#define _dbus_closedir closedir
-
 /** @} */ /* End of DBusInternalsUtils functions */
 
 /**
