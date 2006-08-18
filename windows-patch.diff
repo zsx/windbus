@@ -318,7 +318,7 @@ Index: dbus/dbus-sysdeps-util.c
 ===================================================================
 --- dbus/dbus-sysdeps-util.c	(revision 125)
 +++ dbus/dbus-sysdeps-util.c	(working copy)
-@@ -25,26 +25,13 @@
+@@ -25,26 +25,14 @@
  #include "dbus-internals.h"
  #include "dbus-protocol.h"
  #include "dbus-string.h"
@@ -333,7 +333,7 @@ Index: dbus/dbus-sysdeps-util.c
 -#include <unistd.h>
  #include <stdio.h>
 -#include <errno.h>
--#include <fcntl.h>
+ #include <fcntl.h>
 -#include <sys/stat.h>
 -#include <grp.h>
 -#include <sys/socket.h>
@@ -349,7 +349,7 @@ Index: dbus/dbus-sysdeps-util.c
  #endif
  
  /**
-@@ -53,131 +40,6 @@
+@@ -53,131 +41,6 @@
   */
  
  /**
@@ -481,7 +481,7 @@ Index: dbus/dbus-sysdeps-util.c
   * Creates a file containing the process ID.
   *
   * @param filename the filename to write to
-@@ -235,73 +97,7 @@
+@@ -235,73 +98,7 @@
    return TRUE;
  }
  
@@ -555,7 +555,7 @@ Index: dbus/dbus-sysdeps-util.c
   * Removes a directory; Directory must be empty
   * 
   * @param filename directory filename
-@@ -329,115 +125,42 @@
+@@ -329,115 +126,42 @@
    return TRUE;
  }
  
@@ -691,7 +691,7 @@ Index: dbus/dbus-sysdeps-util.c
  /**
   * Internals of directory iterator
   */
-@@ -466,7 +189,7 @@
+@@ -466,7 +190,7 @@
    
    filename_c = _dbus_string_get_const_data (filename);
  
@@ -700,7 +700,7 @@ Index: dbus/dbus-sysdeps-util.c
    if (d == NULL)
      {
        dbus_set_error (error, _dbus_error_from_errno (errno),
-@@ -478,7 +201,7 @@
+@@ -478,7 +202,7 @@
    iter = dbus_new0 (DBusDirIter, 1);
    if (iter == NULL)
      {
@@ -709,7 +709,7 @@ Index: dbus/dbus-sysdeps-util.c
        dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
                        "Could not allocate memory for directory iterator");
        return NULL;
-@@ -513,7 +236,7 @@
+@@ -513,7 +237,7 @@
    
   again:
    errno = 0;
@@ -718,7 +718,7 @@ Index: dbus/dbus-sysdeps-util.c
    if (ent == NULL)
      {
        if (errno != 0)
-@@ -546,317 +269,9 @@
+@@ -546,317 +270,9 @@
  void
  _dbus_directory_close (DBusDirIter *iter)
  {
