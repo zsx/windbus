@@ -25,6 +25,7 @@
 #include "dbus-internals.h"
 #include "dbus-protocol.h"
 #include "dbus-string.h"
+#include "dbus-sysdeps-win.h"
 
 #include <io.h>
 #include <stdio.h>
