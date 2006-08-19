@@ -637,7 +637,6 @@ Havoc
 
 
 
-bus\desktop-file.c:parse_section_start() does not support windows eol (0x0d0a), the debug-echo.service file must have unix eol
 
 bin\bus-test: Running message dispatch test
 Did not get the expected org.freedesktop.DBus.TestSuiteEchoService from ListActivatableNames
@@ -651,5 +650,9 @@ There are two names
       string "org.freedesktop.DBus.TestSuiteEchoService"
    ]
 but bus/dispatch.c:check_get_services() does only return the first name
+
+
+dbus_string.c:_dbus_string_pop_line() does not remove trailing '\r', which results in dbus-test compare error in sha test. 
+
 
 
