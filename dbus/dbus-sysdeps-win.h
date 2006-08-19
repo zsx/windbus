@@ -90,8 +90,7 @@ extern int win32_n_fds;
 #define UNRANDOMIZE(n) ((n)-1000)
 #endif
 
-
-#define _dbus_decapsulate_quick(i) win_fds[UNRANDOMIZE (i)].fd
+#define _dbus_handle_to_fd_quick(i) win_fds[UNRANDOMIZE (i)].fd
 
 
 extern const char*

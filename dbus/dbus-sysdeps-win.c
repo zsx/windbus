@@ -29,7 +29,6 @@
 #include "dbus-threads.h"
 #include "dbus-protocol.h"
 #include "dbus-hash.h"
-#include "dbus-dirent.h"
 #include "dbus-sockets-win.h"
 #include "dbus-string.h"
 #include <sys/types.h>
@@ -1559,7 +1558,7 @@ _dbus_win_startup_winsock (void)
 }
 
 int
-_dbus_encapsulate_socket (int socket)
+_dbus_handle_from_socket (int socket)
 {
   int i = _dbus_win_allocate_fd ();
   int retval;
@@ -1575,7 +1574,7 @@ _dbus_encapsulate_socket (int socket)
 }
 
 int
-_dbus_re_encapsulate_socket (int socket)
+_dbus_handle_to_socket (int socket)
 {
   int i;
   int retval = -1;
@@ -1598,7 +1597,7 @@ _dbus_re_encapsulate_socket (int socket)
 }
 
 int
-_dbus_encapsulate_fd (int fd)
+_dbus_handle_from_fd (int fd)
 {
   int i = _dbus_win_allocate_fd ();
   int retval;
@@ -1614,7 +1613,7 @@ _dbus_encapsulate_fd (int fd)
 }
 
 int
-_dbus_re_encapsulate_fd (int fd)
+_dbus_handle_to_fd (int fd)
 {
   int i;
   int retval = -1;
@@ -2153,8 +2152,8 @@ _dbus_full_duplex_pipe_win (int        *fd1,
     }
       
   
-  *fd1 = _dbus_encapsulate_socket (socket1);
-  *fd2 = _dbus_encapsulate_socket (socket2);
+  *fd1 = _dbus_handle_from_socket (socket1);
+  *fd2 = _dbus_handle_from_socket (socket2);
 
   _dbus_verbose ("full-duplex pipe %d:%d <-> %d:%d\n",
                  *fd1, socket1, *fd2, socket2);
@@ -2222,12 +2221,12 @@ _dbus_poll_win (DBusPollFD *fds,
 	}
 
       if (f->events & _DBUS_POLLIN)
-	msgp += sprintf (msgp, "R:%d ", _dbus_decapsulate_quick (f->fd));
+	msgp += sprintf (msgp, "R:%d ", _dbus_handle_to_fd_quick (f->fd));
 
       if (f->events & _DBUS_POLLOUT)
-	msgp += sprintf (msgp, "W:%d ", _dbus_decapsulate_quick (f->fd));
+	msgp += sprintf (msgp, "W:%d ", _dbus_handle_to_fd_quick (f->fd));
 
-      msgp += sprintf (msgp, "E:%d ", _dbus_decapsulate_quick (f->fd));
+      msgp += sprintf (msgp, "E:%d ", _dbus_handle_to_fd_quick (f->fd));
     }
 
   msgp += sprintf (msgp, "\n");
@@ -2244,14 +2243,14 @@ _dbus_poll_win (DBusPollFD *fds,
 #endif
 
       if (fdp->events & _DBUS_POLLIN)
-	FD_SET (_dbus_decapsulate_quick (fdp->fd), &read_set);
+	FD_SET (_dbus_handle_to_fd_quick (fdp->fd), &read_set);
 
       if (fdp->events & _DBUS_POLLOUT)
-	FD_SET (_dbus_decapsulate_quick (fdp->fd), &write_set);
+	FD_SET (_dbus_handle_to_fd_quick (fdp->fd), &write_set);
 
-      FD_SET (_dbus_decapsulate_quick (fdp->fd), &err_set);
+      FD_SET (_dbus_handle_to_fd_quick (fdp->fd), &err_set);
 
-      max_fd = MAX (max_fd, _dbus_decapsulate_quick (fdp->fd));
+      max_fd = MAX (max_fd, _dbus_handle_to_fd_quick (fdp->fd));
     }
     
 #ifdef DBUS_WIN
@@ -2285,14 +2284,14 @@ _dbus_poll_win (DBusPollFD *fds,
         {
 	      DBusPollFD *f = fds+i;
 
-	      if (FD_ISSET (_dbus_decapsulate_quick (f->fd), &read_set))
-	        msgp += sprintf (msgp, "R:%d ", _dbus_decapsulate_quick (f->fd));
+	      if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &read_set))
+	        msgp += sprintf (msgp, "R:%d ", _dbus_handle_to_fd_quick (f->fd));
 
-	      if (FD_ISSET (_dbus_decapsulate_quick (f->fd), &write_set))
-	        msgp += sprintf (msgp, "W:%d ", _dbus_decapsulate_quick (f->fd));
+	      if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &write_set))
+	        msgp += sprintf (msgp, "W:%d ", _dbus_handle_to_fd_quick (f->fd));
 
-	      if (FD_ISSET (_dbus_decapsulate_quick (f->fd), &err_set))
-	        msgp += sprintf (msgp, "E:%d ", _dbus_decapsulate_quick (f->fd));
+	      if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &err_set))
+	        msgp += sprintf (msgp, "E:%d ", _dbus_handle_to_fd_quick (f->fd));
 	    }
       msgp += sprintf (msgp, "\n");
       _dbus_verbose ("%s",msg);
@@ -2304,13 +2303,13 @@ _dbus_poll_win (DBusPollFD *fds,
 
 	  fdp->revents = 0;
 
-	  if (FD_ISSET (_dbus_decapsulate_quick (fdp->fd), &read_set))
+	  if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &read_set))
 	    fdp->revents |= _DBUS_POLLIN;
 
-	  if (FD_ISSET (_dbus_decapsulate_quick (fdp->fd), &write_set))
+	  if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &write_set))
 	    fdp->revents |= _DBUS_POLLOUT;
 
-	  if (FD_ISSET (_dbus_decapsulate_quick (fdp->fd), &err_set))
+	  if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &err_set))
 	    fdp->revents |= _DBUS_POLLERR;
 	}
 #ifdef DBUS_WIN
