@@ -1,5 +1,5 @@
-set (PACKAGE dbus)
-set (VERSION 0.91)
+set (PACKAGE windbus)
+set (VERSION 0.92)
 project(${PACKAGE})
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
@@ -319,4 +319,44 @@ endif (WIN32)
 #        echo "NOTE: building without checks for arguments passed to public API makes it harder to debug apps using D-BUS, but will slightly decrease D-BUS library size and _very_ slightly improve performance."
 #fi
 
+if (MINGW)
+	GET_FILENAME_COMPONENT(MINGW_BIN_PATH ${CMAKE_MAKE_PROGRAM} PATH)
+	install_files(/bin FILES ${MINGW_BIN_PATH}/mingwm10.dll)
+	if (NOT DBUS_USE_EXPAT)
+		# xml2
+		GET_FILENAME_COMPONENT(LIBXML_LIB_PATH ${LIBXML2_LIBRARIES} PATH)
+		install_files(/bin FILES ${LIBXML_LIB_PATH}/../bin/libxml2.dll)	
+		GET_FILENAME_COMPONENT(LIBXML_LIB_PATH ${LIBICONV_LIBRARIES} PATH)
+		install_files(/bin FILES ${LIBXML_LIB_PATH}/../bin/libiconv2.dll)	
+	endif (NOT DBUS_USE_EXPAT)
+else (MINGW)
+	INCLUDE(InstallRequiredSystemLibraries)
+endif (MINGW)
 
+
+SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "D-BUS For Windows")
+SET(CPACK_PACKAGE_VENDOR "D-BUS Windows Team")
+SET(CPACK_PACKAGE_DESCRIPTION_FILE "${CMAKE_SOURCE_DIR}/../README")
+SET(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/../COPYING")
+# duplicated from VERSION
+SET(CPACK_PACKAGE_VERSION_MAJOR "0")
+SET(CPACK_PACKAGE_VERSION_MINOR "9")
+SET(CPACK_PACKAGE_VERSION_PATCH "2")
+#SET(CPACK_PACKAGE_INSTALL_DIRECTORY "dbus ${CMake_VERSION_MAJOR}.${CMake_VERSION_MINOR}")
+SET(CPACK_PACKAGE_INSTALL_DIRECTORY "dbus")
+IF(WIN32 AND NOT UNIX)
+  # There is a bug in NSI that does not handle full unix paths properly. Make
+  # sure there is at least one set of four (4) backlasshes.
+# SET(CPACK_PACKAGE_ICON "${CMake_SOURCE_DIR}/Utilities/Release\\\\InstallIcon.bmp")
+  SET(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\dbus-launch.bat")
+  SET(CPACK_NSIS_DISPLAY_NAME "${CPACK_PACKAGE_INSTALL_DIRECTORY} Windows DBUS")
+  SET(CPACK_NSIS_HELP_LINK "http:\\\\\\\\sourceforge.net/projects/windbus")
+  SET(CPACK_NSIS_URL_INFO_ABOUT "http:\\\\\\\\sourceforge.net/projects/windbus")
+  SET(CPACK_NSIS_CONTACT "me@my-personal-home-page.com")
+  SET(CPACK_NSIS_MODIFY_PATH ON)
+ELSE(WIN32 AND NOT UNIX)
+  SET(CPACK_STRIP_FILES "bin/MyExecutable")
+  SET(CPACK_SOURCE_STRIP_FILES "")
+ENDIF(WIN32 AND NOT UNIX)
+SET(CPACK_PACKAGE_EXECUTABLES "dbus-daemon" "D-Bus Daemon")
+INCLUDE(CPack)
