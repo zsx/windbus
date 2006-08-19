@@ -1,4 +1,4 @@
-set (PACKAGE windbus)
+set (PACKAGE dbus)
 set (VERSION 0.92)
 project(${PACKAGE})
 
