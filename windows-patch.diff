@@ -1076,23 +1076,10 @@ Index: dbus/dbus-mainloop.c
                flags = dbus_watch_get_flags (wcb->watch);
                    
 -              fds[n_fds].fd = dbus_watch_get_fd (wcb->watch);
-+              fds[n_fds].fd = _dbus_re_encapsulate_socket(dbus_watch_get_fd (wcb->watch));
++              fds[n_fds].fd = _dbus_handle_to_socket(dbus_watch_get_fd (wcb->watch));
                fds[n_fds].revents = 0;
                fds[n_fds].events = 0;
                if (flags & DBUS_WATCH_READABLE)
-Index: dbus/dbus-sysdeps-win.c
-===================================================================
---- dbus/dbus-sysdeps-win.c	(revision 125)
-+++ dbus/dbus-sysdeps-win.c	(working copy)
-@@ -29,7 +29,7 @@
- #include "dbus-threads.h"
- #include "dbus-protocol.h"
- #include "dbus-hash.h"
--#include "dbus-dirent.h"
-+//#include "dbus-dirent.h"
- #include "dbus-sockets-win.h"
- #include "dbus-string.h"
- #include <sys/types.h>
 Index: dbus/dbus-sysdeps.c
 ===================================================================
 --- dbus/dbus-sysdeps.c	(revision 125)
@@ -1146,7 +1133,7 @@ Index: dbus/dbus-sysdeps.c
  _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
  
 +#ifndef DBUS_WIN
-+#define _dbus_decapsulate_quick(i)       (i)
++#define _dbus_handle_to_fd_quick(i)       (i)
 +#define DBUS_SOCKET_IS_INVALID(s)        ((s) < 0)
 +#define DBUS_SOCKET_API_RETURNS_ERROR(n) ((n) < 0)
 +#define DBUS_SOCKET_SET_ERRNO()          /* empty */
@@ -1369,7 +1356,7 @@ Index: dbus/dbus-sysdeps.c
        return -1;
      }
  
-+  fd = _dbus_encapsulate_socket (fd);
++  fd = _dbus_handle_from_socket (fd);
 +
    if (!_dbus_set_fd_nonblocking (fd, error))
      {
@@ -1481,7 +1468,7 @@ Index: dbus/dbus-sysdeps.c
        return -1;
      }
  
-+  listen_fd = _dbus_encapsulate_socket (listen_fd);
++  listen_fd = _dbus_handle_from_socket (listen_fd);
 +
    if (!_dbus_set_fd_nonblocking (listen_fd, error))
      {
@@ -1580,7 +1567,7 @@ Index: dbus/dbus-sysdeps.c
      }
    
 -  return client_fd;
-+  return _dbus_encapsulate_socket (client_fd);
++  return _dbus_handle_from_socket (client_fd);
  }
  
  /** @} */
@@ -1834,7 +1821,7 @@ Index: dbus/dbus-sysdeps.c
    if (sb.st_size > 0 && S_ISREG (sb.st_mode))
      {
        int bytes_read;
-+      const int encapsulated_fd = _dbus_encapsulate_fd (fd);
++      const int encapsulated_fd = _dbus_handle_from_fd (fd);
  
        while (total < (int) sb.st_size)
          {
@@ -1865,7 +1852,7 @@ Index: dbus/dbus-sysdeps.c
        goto out;
      }
  
-+  fd = _dbus_encapsulate_fd (fd);
++  fd = _dbus_handle_from_fd (fd);
 +
    need_unlink = TRUE;
    
@@ -2100,17 +2087,17 @@ Index: dbus/dbus-sysdeps.h
  #define DBUS_GID_FORMAT "%lu"
  
 +#ifdef DBUS_WIN
-+int _dbus_encapsulate_socket    (int socket);
-+int _dbus_re_encapsulate_socket (int socket);
-+int _dbus_encapsulate_fd        (int fd);
-+int _dbus_re_encapsulate_fd     (int fd);
++int _dbus_handle_from_socket    (int socket);
++int _dbus_handle_to_socket      (int socket);
++int _dbus_handle_from_fd        (int fd);
++int _dbus_handle_to_fd          (int fd);
 +int _dbus_decapsulate           (int fd);
 +#else
-+#define _dbus_encapsulate_socket(socket)    (socket)
-+#define _dbus_re_encapsulate_socket(socket) (socket)
-+#define _dbus_encapsulate_fd(fd)            (fd)
-+#define _dbus_re_encapsulate_fd(fd)         (fd)
-+#define _dbus_decapsulate(fd)               (fd)
++#define _dbus_handle_from_socket(socket) (socket)
++#define _dbus_handle_to_socket(socket)   (socket)
++#define _dbus_handle_from_fd(fd)         (fd)
++#define _dbus_handle_to_fd(fd)           (fd)
++#define _dbus_decapsulate(fd)            (fd)
 +#endif
 +                                                                                                                               
 +                                                                                                                                    
