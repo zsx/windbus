@@ -26,11 +26,6 @@ endif (WIN32)
 set (TEST_SERVICE_DIR "/")
 set (TEST_SOCKET_DIR "/")
 
-configure_file(${CMAKE_SOURCE_DIR}/test/data/valid-config-files/debug-allow-all-sha1.conf.cmake ${CMAKE_SOURCE_DIR}/../test/data/valid-config-files/debug-allow-all-sha1.conf )
-
-configure_file(${CMAKE_SOURCE_DIR}/test/data/valid-config-files/debug-allow-all.conf.cmake ${CMAKE_SOURCE_DIR}/../test/data/valid-config-files/debug-allow-all.conf )
-
-
 #if (DBUS_BUILD_TESTS)
 ## break-loader removed for now
 #TEST_BINARIES=test-service test-names test-shell-service shell-test spawn-test test-segfault test-exit test-sleep-forever
@@ -99,12 +94,10 @@ target_link_libraries(test_service dbus-1)
 install_targets(/bin test_service)
 
 # (rh) does not work at now
-#ADD_TEST(test_service ${EXECUTABLE_OUTPUT_PATH}/test_service)
+ADD_TEST(test_service ${EXECUTABLE_OUTPUT_PATH}/test_service)
 
-# install service and service file 
 set (TEST_SERVICE_BINARY ${EXPANDED_BINDIR}/test_service.exe)
-configure_file(${CMAKE_SOURCE_DIR}/../test/data/valid-service-files/debug-echo.service.in ${CMAKE_CURRENT_BINARY_DIR}/debug-echo.service)
-install_files(/data/dbus-1/services FILES debug-echo.service)
+set (TEST_SEGFAULT_BINARY ${EXPANDED_BINDIR}/test_segfault.exe)
 
 add_executable(test_names ${test_names_SOURCES})
 target_link_libraries(test_names dbus-1)
@@ -144,77 +137,64 @@ target_link_libraries(test_sleep_forever dbus-1)
 #add_executable(decode_gcov ${decode_gcov_SOURCES})
 #target_link_libraries(decode_gcov dbus-1)
 
-#TEST_LIBS=$(DBUS_TEST_LIBS) $(top_builddir)/dbus/libdbus-convenience.la
-
-#test_service_LDADD=$(TEST_LIBS)
-#test_names_LDADD=$(TEST_LIBS)
-### break_loader_LDADD= $(TEST_LIBS)
-#test_shell_service_LDADD=$(TEST_LIBS)
-#shell_test_LDADD=$(TEST_LIBS)
-#spawn_test_LDADD=$(TEST_LIBS)
-#decode_gcov_LDADD=$(TEST_LIBS)
-
 #EXTRA_DIST=
 #
 ### keep these in creation order, i.e. uppermost dirs first 
-#TESTDIRS=					
-#	data					
-#	data/valid-messages			
-#	data/invalid-messages			
-#	data/incomplete-messages		
-#	data/auth				
-#	data/sha-1				
-#	data/valid-config-files			
-#	data/valid-config-files/basic.d		
-#	data/valid-config-files/system.d	
-#	data/valid-service-files		
-#	data/invalid-config-files		
-#	data/equiv-config-files			
-#	data/equiv-config-files/basic		
-#	data/equiv-config-files/basic/basic.d	
-#	data/equiv-config-files/entities	
-#	data/equiv-config-files/entities/basic.d
-#
 set (TESTDIRS
-	${CMAKE_SOURCE_DIR}/../test/data					
-	${CMAKE_SOURCE_DIR}/../test/data/valid-messages			
-	${CMAKE_SOURCE_DIR}/../test/data/invalid-messages			
-	${CMAKE_SOURCE_DIR}/../test/data/incomplete-messages		
-	${CMAKE_SOURCE_DIR}/../test/data/auth				
-	${CMAKE_SOURCE_DIR}/../test/data/sha-1				
-	${CMAKE_SOURCE_DIR}/../test/data/valid-config-files			
-	${CMAKE_SOURCE_DIR}/../test/data/valid-config-files/basic.d		
-	${CMAKE_SOURCE_DIR}/../test/data/valid-config-files/system.d	
-	${CMAKE_SOURCE_DIR}/../test/data/valid-service-files		
-	${CMAKE_SOURCE_DIR}/../test/data/invalid-config-files		
-	${CMAKE_SOURCE_DIR}/../test/data/equiv-config-files			
-	${CMAKE_SOURCE_DIR}/../test/data/equiv-config-files/basic		
-	${CMAKE_SOURCE_DIR}/../test/data/equiv-config-files/basic/basic.d	
-	${CMAKE_SOURCE_DIR}/../test/data/equiv-config-files/entities	
-	${CMAKE_SOURCE_DIR}/../test/data/equiv-config-files/entities/basic.d
+	test/data					
+	test/data/valid-messages			
+	test/data/invalid-messages			
+	test/data/incomplete-messages		
+	test/data/auth				
+	test/data/sha-1				
+	test/data/valid-config-files			
+	test/data/valid-config-files/basic.d		
+	test/data/valid-config-files/system.d	
+	test/data/valid-service-files		
+	test/data/invalid-config-files		
+	test/data/equiv-config-files			
+	test/data/equiv-config-files/basic		
+	test/data/equiv-config-files/basic/basic.d	
+	test/data/equiv-config-files/entities	
+	test/data/equiv-config-files/entities/basic.d
 )
+
+### copy tests to builddir so that generated tests and static tests 
+### are all in one place.
+FOREACH(FILE_TYPE *.message-raw *.auth-script *.sha1 *.txt *.conf *.service)
+	FOREACH(DIR ${TESTDIRS})
+		FILE(GLOB FILES "${CMAKE_SOURCE_DIR}/../${DIR}/${FILE_TYPE}" )
+		FILE(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/${DIR})
+#		MESSAGE(${FILE_TYPE} ${FILES})
+		FOREACH(FILE ${FILES})
+			GET_FILENAME_COMPONENT(FILENAME ${FILE} NAME)
+			SET (TARGET ${CMAKE_BINARY_DIR}/${DIR}/${FILENAME})
+#			configure_file(${FILE} ${TARGET})
+#			MESSAGE("TARGET" ${TARET})
+			FILE(READ ${FILE} CONTENT)
+			FILE(WRITE ${TARGET} ${CONTENT})
+
+		ENDFOREACH(FILE)
+	ENDFOREACH(DIR)
+ENDFOREACH(FILE_TYPE)
+
+### generate test files
+configure_file(${CMAKE_SOURCE_DIR}/test/data/valid-config-files/debug-allow-all-sha1.conf.cmake ${CMAKE_BINARY_DIR}/test/data/valid-config-files/debug-allow-all-sha1.conf )
+configure_file(${CMAKE_SOURCE_DIR}/test/data/valid-config-files/debug-allow-all.conf.cmake ${CMAKE_BINARY_DIR}/test/data/valid-config-files/debug-allow-all.conf )
+
+SET (SERVICE_FILES test/data/valid-service-files)
+FILE(GLOB FILES "${CMAKE_SOURCE_DIR}/../${SERVICE_FILES}/*.service.in" )
+FOREACH(FILE ${FILES})	
+	GET_FILENAME_COMPONENT(FILENAME ${FILE} NAME_WE)
+	SET (TARGET ${CMAKE_BINARY_DIR}/${SERVICE_FILES}/${FILENAME}.service)
+#	MESSAGE("SOURCE: " ${FILE} "TARGET: " ${TARGET})
+	configure_file(${FILE} ${TARGET} )
+	install_files(/data/dbus-1/services FILES ${TARGET})
+ENDFOREACH(FILE)
+
 #
 #FIND_TESTS=find -name "*.message" -o -name "*.message-raw" -o -name "*.auth-script" -o -name "*.sha1" -o -name "*.txt" -o -name "*.conf" -o -name "*.service"
 #
-message("implement test file patching") 
-#<<<<<file(GLOB keramikPics "${CMAKE_CURRENT_SOURCE_DIR}/pics/*.png")
-
-#dist-hook:
-#	for D in $(TESTDIRS); do						
-#		test -d $(distdir)/$$D || mkdir $(distdir)/$$D || exit 1 ;	
-#	done ;									
-#	FILES=`(cd $(srcdir) && $(FIND_TESTS) -o -name "*.in" -a -not -name Makefile.in)` ;					
-#        for F in $$FILES; do							
-#                echo '-- Disting file '$$F ;					
-#		cp -f $(srcdir)/$$F $(distdir)/$$F || exit 1 ;				
-#	done
-#
-#<<<<< file(GLOB keramikPics "${CMAKE_CURRENT_SOURCE_DIR}/pics/*.png")
-#<<<<< file(WRITE ${CMAKE_CURRENT_BINARY_DIR}/keramikPics.txt "" )
-#<<<<< foreach(pics ${keramikPics})
-#<<<<<   file(APPEND  ${CMAKE_CURRENT_BINARY_DIR}/keramikPics.txt "${pics}\n" )
-#<<<<< endforeach(pics ${keramikPics})
-
 ### copy tests to builddir so that generated tests and static tests 
 ### are all in one place.
 #all-local:
