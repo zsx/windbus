@@ -230,6 +230,8 @@ endif(MINGW)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h )
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-env.bat.cmake ${CMAKE_BINARY_DIR}/bin/dbus-env.bat )
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-launch.bat.cmake ${CMAKE_BINARY_DIR}/bin/dbus-launch.bat )
+install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-env.bat)	
+install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-launch.bat)	
 
 # compiler definitions 
 add_definitions(-DHAVE_CONFIG_H=1)
@@ -247,6 +249,9 @@ add_subdirectory( tools )
 # is now located in kde svn
 #add_subdirectory( qt )
 
+
+OPTION(DBUS_INSTALL_SYSTEM_LIBS "install required system libraries" OFF)
+MESSAGE("set -DDBUS_INSTALL_SYSTEM_LIBS=1 to install runtime libraries too")
 
 
 message("                  D-BUS ${VERSION}                                    ")
@@ -277,6 +282,7 @@ message("        Building unit tests:      ${DBUS_BUILD_TESTS}                 "
 message("        Building verbose mode:    ${DBUS_ENABLE_VERBOSE_MODE}         ")
 message("        Building w/o assertions:  ${DBUS_DISABLE_ASSERTS}             ")
 message("        Building w/o checks:      ${DBUS_DISABLE_CHECKS}              ")
+message("        installing system libs:   ${DBUS_INSTALL_SYSTEM_LIBS}          ")
 #message("        Building SELinux support: ${have_selinux}                     ")
 #message("        Building dnotify support: ${have_dnotify}                     ")
 #message("        Building Doxygen docs:    ${enable_doxygen_docs}              ")
@@ -319,20 +325,21 @@ endif (WIN32)
 #        echo "NOTE: building without checks for arguments passed to public API makes it harder to debug apps using D-BUS, but will slightly decrease D-BUS library size and _very_ slightly improve performance."
 #fi
 
-if (MINGW)
-	GET_FILENAME_COMPONENT(MINGW_BIN_PATH ${CMAKE_MAKE_PROGRAM} PATH)
-	install_files(/bin FILES ${MINGW_BIN_PATH}/mingwm10.dll)
-	if (NOT DBUS_USE_EXPAT)
-		# xml2
-		GET_FILENAME_COMPONENT(LIBXML_LIB_PATH ${LIBXML2_LIBRARIES} PATH)
-		install_files(/bin FILES ${LIBXML_LIB_PATH}/../bin/libxml2.dll)	
-		GET_FILENAME_COMPONENT(LIBXML_LIB_PATH ${LIBICONV_LIBRARIES} PATH)
-		install_files(/bin FILES ${LIBXML_LIB_PATH}/../bin/libiconv2.dll)	
-	endif (NOT DBUS_USE_EXPAT)
-else (MINGW)
-	INCLUDE(InstallRequiredSystemLibraries)
-endif (MINGW)
-
+if (DBUS_INSTALL_SYSTEM_LIBS)
+	if (MINGW)
+		GET_FILENAME_COMPONENT(MINGW_BIN_PATH ${CMAKE_MAKE_PROGRAM} PATH)
+		install_files(/bin FILES ${MINGW_BIN_PATH}/mingwm10.dll)
+		if (NOT DBUS_USE_EXPAT)
+			# xml2
+			GET_FILENAME_COMPONENT(LIBXML_LIB_PATH ${LIBXML2_LIBRARIES} PATH)
+			install_files(/bin FILES ${LIBXML_LIB_PATH}/../bin/libxml2.dll)	
+			GET_FILENAME_COMPONENT(LIBXML_LIB_PATH ${LIBICONV_LIBRARIES} PATH)
+			install_files(/bin FILES ${LIBXML_LIB_PATH}/../bin/libiconv2.dll)	
+		endif (NOT DBUS_USE_EXPAT)
+	else (MINGW)
+		INCLUDE(InstallRequiredSystemLibraries)
+	endif (MINGW)
+endif (DBUS_INSTALL_SYSTEM_LIBS)
 
 SET(CPACK_PACKAGE_DESCRIPTION_SUMMARY "D-BUS For Windows")
 SET(CPACK_PACKAGE_VENDOR "D-BUS Windows Team")
@@ -349,7 +356,7 @@ IF(WIN32 AND NOT UNIX)
   # sure there is at least one set of four (4) backlasshes.
 # SET(CPACK_PACKAGE_ICON "${CMake_SOURCE_DIR}/Utilities/Release\\\\InstallIcon.bmp")
   SET(CPACK_NSIS_INSTALLED_ICON_NAME "bin\\\\dbus-launch.bat")
-  SET(CPACK_NSIS_DISPLAY_NAME "${CPACK_PACKAGE_INSTALL_DIRECTORY} Windows DBUS")
+  SET(CPACK_NSIS_DISPLAY_NAME "D-Bus for Windows")
   SET(CPACK_NSIS_HELP_LINK "http:\\\\\\\\sourceforge.net/projects/windbus")
   SET(CPACK_NSIS_URL_INFO_ABOUT "http:\\\\\\\\sourceforge.net/projects/windbus")
   SET(CPACK_NSIS_CONTACT "me@my-personal-home-page.com")
@@ -358,5 +365,5 @@ ELSE(WIN32 AND NOT UNIX)
   SET(CPACK_STRIP_FILES "bin/MyExecutable")
   SET(CPACK_SOURCE_STRIP_FILES "")
 ENDIF(WIN32 AND NOT UNIX)
-SET(CPACK_PACKAGE_EXECUTABLES "dbus-daemon" "D-Bus Daemon")
+SET(CPACK_PACKAGE_EXECUTABLES "dbus-launch" "D-Bus Daemon")
 INCLUDE(CPack)
