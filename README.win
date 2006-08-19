@@ -16,8 +16,7 @@ Apply patch by:
 patch -p0 -i windows-patch.diff
 
 Extract changes by:
-svn diff >> windows-patch.diff
-
+svn diff >> temp.diff 
 
 The advantage of this approach is that you can diff against
 the CVS version of DBus without network access. It is also
@@ -25,5 +24,34 @@ simple to sync with the freedesktop version:
 cvs -z9 up
 svn ci -"sync with freedesktop.org cvs version"
 
+
+Use the following commands for a complete update cycle
+svn revert -R *
+cvs -z9 up
+patch -p0 -i windows-patch.diff
+compile and change windows related code
+cvs -z9 diff -uBb > tmp.diff
+svn revert -R *
+copy tmp.diff windows-patch.diff 
+cvs -z9 up
+svn ci -m "sync with cvs" 
+
+
 Build dbus out of source with cmake:
 cmake ..\trunk\cmake
+
+for mingw use 
+cmake -G "MinGW Makefiles" <options> ..\trunk\cmake
+
+some cmake options: 
+		key						description														default value
+	DBUS_USE_EXPAT 						"Use expat (== ON) or libxml2 (==OFF)" 	OFF
+	DBUS_DISABLE_ASSERTS 			"Disable assertion checking" 						OFF
+	DBUS_BUILD_TESTS 					"enable unit test code" 								ON
+	DBUS_ENABLE_ANSI 					"enable -ansi -pedantic gcc flags" 			OFF
+	DBUS_ENABLE_GCOV 					"compile with coverage profiling 
+																				instrumentation (gcc only)" OFF
+	DBUS_ENABLE_VERBOSE_MODE "support verbose debug mode" 						ON
+	DBUS_DISABLE_CHECKS 			"Disable public API sanity checking" 		OFF
+	DBUS_INSTALL_SYSTEM_LIBS 	"install required system libraries 
+															(mingw: libxml2, libiconv, mingw10)"	OFF
