@@ -1,0 +1,78 @@
+Index: bus/desktop-file.c
+===================================================================
+--- bus/desktop-file.c	(revision 141)
++++ bus/desktop-file.c	(working copy)
+@@ -85,6 +85,12 @@
+    0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 
+ };
+ 
++#ifdef DBUS_WIN
++#define EOL "\r\n"
++#else
++#define EOL "\n"
++#endif
++
+ static void report_error (BusDesktopFileParser *parser,
+ 			  char                 *message,
+ 			  const char           *error_name,
+@@ -362,13 +368,13 @@
+ {
+   int line_end;
+   
+-  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
++  if (!_dbus_string_find (&parser->data, parser->pos, EOL, &line_end))
+     line_end = parser->len;
+ 
+   if (line_end == parser->len)
+     parser->pos = parser->len;
+   else
+-    parser->pos = line_end + 1;
++    parser->pos = line_end + strlen(EOL);
+   
+   parser->line_num += 1;
+ }
+@@ -398,7 +404,7 @@
+ 
+   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+   
+-  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
++  if (!_dbus_string_find (&parser->data, parser->pos, EOL, &line_end))
+     line_end = parser->len;
+   
+   if (line_end - parser->pos <= 2 ||
+@@ -436,7 +442,7 @@
+   if (line_end == parser->len)
+     parser->pos = parser->len;
+   else
+-    parser->pos = line_end + 1;
++    parser->pos = line_end + strlen(EOL);
+   
+   parser->line_num += 1;
+ 
+@@ -458,7 +464,7 @@
+ 
+   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+   
+-  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
++  if (!_dbus_string_find (&parser->data, parser->pos, EOL, &line_end))
+     line_end = parser->len;
+   
+   p = parser->pos;
+@@ -481,7 +487,7 @@
+       if (line_end == parser->len)
+ 	parser->pos = parser->len;
+       else
+-	parser->pos = line_end + 1;
++	parser->pos = line_end + strlen(EOL);
+ 	  
+       parser->line_num += 1;
+ 
+@@ -560,7 +566,7 @@
+   if (line_end == parser->len)
+     parser->pos = parser->len;
+   else
+-    parser->pos = line_end + 1;
++    parser->pos = line_end + strlen(EOL);
+   
+   parser->line_num += 1;
+ 
