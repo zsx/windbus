@@ -18,7 +18,6 @@ FOREACH(file ${config_DATA})
 ENDFOREACH(file)
 
 # config files for build dir configuration 
-set (DBUS_SERVICE_DIR ${CMAKE_BINARY_DIR}/test/data/valid-service-files)
 FOREACH(file ${config_DATA})
 	CONFIGURE_FILE( "${CMAKE_CURRENT_SOURCE_DIR}/${file}.cmake" "${CMAKE_CURRENT_BINARY_DIR}/build-${file}" IMMEDIATE @ONLY)
 ENDFOREACH(file)
