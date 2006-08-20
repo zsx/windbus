@@ -1,78 +1,151 @@
+Index: dbus/dbus-string.h
+===================================================================
+--- dbus/dbus-string.h	(revision 141)
++++ dbus/dbus-string.h	(working copy)
+@@ -215,6 +215,10 @@
+                                                   int                start,
+                                                   const char        *substr,
+                                                   int               *found);
++dbus_bool_t   _dbus_string_find_eol               (const DBusString *str,
++                                                  int               start,
++                                                  int               *found,
++                                                  int               *found_len);
+ dbus_bool_t   _dbus_string_find_to               (const DBusString  *str,
+                                                   int                start,
+                                                   int                end,
+Index: dbus/dbus-string.c
+===================================================================
+--- dbus/dbus-string.c	(revision 141)
++++ dbus/dbus-string.c	(working copy)
+@@ -1790,6 +1790,47 @@
+ }
+ 
+ /**
++ * Finds end of line ("\r\n" or "\n") in the string,
++ * returning #TRUE and filling in the byte index
++ * where the eol string was found, if it was found.
++ * Returns #FALSE if eol wasn't found.
++ *
++ * @param str the string
++ * @param start where to start looking
++ * @param found return location for where it was found, or #NULL
++ * @param found_len return length of found eol string
++ * @returns #TRUE if found
++ */
++dbus_bool_t
++_dbus_string_find_eol (const DBusString *str,
++                   int               start,
++                   int              *found,
++                   int              *found_len)
++{
++  char *eol = "\r\n";
++  dbus_bool_t ret;
++
++  _dbus_assert (found_len != NULL);
++  *found_len = 0;
++  ret = _dbus_string_find_to (str, start,
++                               ((const DBusRealString*)str)->len,
++                               eol, found);
++  if (ret)
++    {
++      *found_len = strlen(eol);
++      return ret;
++    }
++
++  eol = "\n";
++  ret = _dbus_string_find_to (str, start,
++                               ((const DBusRealString*)str)->len,
++                               eol, found);
++  if (ret)
++    *found_len = strlen(eol);
++  return ret;
++}
++
++/**
+  * Finds the given substring in the string,
+  * up to a certain position,
+  * returning #TRUE and filling in the byte index
 Index: bus/desktop-file.c
 ===================================================================
 --- bus/desktop-file.c	(revision 141)
 +++ bus/desktop-file.c	(working copy)
-@@ -85,6 +85,12 @@
-    0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 
- };
- 
-+#ifdef DBUS_WIN
-+#define EOL "\r\n"
-+#else
-+#define EOL "\n"
-+#endif
-+
- static void report_error (BusDesktopFileParser *parser,
- 			  char                 *message,
- 			  const char           *error_name,
-@@ -362,13 +368,13 @@
+@@ -360,15 +360,15 @@
+ static void
+ parse_comment_or_blank (BusDesktopFileParser *parser)
  {
-   int line_end;
+-  int line_end;
++  int line_end, eol_len;
    
 -  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
-+  if (!_dbus_string_find (&parser->data, parser->pos, EOL, &line_end))
++  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
      line_end = parser->len;
  
    if (line_end == parser->len)
      parser->pos = parser->len;
    else
 -    parser->pos = line_end + 1;
-+    parser->pos = line_end + strlen(EOL);
++    parser->pos = line_end + eol_len;
    
    parser->line_num += 1;
  }
-@@ -398,7 +404,7 @@
+@@ -393,12 +393,12 @@
+ static dbus_bool_t
+ parse_section_start (BusDesktopFileParser *parser, DBusError *error)
+ {
+-  int line_end;
++  int line_end, eol_len;
+   char *section_name;
  
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-   
+-  
 -  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
-+  if (!_dbus_string_find (&parser->data, parser->pos, EOL, &line_end))
++    
++  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
      line_end = parser->len;
    
    if (line_end - parser->pos <= 2 ||
-@@ -436,7 +442,7 @@
+@@ -436,7 +436,7 @@
    if (line_end == parser->len)
      parser->pos = parser->len;
    else
 -    parser->pos = line_end + 1;
-+    parser->pos = line_end + strlen(EOL);
++    parser->pos = line_end + eol_len;
    
    parser->line_num += 1;
  
-@@ -458,7 +464,7 @@
+@@ -448,7 +448,7 @@
+ static dbus_bool_t
+ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
+ {
+-  int line_end;
++  int line_end, eol_len;
+   int key_start, key_end;
+   int value_start;
+   int p;
+@@ -458,7 +458,7 @@
  
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
    
 -  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
-+  if (!_dbus_string_find (&parser->data, parser->pos, EOL, &line_end))
++  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
      line_end = parser->len;
    
    p = parser->pos;
-@@ -481,7 +487,7 @@
+@@ -481,7 +481,7 @@
        if (line_end == parser->len)
  	parser->pos = parser->len;
        else
 -	parser->pos = line_end + 1;
-+	parser->pos = line_end + strlen(EOL);
++	parser->pos = line_end + eol_len;
  	  
        parser->line_num += 1;
  
-@@ -560,7 +566,7 @@
+@@ -560,7 +560,7 @@
    if (line_end == parser->len)
      parser->pos = parser->len;
    else
 -    parser->pos = line_end + 1;
-+    parser->pos = line_end + strlen(EOL);
++    parser->pos = line_end + eol_len;
    
    parser->line_num += 1;
  
