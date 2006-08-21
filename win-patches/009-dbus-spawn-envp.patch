@@ -54,6 +54,18 @@ Index: dbus/dbus-spawn.c
                                           &error))
      {
        _dbus_babysitter_kill_child (sitter);
+Index: dbus/dbus-spawn.h
+===================================================================
+--- dbus/dbus-spawn.h	(revision 141)
++++ dbus/dbus-spawn.h	(working copy)
+@@ -37,6 +37,7 @@
+ 
+ dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
+                                                    char                     **argv,
++                                                   char                     **env,
+                                                    DBusSpawnChildSetupFunc    child_setup,
+                                                    void                      *user_data,
+                                                    DBusError                 *error);
 Index: test/spawn-test.c
 ===================================================================
 --- test/spawn-test.c	(revision 141)
