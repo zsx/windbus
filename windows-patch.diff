@@ -1,22 +1,19 @@
 Index: test/spawn-test.c
 ===================================================================
---- test/spawn-test.c	(revision 125)
+--- test/spawn-test.c	(revision 141)
 +++ test/spawn-test.c	(working copy)
-@@ -31,7 +31,11 @@
+@@ -31,7 +31,7 @@
      argv_copy [i] = argv[i + 1];
    argv_copy[argc - 1] = NULL;
    
-+#ifdef DBUS_WIN
-+  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, setup_func, NULL, NULL, &error))
-+#else
-   if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, setup_func, NULL, &error))
-+#endif
+-  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, setup_func, NULL, &error))
++  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, NULL, setup_func, NULL, &error))
      {
        fprintf (stderr, "Could not launch application: \"%s\"\n",
  	       error.message);
 Index: test/test-segfault.c
 ===================================================================
---- test/test-segfault.c	(revision 125)
+--- test/test-segfault.c	(revision 141)
 +++ test/test-segfault.c	(working copy)
 @@ -1,10 +1,27 @@
  /* This is simply a process that segfaults */
@@ -48,7 +45,7 @@ Index: test/test-segfault.c
  {
 Index: test/test-sleep-forever.c
 ===================================================================
---- test/test-sleep-forever.c	(revision 125)
+--- test/test-sleep-forever.c	(revision 141)
 +++ test/test-sleep-forever.c	(working copy)
 @@ -1,6 +1,10 @@
  /* This is a process that just sleeps infinitely. */
@@ -61,9 +58,98 @@ Index: test/test-sleep-forever.c
  
  int
  main (int argc, char **argv)
+Index: win-patches/005-dbus-win-fds.txt
+===================================================================
+--- win-patches/005-dbus-win-fds.txt	(revision 141)
++++ win-patches/005-dbus-win-fds.txt	(working copy)
+@@ -1,30 +0,0 @@
+-relating notes:
+-
+-
+-> +#ifdef DBUS_WIN
+-> +_DBUS_DECLARE_GLOBAL_LOCK (win32_fds);
+-> +_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
+-> +#endif
+->  _DBUS_DECLARE_GLOBAL_LOCK (list);
+->  _DBUS_DECLARE_GLOBAL_LOCK (connection_slots);
+->  _DBUS_DECLARE_GLOBAL_LOCK (pending_call_slots);
+-> @@ -281,7 +291,11 @@
+->  _DBUS_DECLARE_GLOBAL_LOCK (system_users);
+->  _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
+->  _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
+-> +#ifdef DBUS_WIN
+-> +#define _DBUS_N_GLOBAL_LOCKS (13)
+-> +#else
+->  #define _DBUS_N_GLOBAL_LOCKS (11)
+-> +#endif
+-
+-(havoc) I'd just drop the #ifdef here and always have the two windows locks, 
+-saving a little memory is not worth having platform-specific bugs such a
+-s wrong N_GLOBAL_LOCKS on only one platform.
+-
+-
+-
+-changelog entry: 
+-
+-	* dbus/dbus-internals.h: add two Windows related global locks
+-
+Index: win-patches/005-dbus-sysdeps-win-locks.patch
+===================================================================
+--- win-patches/005-dbus-sysdeps-win-locks.patch	(revision 141)
++++ win-patches/005-dbus-sysdeps-win-locks.patch	(working copy)
+@@ -1,14 +0,0 @@
+-Index: dbus/dbus-sysdeps.c
+-===================================================================
+---- dbus/dbus-sysdeps.c	(revision 104)
+-+++ dbus/dbus-sysdeps.c	(working copy)
+-@@ -69,6 +69,9 @@
+- #define socklen_t int
+- #endif
+- 
+-+_DBUS_DEFINE_GLOBAL_LOCK (win_fds);
+-+_DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
+-+
+- /**
+-  * @addtogroup DBusInternalsUtils
+-  * @{
+Index: win-patches/005-dbus-win-fds.patch
+===================================================================
+--- win-patches/005-dbus-win-fds.patch	(revision 141)
++++ win-patches/005-dbus-win-fds.patch	(working copy)
+@@ -1,29 +0,0 @@
+-Index: dbus/dbus-threads.c
+-===================================================================
+---- dbus/dbus-threads.c	(revision 71)
+-+++ dbus/dbus-threads.c	(working copy)
+-@@ -222,6 +222,8 @@
+-   
+-   DBusMutex **global_locks[] = {
+- #define LOCK_ADDR(name) (& _dbus_lock_##name)
+-+    LOCK_ADDR (win_fds),
+-+    LOCK_ADDR (sid_atom_cache),
+-     LOCK_ADDR (list),
+-     LOCK_ADDR (connection_slots),
+-     LOCK_ADDR (pending_call_slots),
+-
+-Index: dbus/dbus-internals.h
+-===================================================================
+---- dbus/dbus-internals.h       (revision 64)
+-+++ dbus/dbus-internals.h       (working copy)
+-@@ -281,7 +281,9 @@
+- _DBUS_DECLARE_GLOBAL_LOCK (system_users);
+- _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
+- _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
+--#define _DBUS_N_GLOBAL_LOCKS (11)
+-+_DBUS_DECLARE_GLOBAL_LOCK (win_fds);
+-+_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
+-+#define _DBUS_N_GLOBAL_LOCKS (13)
+-
+- dbus_bool_t _dbus_threads_init_debug (void);
+- 
+\ No newline at end of file
 Index: configure.in
 ===================================================================
---- configure.in	(revision 125)
+--- configure.in	(revision 141)
 +++ configure.in	(working copy)
 @@ -447,6 +447,8 @@
  
@@ -76,7 +162,7 @@ Index: configure.in
  		[AC_TRY_RUN([
 Index: bus/activation.c
 ===================================================================
---- bus/activation.c	(revision 125)
+--- bus/activation.c	(revision 141)
 +++ bus/activation.c	(working copy)
 @@ -34,7 +34,6 @@
  #include <dbus/dbus-spawn.h>
@@ -104,9 +190,9 @@ Index: bus/activation.c
      {
 Index: bus/test-main.c
 ===================================================================
---- bus/test-main.c	(revision 125)
+--- bus/test-main.c	(revision 141)
 +++ bus/test-main.c	(working copy)
-@@ -123,16 +123,22 @@
+@@ -123,16 +123,23 @@
      die ("signals");
    test_post_hook ();
  
@@ -116,22 +202,256 @@ Index: bus/test-main.c
    if (!bus_dispatch_sha1_test (&test_data_dir))
      die ("sha1");
    test_post_hook ();
+-
++#else
++  printf ("%s: Running SHA1 connection test - skipped\n", argv[0]);
 +#endif
- 
++#ifndef DBUS_WIN
    test_pre_hook ();
    printf ("%s: Running message dispatch test\n", argv[0]);
    if (!bus_dispatch_test (&test_data_dir)) 
-+#ifndef DBUS_WIN
      die ("dispatch");
 +#else
-+    printf("failed");
++  printf ("%s: Running message dispatch test - skipped\n",argv[0]);
 +#endif
    test_post_hook ();
  
    test_pre_hook ();
+Index: bus/desktop-file.c
+===================================================================
+--- bus/desktop-file.c	(revision 141)
++++ bus/desktop-file.c	(working copy)
+@@ -360,15 +360,15 @@
+ static void
+ parse_comment_or_blank (BusDesktopFileParser *parser)
+ {
+-  int line_end;
++  int line_end, eol_len;
+   
+-  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
++  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
+     line_end = parser->len;
+ 
+   if (line_end == parser->len)
+     parser->pos = parser->len;
+   else
+-    parser->pos = line_end + 1;
++    parser->pos = line_end + eol_len;
+   
+   parser->line_num += 1;
+ }
+@@ -393,12 +393,12 @@
+ static dbus_bool_t
+ parse_section_start (BusDesktopFileParser *parser, DBusError *error)
+ {
+-  int line_end;
++  int line_end, eol_len;
+   char *section_name;
+ 
+   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+-  
+-  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
++    
++  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
+     line_end = parser->len;
+   
+   if (line_end - parser->pos <= 2 ||
+@@ -436,7 +436,7 @@
+   if (line_end == parser->len)
+     parser->pos = parser->len;
+   else
+-    parser->pos = line_end + 1;
++    parser->pos = line_end + eol_len;
+   
+   parser->line_num += 1;
+ 
+@@ -448,7 +448,7 @@
+ static dbus_bool_t
+ parse_key_value (BusDesktopFileParser *parser, DBusError *error)
+ {
+-  int line_end;
++  int line_end, eol_len;
+   int key_start, key_end;
+   int value_start;
+   int p;
+@@ -458,7 +458,7 @@
+ 
+   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+   
+-  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
++  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
+     line_end = parser->len;
+   
+   p = parser->pos;
+@@ -481,7 +481,7 @@
+       if (line_end == parser->len)
+ 	parser->pos = parser->len;
+       else
+-	parser->pos = line_end + 1;
++	parser->pos = line_end + eol_len;
+ 	  
+       parser->line_num += 1;
+ 
+@@ -560,7 +560,7 @@
+   if (line_end == parser->len)
+     parser->pos = parser->len;
+   else
+-    parser->pos = line_end + 1;
++    parser->pos = line_end + eol_len;
+   
+   parser->line_num += 1;
+ 
+Index: dbus/dbus-string.c
+===================================================================
+--- dbus/dbus-string.c	(revision 141)
++++ dbus/dbus-string.c	(working copy)
+@@ -1790,6 +1790,72 @@
+ }
+ 
+ /**
++ * Finds end of line ("\r\n" or "\n") in the string,
++ * returning #TRUE and filling in the byte index
++ * where the eol string was found, if it was found.
++ * Returns #FALSE if eol wasn't found.
++ *
++ * @param str the string
++ * @param start where to start looking
++ * @param found return location for where it was found, or #NULL
++ * @param found_len return length of found eol string
++ * @returns #TRUE if found
++ */
++dbus_bool_t
++_dbus_string_find_eol (const DBusString *str,
++                   int               start,
++                   int              *found,
++                   int              *found_len)
++{
++  int i;
++
++  DBUS_CONST_STRING_PREAMBLE (str);
++  _dbus_assert (start <= real->len);
++  _dbus_assert (start >= 0);
++  
++  i = start;
++  while (i < real->len)
++    {
++      if (real->str[i] == '\r') 
++        {
++          if ((i+1) < real->len && real->str[i+1] == '\n') /* "\r\n" */
++            {
++              if (found) 
++                *found = i;
++              if (found_len)
++                *found_len = 2;
++              return TRUE;
++            } 
++          else /* only "\r" */
++            {
++              if (found) 
++                *found = i;
++              if (found_len)
++                *found_len = 1;
++              return TRUE;
++            }
++        } 
++      else if (real->str[i] == '\n')  /* only "\n" */
++        {
++          if (found) 
++            *found = i;
++          if (found_len)
++            *found_len = 1;
++          return TRUE;
++        }      
++      ++i;
++    }
++
++  if (found)
++    *found = real->len;
++
++  if (found_len)
++    *found_len = 0;
++  
++  return FALSE;
++}
++
++/**
+  * Finds the given substring in the string,
+  * up to a certain position,
+  * returning #TRUE and filling in the byte index
+@@ -1957,52 +2023,18 @@
+ _dbus_string_pop_line (DBusString *source,
+                        DBusString *dest)
+ {
+-  int eol;
+-  dbus_bool_t have_newline;
++  int eol, eol_len;
+   
+   _dbus_string_set_length (dest, 0);
+   
+   eol = 0;
+-  if (_dbus_string_find (source, 0, "\n", &eol))
+-    {
+-      have_newline = TRUE;
+-      eol += 1; /* include newline */
+-    }
+-  else
+-    {
++  if (!_dbus_string_find_eol (source, 0, &eol, &eol_len))
+       eol = _dbus_string_get_length (source);
+-      have_newline = FALSE;
+-    }
+ 
+   if (eol == 0)
+     return FALSE; /* eof */
+   
+-  if (!_dbus_string_move_len (source, 0, eol,
+-                              dest, 0))
+-    {
+-      return FALSE;
+-    }
+-
+-  /* dump the newline and the \r if we have one */
+-  if (have_newline)
+-    {
+-      dbus_bool_t have_cr;
+-      
+-      _dbus_assert (_dbus_string_get_length (dest) > 0);
+-
+-      if (_dbus_string_get_length (dest) > 1 &&
+-          _dbus_string_get_byte (dest,
+-                                 _dbus_string_get_length (dest) - 2) == '\r')
+-        have_cr = TRUE;
+-      else
+-        have_cr = FALSE;
+-        
+-      _dbus_string_set_length (dest,
+-                               _dbus_string_get_length (dest) -
+-                               (have_cr ? 2 : 1));
+-    }
+-  
+-  return TRUE;
++  return _dbus_string_move_len (source, 0, eol, dest, 0);
+ }
+ 
+ #ifdef DBUS_BUILD_TESTS
+Index: dbus/dbus-string.h
+===================================================================
+--- dbus/dbus-string.h	(revision 141)
++++ dbus/dbus-string.h	(working copy)
+@@ -215,6 +215,10 @@
+                                                   int                start,
+                                                   const char        *substr,
+                                                   int               *found);
++dbus_bool_t   _dbus_string_find_eol               (const DBusString *str,
++                                                  int               start,
++                                                  int               *found,
++                                                  int               *found_len);
+ dbus_bool_t   _dbus_string_find_to               (const DBusString  *str,
+                                                   int                start,
+                                                   int                end,
 Index: dbus/dbus-server-unix.c
 ===================================================================
---- dbus/dbus-server-unix.c	(revision 125)
+--- dbus/dbus-server-unix.c	(revision 141)
 +++ dbus/dbus-server-unix.c	(working copy)
 @@ -27,12 +27,16 @@
  #include "dbus-connection-internal.h"
@@ -288,7 +608,7 @@ Index: dbus/dbus-server-unix.c
      }
 Index: dbus/dbus-test.c
 ===================================================================
---- dbus/dbus-test.c	(revision 125)
+--- dbus/dbus-test.c	(revision 141)
 +++ dbus/dbus-test.c	(working copy)
 @@ -154,7 +154,9 @@
    
@@ -300,23 +620,77 @@ Index: dbus/dbus-test.c
    
    run_data_test ("userdb", specific_test, _dbus_userdb_test, test_data_dir);
    
+Index: dbus/dbus-spawn.c
+===================================================================
+--- dbus/dbus-spawn.c	(revision 141)
++++ dbus/dbus-spawn.c	(working copy)
+@@ -1021,6 +1021,7 @@
+  *
+  * @param sitter_p return location for babysitter or #NULL
+  * @param argv the executable and arguments
++ * @param env the environment (not used on unix yet)
+  * @param child_setup function to call in child pre-exec()
+  * @param user_data user data for setup function
+  * @param error error object to be filled in if function fails
+@@ -1029,6 +1030,7 @@
+ dbus_bool_t
+ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
+                                    char                    **argv,
++                                   char                    **env,
+                                    DBusSpawnChildSetupFunc   child_setup,
+                                    void                     *user_data,
+                                    DBusError                *error)
+@@ -1216,7 +1218,7 @@
+   
+   argv[0] = "/this/does/not/exist/32542sdgafgafdg";
+   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
+-                                         NULL, NULL,
++                                         NULL, NULL, NULL,
+                                          &error))
+     {
+       _dbus_babysitter_block_for_child_exit (sitter);
+@@ -1261,7 +1263,7 @@
+   
+   argv[0] = TEST_SEGFAULT_BINARY;
+   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
+-                                         NULL, NULL,
++                                         NULL, NULL, NULL,
+                                          &error))
+     {
+       _dbus_babysitter_block_for_child_exit (sitter);
+@@ -1306,7 +1308,7 @@
+   
+   argv[0] = TEST_EXIT_BINARY;
+   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
+-                                         NULL, NULL,
++                                         NULL, NULL, NULL,
+                                          &error))
+     {
+       _dbus_babysitter_block_for_child_exit (sitter);
+@@ -1351,7 +1353,7 @@
+ 
+   argv[0] = TEST_SLEEP_FOREVER_BINARY;
+   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
+-                                         NULL, NULL,
++                                         NULL, NULL, NULL,
+                                          &error))
+     {
+       _dbus_babysitter_kill_child (sitter);
 Index: dbus/dbus-spawn.h
 ===================================================================
---- dbus/dbus-spawn.h	(revision 125)
+--- dbus/dbus-spawn.h	(revision 141)
 +++ dbus/dbus-spawn.h	(working copy)
-@@ -37,6 +37,9 @@
+@@ -37,6 +37,7 @@
  
  dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
                                                     char                     **argv,
-+#ifdef DBUS_WIN
-+                                                   char                     **envp,
-+#endif
++                                                   char                     **env,
                                                     DBusSpawnChildSetupFunc    child_setup,
                                                     void                      *user_data,
                                                     DBusError                 *error);
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 125)
+--- dbus/dbus-sysdeps-util.c	(revision 141)
 +++ dbus/dbus-sysdeps-util.c	(working copy)
 @@ -25,26 +25,14 @@
  #include "dbus-internals.h"
@@ -1039,7 +1413,7 @@ Index: dbus/dbus-sysdeps-util.c
 -#endif /* DBUS_BUILD_TESTS */
 Index: dbus/dbus-watch.c
 ===================================================================
---- dbus/dbus-watch.c	(revision 125)
+--- dbus/dbus-watch.c	(revision 141)
 +++ dbus/dbus-watch.c	(working copy)
 @@ -486,7 +486,10 @@
  int
@@ -1055,7 +1429,7 @@ Index: dbus/dbus-watch.c
  /**
 Index: dbus/dbus-transport-unix.c
 ===================================================================
---- dbus/dbus-transport-unix.c	(revision 125)
+--- dbus/dbus-transport-unix.c	(revision 141)
 +++ dbus/dbus-transport-unix.c	(working copy)
 @@ -26,6 +26,9 @@
  #include "dbus-transport-unix.h"
@@ -1069,7 +1443,7 @@ Index: dbus/dbus-transport-unix.c
  /**
 Index: dbus/dbus-mainloop.c
 ===================================================================
---- dbus/dbus-mainloop.c	(revision 125)
+--- dbus/dbus-mainloop.c	(revision 141)
 +++ dbus/dbus-mainloop.c	(working copy)
 @@ -609,7 +609,7 @@
                    
@@ -1082,7 +1456,7 @@ Index: dbus/dbus-mainloop.c
                if (flags & DBUS_WATCH_READABLE)
 Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus/dbus-sysdeps.c	(revision 125)
+--- dbus/dbus-sysdeps.c	(revision 141)
 +++ dbus/dbus-sysdeps.c	(working copy)
 @@ -3,6 +3,7 @@
   * 
@@ -2080,7 +2454,7 @@ Index: dbus/dbus-sysdeps.c
    dbus_set_error (error, DBUS_ERROR_FAILED,
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 125)
+--- dbus/dbus-sysdeps.h	(revision 141)
 +++ dbus/dbus-sysdeps.h	(working copy)
 @@ -101,6 +101,22 @@
  #define DBUS_UID_FORMAT "%lu"
@@ -2105,9 +2479,42 @@ Index: dbus/dbus-sysdeps.h
  /**
   * Struct representing socket credentials
   */
+Index: dbus/dbus-string-util.c
+===================================================================
+--- dbus/dbus-string-util.c	(revision 141)
++++ dbus/dbus-string-util.c	(working copy)
+@@ -739,7 +739,27 @@
+   test_roundtrips (test_hex_roundtrip);
+   
+   _dbus_string_free (&str);
+-  
++
++  {
++  int found,found_len;
++  _dbus_string_init_const (&str, "012\r\n567\n90");
++
++  if (!_dbus_string_find_eol(&str, 0, &found, &found_len) || found != 3 || found_len != 2)
++    _dbus_assert_not_reached ("Did not find '\\r\\n'");
++  if (found != 3 || found_len != 2)
++    _dbus_assert_not_reached ("invalid return values");
++
++  if (!_dbus_string_find_eol(&str, 5, &found, &found_len))
++    _dbus_assert_not_reached ("Did not find '\\n'");
++  if (found != 8 || found_len != 1)
++    _dbus_assert_not_reached ("invalid return values");
++  	
++  if (_dbus_string_find_eol(&str, 9, NULL, NULL))
++    _dbus_assert_not_reached ("Found not expected '\\n'");
++
++  _dbus_string_free (&str);
++  }
++
+   return TRUE;
+ }
+ 
 Index: dbus/Makefile.am
 ===================================================================
---- dbus/Makefile.am	(revision 125)
+--- dbus/Makefile.am	(revision 141)
 +++ dbus/Makefile.am	(working copy)
 @@ -129,6 +129,7 @@
  	dbus-spawn.h				\
@@ -2119,7 +2526,7 @@ Index: dbus/Makefile.am
  	dbus-userdb-util.c
 Index: tools/dbus-monitor.c
 ===================================================================
---- tools/dbus-monitor.c	(revision 125)
+--- tools/dbus-monitor.c	(revision 141)
 +++ tools/dbus-monitor.c	(working copy)
 @@ -19,6 +19,7 @@
   *
@@ -2131,7 +2538,7 @@ Index: tools/dbus-monitor.c
  #include <string.h>
 Index: tools/dbus-send.c
 ===================================================================
---- tools/dbus-send.c	(revision 125)
+--- tools/dbus-send.c	(revision 141)
 +++ tools/dbus-send.c	(working copy)
 @@ -19,6 +19,7 @@
   *
@@ -2141,81 +2548,3 @@ Index: tools/dbus-send.c
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
-Index: bus/desktop-file.c
-===================================================================
---- bus/desktop-file.c	(revision 141)
-+++ bus/desktop-file.c	(working copy)
-@@ -85,6 +85,12 @@
-    0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 0x0 , 
- };
- 
-+#ifdef DBUS_WIN
-+#define EOL "\r\n"
-+#else
-+#define EOL "\n"
-+#endif
-+
- static void report_error (BusDesktopFileParser *parser,
- 			  char                 *message,
- 			  const char           *error_name,
-@@ -362,13 +368,13 @@
- {
-   int line_end;
-   
--  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
-+  if (!_dbus_string_find (&parser->data, parser->pos, EOL, &line_end))
-     line_end = parser->len;
- 
-   if (line_end == parser->len)
-     parser->pos = parser->len;
-   else
--    parser->pos = line_end + 1;
-+    parser->pos = line_end + strlen(EOL);
-   
-   parser->line_num += 1;
- }
-@@ -398,7 +404,7 @@
- 
-   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-   
--  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
-+  if (!_dbus_string_find (&parser->data, parser->pos, EOL, &line_end))
-     line_end = parser->len;
-   
-   if (line_end - parser->pos <= 2 ||
-@@ -436,7 +442,7 @@
-   if (line_end == parser->len)
-     parser->pos = parser->len;
-   else
--    parser->pos = line_end + 1;
-+    parser->pos = line_end + strlen(EOL);
-   
-   parser->line_num += 1;
- 
-@@ -458,7 +464,7 @@
- 
-   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-   
--  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
-+  if (!_dbus_string_find (&parser->data, parser->pos, EOL, &line_end))
-     line_end = parser->len;
-   
-   p = parser->pos;
-@@ -481,7 +487,7 @@
-       if (line_end == parser->len)
- 	parser->pos = parser->len;
-       else
--	parser->pos = line_end + 1;
-+	parser->pos = line_end + strlen(EOL);
- 	  
-       parser->line_num += 1;
- 
-@@ -560,7 +566,7 @@
-   if (line_end == parser->len)
-     parser->pos = parser->len;
-   else
--    parser->pos = line_end + 1;
-+    parser->pos = line_end + strlen(EOL);
-   
-   parser->line_num += 1;
- 
