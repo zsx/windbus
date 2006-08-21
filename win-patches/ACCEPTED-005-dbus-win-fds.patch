@@ -1,0 +1,29 @@
+Index: dbus/dbus-threads.c
+===================================================================
+--- dbus/dbus-threads.c	(revision 71)
++++ dbus/dbus-threads.c	(working copy)
+@@ -222,6 +222,8 @@
+   
+   DBusMutex **global_locks[] = {
+ #define LOCK_ADDR(name) (& _dbus_lock_##name)
++    LOCK_ADDR (win_fds),
++    LOCK_ADDR (sid_atom_cache),
+     LOCK_ADDR (list),
+     LOCK_ADDR (connection_slots),
+     LOCK_ADDR (pending_call_slots),
+
+Index: dbus/dbus-internals.h
+===================================================================
+--- dbus/dbus-internals.h       (revision 64)
++++ dbus/dbus-internals.h       (working copy)
+@@ -281,7 +281,9 @@
+ _DBUS_DECLARE_GLOBAL_LOCK (system_users);
+ _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
+ _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
+-#define _DBUS_N_GLOBAL_LOCKS (11)
++_DBUS_DECLARE_GLOBAL_LOCK (win_fds);
++_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
++#define _DBUS_N_GLOBAL_LOCKS (13)
+
+ dbus_bool_t _dbus_threads_init_debug (void);
+ 
