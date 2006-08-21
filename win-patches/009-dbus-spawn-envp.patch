@@ -1,0 +1,69 @@
+Index: dbus/dbus-spawn.c
+===================================================================
+--- dbus/dbus-spawn.c	(revision 141)
++++ dbus/dbus-spawn.c	(working copy)
+@@ -1021,6 +1021,7 @@
+  *
+  * @param sitter_p return location for babysitter or #NULL
+  * @param argv the executable and arguments
++ * @param env the environment (not used on unix yet)
+  * @param child_setup function to call in child pre-exec()
+  * @param user_data user data for setup function
+  * @param error error object to be filled in if function fails
+@@ -1029,6 +1030,7 @@
+ dbus_bool_t
+ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
+                                    char                    **argv,
++                                   char                    **env,
+                                    DBusSpawnChildSetupFunc   child_setup,
+                                    void                     *user_data,
+                                    DBusError                *error)
+@@ -1216,7 +1218,7 @@
+   
+   argv[0] = "/this/does/not/exist/32542sdgafgafdg";
+   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
+-                                         NULL, NULL,
++                                         NULL, NULL, NULL,
+                                          &error))
+     {
+       _dbus_babysitter_block_for_child_exit (sitter);
+@@ -1261,7 +1263,7 @@
+   
+   argv[0] = TEST_SEGFAULT_BINARY;
+   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
+-                                         NULL, NULL,
++                                         NULL, NULL, NULL,
+                                          &error))
+     {
+       _dbus_babysitter_block_for_child_exit (sitter);
+@@ -1306,7 +1308,7 @@
+   
+   argv[0] = TEST_EXIT_BINARY;
+   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
+-                                         NULL, NULL,
++                                         NULL, NULL, NULL,
+                                          &error))
+     {
+       _dbus_babysitter_block_for_child_exit (sitter);
+@@ -1351,7 +1353,7 @@
+ 
+   argv[0] = TEST_SLEEP_FOREVER_BINARY;
+   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
+-                                         NULL, NULL,
++                                         NULL, NULL, NULL,
+                                          &error))
+     {
+       _dbus_babysitter_kill_child (sitter);
+Index: test/spawn-test.c
+===================================================================
+--- test/spawn-test.c	(revision 141)
++++ test/spawn-test.c	(working copy)
+@@ -31,7 +31,7 @@
+     argv_copy [i] = argv[i + 1];
+   argv_copy[argc - 1] = NULL;
+   
+-  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, setup_func, NULL, &error))
++  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, NULL, setup_func, NULL, &error))
+     {
+       fprintf (stderr, "Could not launch application: \"%s\"\n",
+ 	       error.message);

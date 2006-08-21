@@ -1,27 +1,12 @@
-Index: dbus/dbus-string.h
-===================================================================
---- dbus/dbus-string.h	(revision 141)
-+++ dbus/dbus-string.h	(working copy)
-@@ -215,6 +215,10 @@
-                                                   int                start,
-                                                   const char        *substr,
-                                                   int               *found);
-+dbus_bool_t   _dbus_string_find_eol               (const DBusString *str,
-+                                                  int               start,
-+                                                  int               *found,
-+                                                  int               *found_len);
- dbus_bool_t   _dbus_string_find_to               (const DBusString  *str,
-                                                   int                start,
-                                                   int                end,
 Index: dbus/dbus-string.c
 ===================================================================
 --- dbus/dbus-string.c	(revision 141)
 +++ dbus/dbus-string.c	(working copy)
-@@ -1790,6 +1790,47 @@
+@@ -1790,6 +1790,72 @@
  }
  
  /**
-+ * Finds end of line ("\r\n" or "\n") in the string,
++ * Finds end of line ("\r\n","\r","\n") in the string,
 + * returning #TRUE and filling in the byte index
 + * where the eol string was found, if it was found.
 + * Returns #FALSE if eol wasn't found.
@@ -38,33 +23,73 @@ Index: dbus/dbus-string.c
 +                   int              *found,
 +                   int              *found_len)
 +{
-+  char *eol = "\r\n";
-+  dbus_bool_t ret;
++  int i;
 +
-+  _dbus_assert (found_len != NULL);
-+  *found_len = 0;
-+  ret = _dbus_string_find_to (str, start,
-+                               ((const DBusRealString*)str)->len,
-+                               eol, found);
-+  if (ret)
++  DBUS_CONST_STRING_PREAMBLE (str);
++  _dbus_assert (start <= real->len);
++  _dbus_assert (start >= 0);
++  
++  i = start;
++  while (i < real->len)
 +    {
-+      *found_len = strlen(eol);
-+      return ret;
++      if (real->str[i] == '\r') 
++        {
++          if ((i+1) < real->len && real->str[i+1] == '\n') /* "\r\n" */
++            {
++              if (found) 
++                *found = i;
++              if (found_len)
++                *found_len = 2;
++              return TRUE;
++            } 
++          else /* only "\r" */
++            {
++              if (found) 
++                *found = i;
++              if (found_len)
++                *found_len = 1;
++              return TRUE;
++            }
++        } 
++      else if (real->str[i] == '\n')  /* only "\n" */
++        {
++          if (found) 
++            *found = i;
++          if (found_len)
++            *found_len = 1;
++          return TRUE;
++        }      
++      ++i;
 +    }
 +
-+  eol = "\n";
-+  ret = _dbus_string_find_to (str, start,
-+                               ((const DBusRealString*)str)->len,
-+                               eol, found);
-+  if (ret)
-+    *found_len = strlen(eol);
-+  return ret;
++  if (found)
++    *found = real->len;
++
++  if (found_len)
++    *found_len = 0;
++  
++  return FALSE;
 +}
 +
 +/**
   * Finds the given substring in the string,
   * up to a certain position,
   * returning #TRUE and filling in the byte index
+Index: dbus/dbus-string.h
+===================================================================
+--- dbus/dbus-string.h	(revision 141)
++++ dbus/dbus-string.h	(working copy)
+@@ -215,6 +215,10 @@
+                                                   int                start,
+                                                   const char        *substr,
+                                                   int               *found);
++dbus_bool_t   _dbus_string_find_eol               (const DBusString *str,
++                                                  int               start,
++                                                  int               *found,
++                                                  int               *found_len);
+ dbus_bool_t   _dbus_string_find_to               (const DBusString  *str,
+                                                   int                start,
+                                                   int                end,
 Index: bus/desktop-file.c
 ===================================================================
 --- bus/desktop-file.c	(revision 141)
@@ -148,4 +173,37 @@ Index: bus/desktop-file.c
 +    parser->pos = line_end + eol_len;
    
    parser->line_num += 1;
+ 
+Index: dbus/dbus-string-util.c
+===================================================================
+--- dbus/dbus-string-util.c	(revision 141)
++++ dbus/dbus-string-util.c	(working copy)
+@@ -739,7 +739,27 @@
+   test_roundtrips (test_hex_roundtrip);
+   
+   _dbus_string_free (&str);
+-  
++
++  {
++  int found,found_len;
++  _dbus_string_init_const (&str, "012\r\n567\n90");
++
++  if (!_dbus_string_find_eol(&str, 0, &found, &found_len))
++    _dbus_assert_not_reached ("Did not find '\\r\\n'");
++  if (found != 3 || found_len != 2)
++    _dbus_assert_not_reached ("invalid return values");
++
++  if (!_dbus_string_find_eol(&str, 5, &found, &found_len))
++    _dbus_assert_not_reached ("Did not find '\\n'");
++  if (found != 8 || found_len != 1)
++    _dbus_assert_not_reached ("invalid return values");
++  	
++  if (_dbus_string_find_eol(&str, 9, NULL, NULL))
++    _dbus_assert_not_reached ("Found not expected '\\n'");
++
++  _dbus_string_free (&str);
++  }
++
+   return TRUE;
+ }
  
