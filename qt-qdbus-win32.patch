@@ -117,3 +117,33 @@ diff -ubB -r examples/qdbus/qdbus.pro examples/qdbus/qdbus.pro
 +
 +# compile errors
 +#	  chat
+--- src\gui\gui.pro.orig	2006-08-22 20:31:04.436609600 +0200
++++ src\gui\gui.pro	2006-08-22 20:30:26.301774400 +0200
+@@ -38,3 +38,5 @@
+ contains(DEFINES,QT_EVAL):include($$QT_BUILD_TREE/src/corelib/eval.pri)
+ 
+ DEFINES += Q_INTERNAL_QAPP_SRC
++
++win32:DEFINES += TMT_TEXTSHADOWTYPE=4010
+--- src\gui\painting\painting.pri.orig	2006-08-22 21:44:30.532264000 +0200
++++ src\gui\painting\painting.pri	2006-08-22 21:46:00.321374400 +0200
+@@ -125,7 +125,7 @@
+ 
+ mac {
+ 
+-} else:sse|win32-g++ {
++} else:win32 {
+     sse_compiler.commands = $$QMAKE_CXX -c -msse $(CXXFLAGS) $(INCPATH) ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT}
+     sse_compiler.dependency_type = TYPE_C
+     sse_compiler.output = ${QMAKE_VAR_OBJECTS_DIR}${QMAKE_FILE_BASE}$${first(QMAKE_EXT_OBJ)}
+@@ -142,10 +142,6 @@
+     DEFINES += QT_HAVE_IWMMXT
+     DEFINES += QT_HAVE_SSE
+ } 
+-else:win32:!win32-msvc {
+-    SOURCES += painting/qdrawhelper_x86.cpp
+-    DEFINES += QT_HAVE_SSE
+-}
+ 
+ win32|x11|embedded {
+ 	HEADERS += painting/qwindowsurface_p.h \
