@@ -444,6 +444,41 @@ fill_group_info (DBusGroupInfo    *info,
 #endif  /* ! HAVE_GETPWNAM_R */
 }
 
+/**
+ * Initializes the given DBusGroupInfo struct
+ * with information about the given group ID.
+ *
+ * @param info the group info struct
+ * @param gid group ID
+ * @param error the error return
+ * @returns #FALSE if error is set
+ */
+dbus_bool_t
+_dbus_group_info_fill_gid (DBusGroupInfo *info,
+                           dbus_gid_t     gid,
+                           DBusError     *error)
+{
+  return fill_group_info (info, gid, NULL, error);
+}
+
+/**
+ * Initializes the given DBusGroupInfo struct
+ * with information about the given group name.
+ *
+ * @param info the group info struct
+ * @param groupname name of group
+ * @param error the error return
+ * @returns #FALSE if error is set
+ */
+dbus_bool_t
+_dbus_group_info_fill (DBusGroupInfo    *info,
+                       const DBusString *groupname,
+            DBusError        *error)
+{
+  return fill_group_info (info, DBUS_GID_UNSET,
+                          groupname, error);
+}
+
 /** @} */ /* End of DBusInternalsUtils functions */
 
 /**
