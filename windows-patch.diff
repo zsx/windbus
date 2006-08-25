@@ -2548,10 +2548,10 @@ Index: tools/dbus-send.c
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
-Index: dbus-transport.c
+Index: dbus/dbus-transport.c
 ===================================================================
---- dbus-transport.c	(revision 160)
-+++ dbus-transport.c	(working copy)
+--- dbus/dbus-transport.c	(revision 160)
++++ dbus/dbus-transport.c	(working copy)
 @@ -68,7 +68,7 @@
    /* disable or re-enable the read watch for the transport if
     * required.
