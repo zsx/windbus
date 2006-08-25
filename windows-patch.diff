@@ -1,6 +1,6 @@
 Index: test/spawn-test.c
 ===================================================================
---- test/spawn-test.c	(revision 141)
+--- test/spawn-test.c	(revision 167)
 +++ test/spawn-test.c	(working copy)
 @@ -31,7 +31,7 @@
      argv_copy [i] = argv[i + 1];
@@ -13,7 +13,7 @@ Index: test/spawn-test.c
  	       error.message);
 Index: test/test-segfault.c
 ===================================================================
---- test/test-segfault.c	(revision 141)
+--- test/test-segfault.c	(revision 167)
 +++ test/test-segfault.c	(working copy)
 @@ -1,10 +1,27 @@
  /* This is simply a process that segfaults */
@@ -45,7 +45,7 @@ Index: test/test-segfault.c
  {
 Index: test/test-sleep-forever.c
 ===================================================================
---- test/test-sleep-forever.c	(revision 141)
+--- test/test-sleep-forever.c	(revision 167)
 +++ test/test-sleep-forever.c	(working copy)
 @@ -1,6 +1,10 @@
  /* This is a process that just sleeps infinitely. */
@@ -58,98 +58,9 @@ Index: test/test-sleep-forever.c
  
  int
  main (int argc, char **argv)
-Index: win-patches/005-dbus-win-fds.txt
-===================================================================
---- win-patches/005-dbus-win-fds.txt	(revision 141)
-+++ win-patches/005-dbus-win-fds.txt	(working copy)
-@@ -1,30 +0,0 @@
--relating notes:
--
--
--> +#ifdef DBUS_WIN
--> +_DBUS_DECLARE_GLOBAL_LOCK (win32_fds);
--> +_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
--> +#endif
-->  _DBUS_DECLARE_GLOBAL_LOCK (list);
-->  _DBUS_DECLARE_GLOBAL_LOCK (connection_slots);
-->  _DBUS_DECLARE_GLOBAL_LOCK (pending_call_slots);
--> @@ -281,7 +291,11 @@
-->  _DBUS_DECLARE_GLOBAL_LOCK (system_users);
-->  _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
-->  _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
--> +#ifdef DBUS_WIN
--> +#define _DBUS_N_GLOBAL_LOCKS (13)
--> +#else
-->  #define _DBUS_N_GLOBAL_LOCKS (11)
--> +#endif
--
--(havoc) I'd just drop the #ifdef here and always have the two windows locks, 
--saving a little memory is not worth having platform-specific bugs such a
--s wrong N_GLOBAL_LOCKS on only one platform.
--
--
--
--changelog entry: 
--
--	* dbus/dbus-internals.h: add two Windows related global locks
--
-Index: win-patches/005-dbus-sysdeps-win-locks.patch
-===================================================================
---- win-patches/005-dbus-sysdeps-win-locks.patch	(revision 141)
-+++ win-patches/005-dbus-sysdeps-win-locks.patch	(working copy)
-@@ -1,14 +0,0 @@
--Index: dbus/dbus-sysdeps.c
--===================================================================
----- dbus/dbus-sysdeps.c	(revision 104)
--+++ dbus/dbus-sysdeps.c	(working copy)
--@@ -69,6 +69,9 @@
-- #define socklen_t int
-- #endif
-- 
--+_DBUS_DEFINE_GLOBAL_LOCK (win_fds);
--+_DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
--+
-- /**
--  * @addtogroup DBusInternalsUtils
--  * @{
-Index: win-patches/005-dbus-win-fds.patch
-===================================================================
---- win-patches/005-dbus-win-fds.patch	(revision 141)
-+++ win-patches/005-dbus-win-fds.patch	(working copy)
-@@ -1,29 +0,0 @@
--Index: dbus/dbus-threads.c
--===================================================================
----- dbus/dbus-threads.c	(revision 71)
--+++ dbus/dbus-threads.c	(working copy)
--@@ -222,6 +222,8 @@
--   
--   DBusMutex **global_locks[] = {
-- #define LOCK_ADDR(name) (& _dbus_lock_##name)
--+    LOCK_ADDR (win_fds),
--+    LOCK_ADDR (sid_atom_cache),
--     LOCK_ADDR (list),
--     LOCK_ADDR (connection_slots),
--     LOCK_ADDR (pending_call_slots),
--
--Index: dbus/dbus-internals.h
--===================================================================
----- dbus/dbus-internals.h       (revision 64)
--+++ dbus/dbus-internals.h       (working copy)
--@@ -281,7 +281,9 @@
-- _DBUS_DECLARE_GLOBAL_LOCK (system_users);
-- _DBUS_DECLARE_GLOBAL_LOCK (message_cache);
-- _DBUS_DECLARE_GLOBAL_LOCK (shared_connections);
---#define _DBUS_N_GLOBAL_LOCKS (11)
--+_DBUS_DECLARE_GLOBAL_LOCK (win_fds);
--+_DBUS_DECLARE_GLOBAL_LOCK (sid_atom_cache);
--+#define _DBUS_N_GLOBAL_LOCKS (13)
--
-- dbus_bool_t _dbus_threads_init_debug (void);
-- 
-\ No newline at end of file
 Index: configure.in
 ===================================================================
---- configure.in	(revision 141)
+--- configure.in	(revision 167)
 +++ configure.in	(working copy)
 @@ -447,6 +447,8 @@
  
@@ -162,7 +73,7 @@ Index: configure.in
  		[AC_TRY_RUN([
 Index: bus/activation.c
 ===================================================================
---- bus/activation.c	(revision 141)
+--- bus/activation.c	(revision 167)
 +++ bus/activation.c	(working copy)
 @@ -34,7 +34,6 @@
  #include <dbus/dbus-spawn.h>
@@ -190,7 +101,7 @@ Index: bus/activation.c
      {
 Index: bus/test-main.c
 ===================================================================
---- bus/test-main.c	(revision 141)
+--- bus/test-main.c	(revision 167)
 +++ bus/test-main.c	(working copy)
 @@ -123,16 +123,23 @@
      die ("signals");
@@ -219,7 +130,7 @@ Index: bus/test-main.c
    test_pre_hook ();
 Index: bus/desktop-file.c
 ===================================================================
---- bus/desktop-file.c	(revision 141)
+--- bus/desktop-file.c	(revision 167)
 +++ bus/desktop-file.c	(working copy)
 @@ -360,15 +360,15 @@
  static void
@@ -303,7 +214,7 @@ Index: bus/desktop-file.c
  
 Index: dbus/dbus-string.c
 ===================================================================
---- dbus/dbus-string.c	(revision 141)
+--- dbus/dbus-string.c	(revision 167)
 +++ dbus/dbus-string.c	(working copy)
 @@ -1790,6 +1790,72 @@
  }
@@ -436,7 +347,7 @@ Index: dbus/dbus-string.c
  #ifdef DBUS_BUILD_TESTS
 Index: dbus/dbus-string.h
 ===================================================================
---- dbus/dbus-string.h	(revision 141)
+--- dbus/dbus-string.h	(revision 167)
 +++ dbus/dbus-string.h	(working copy)
 @@ -215,6 +215,10 @@
                                                    int                start,
@@ -451,7 +362,7 @@ Index: dbus/dbus-string.h
                                                    int                end,
 Index: dbus/dbus-server-unix.c
 ===================================================================
---- dbus/dbus-server-unix.c	(revision 141)
+--- dbus/dbus-server-unix.c	(revision 167)
 +++ dbus/dbus-server-unix.c	(working copy)
 @@ -27,12 +27,16 @@
  #include "dbus-connection-internal.h"
@@ -606,9 +517,22 @@ Index: dbus/dbus-server-unix.c
        _dbus_string_free (&address);
        return NULL;
      }
+Index: dbus/dbus-transport.c
+===================================================================
+--- dbus/dbus-transport.c	(revision 167)
++++ dbus/dbus-transport.c	(working copy)
+@@ -68,7 +68,7 @@
+   /* disable or re-enable the read watch for the transport if
+    * required.
+    */
+-  if (* transport->vtable->live_messages_changed)
++  if (transport->vtable->live_messages_changed)
+     (* transport->vtable->live_messages_changed) (transport);
+ 
+   _dbus_transport_unref (transport);
 Index: dbus/dbus-test.c
 ===================================================================
---- dbus/dbus-test.c	(revision 141)
+--- dbus/dbus-test.c	(revision 167)
 +++ dbus/dbus-test.c	(working copy)
 @@ -154,7 +154,9 @@
    
@@ -622,7 +546,7 @@ Index: dbus/dbus-test.c
    
 Index: dbus/dbus-spawn.c
 ===================================================================
---- dbus/dbus-spawn.c	(revision 141)
+--- dbus/dbus-spawn.c	(revision 167)
 +++ dbus/dbus-spawn.c	(working copy)
 @@ -1021,6 +1021,7 @@
   *
@@ -678,7 +602,7 @@ Index: dbus/dbus-spawn.c
        _dbus_babysitter_kill_child (sitter);
 Index: dbus/dbus-spawn.h
 ===================================================================
---- dbus/dbus-spawn.h	(revision 141)
+--- dbus/dbus-spawn.h	(revision 167)
 +++ dbus/dbus-spawn.h	(working copy)
 @@ -37,6 +37,7 @@
  
@@ -690,9 +614,9 @@ Index: dbus/dbus-spawn.h
                                                     DBusError                 *error);
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 141)
+--- dbus/dbus-sysdeps-util.c	(revision 167)
 +++ dbus/dbus-sysdeps-util.c	(working copy)
-@@ -25,26 +25,14 @@
+@@ -25,23 +25,16 @@
  #include "dbus-internals.h"
  #include "dbus-protocol.h"
  #include "dbus-string.h"
@@ -711,19 +635,18 @@ Index: dbus/dbus-sysdeps-util.c
 -#include <sys/stat.h>
 -#include <grp.h>
 -#include <sys/socket.h>
++
 +#ifdef HAVE_DIRENT_H
  #include <dirent.h>
 -#include <sys/un.h>
--
--#ifndef O_BINARY
--#define O_BINARY 0
 +#define _dbus_opendir opendir
 +#define _dbus_readdir readdir
 +#define _dbus_closedir closedir
- #endif
++#endif
  
- /**
-@@ -53,131 +41,6 @@
+ #ifndef O_BINARY
+ #define O_BINARY 0
+@@ -53,131 +46,6 @@
   */
  
  /**
@@ -855,7 +778,7 @@ Index: dbus/dbus-sysdeps-util.c
   * Creates a file containing the process ID.
   *
   * @param filename the filename to write to
-@@ -235,73 +98,7 @@
+@@ -235,73 +103,7 @@
    return TRUE;
  }
  
@@ -929,7 +852,7 @@ Index: dbus/dbus-sysdeps-util.c
   * Removes a directory; Directory must be empty
   * 
   * @param filename directory filename
-@@ -329,115 +126,42 @@
+@@ -329,116 +131,7 @@
    return TRUE;
  }
  
@@ -989,55 +912,35 @@ Index: dbus/dbus-sysdeps-util.c
 -
  /**
 - * Checks whether the filename is an absolute path
-+ * Initializes the given DBusGroupInfo struct
-+ * with information about the given group ID.
-  *
+- *
 - * @param filename the filename
 - * @returns #TRUE if an absolute path
-+ * @param info the group info struct
-+ * @param gid group ID
-+ * @param error the error return
-+ * @returns #FALSE if error is set
-  */
- dbus_bool_t
+- */
+-dbus_bool_t
 -_dbus_path_is_absolute (const DBusString *filename)
-+_dbus_group_info_fill_gid (DBusGroupInfo *info,
-+                           dbus_gid_t     gid,
-+                           DBusError     *error)
- {
+-{
 -  if (_dbus_string_get_length (filename) > 0)
 -    return _dbus_string_get_byte (filename, 0) == '/';
 -  else
 -    return FALSE;
-+  return fill_group_info (info, gid, NULL, error);
- }
- 
- /**
+-}
+-
+-/**
 - * stat() wrapper.
-+ * Initializes the given DBusGroupInfo struct
-+ * with information about the given group name.
-  *
+- *
 - * @param filename the filename to stat
 - * @param statbuf the stat info to fill in
 - * @param error return location for error
 - * @returns #FALSE if error was set
-+ * @param info the group info struct
-+ * @param groupname name of group
-+ * @param error the error return
-+ * @returns #FALSE if error is set
-  */
- dbus_bool_t
+- */
+-dbus_bool_t
 -_dbus_stat (const DBusString *filename,
 -            DBusStat         *statbuf,
-+_dbus_group_info_fill (DBusGroupInfo    *info,
-+                       const DBusString *groupname,
-             DBusError        *error)
- {
+-            DBusError        *error)
+-{
 -  const char *filename_c;
 -  struct stat sb;
-+  return fill_group_info (info, DBUS_GID_UNSET,
-+                          groupname, error);
- 
+-
 -  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 -  
 -  filename_c = _dbus_string_get_const_data (filename);
@@ -1059,13 +962,14 @@ Index: dbus/dbus-sysdeps-util.c
 -  statbuf->ctime = sb.st_ctime;
 -
 -  return TRUE;
- }
- 
+-}
 -
- /**
+-
+-/**
   * Internals of directory iterator
   */
-@@ -466,7 +190,7 @@
+ struct DBusDirIter
+@@ -466,7 +159,7 @@
    
    filename_c = _dbus_string_get_const_data (filename);
  
@@ -1074,7 +978,7 @@ Index: dbus/dbus-sysdeps-util.c
    if (d == NULL)
      {
        dbus_set_error (error, _dbus_error_from_errno (errno),
-@@ -478,7 +202,7 @@
+@@ -478,7 +171,7 @@
    iter = dbus_new0 (DBusDirIter, 1);
    if (iter == NULL)
      {
@@ -1083,7 +987,7 @@ Index: dbus/dbus-sysdeps-util.c
        dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
                        "Could not allocate memory for directory iterator");
        return NULL;
-@@ -513,7 +237,7 @@
+@@ -513,7 +206,7 @@
    
   again:
    errno = 0;
@@ -1092,7 +996,7 @@ Index: dbus/dbus-sysdeps-util.c
    if (ent == NULL)
      {
        if (errno != 0)
-@@ -546,317 +270,9 @@
+@@ -546,317 +239,9 @@
  void
  _dbus_directory_close (DBusDirIter *iter)
  {
@@ -1413,7 +1317,7 @@ Index: dbus/dbus-sysdeps-util.c
 -#endif /* DBUS_BUILD_TESTS */
 Index: dbus/dbus-watch.c
 ===================================================================
---- dbus/dbus-watch.c	(revision 141)
+--- dbus/dbus-watch.c	(revision 167)
 +++ dbus/dbus-watch.c	(working copy)
 @@ -486,7 +486,10 @@
  int
@@ -1429,7 +1333,7 @@ Index: dbus/dbus-watch.c
  /**
 Index: dbus/dbus-transport-unix.c
 ===================================================================
---- dbus/dbus-transport-unix.c	(revision 141)
+--- dbus/dbus-transport-unix.c	(revision 167)
 +++ dbus/dbus-transport-unix.c	(working copy)
 @@ -26,6 +26,9 @@
  #include "dbus-transport-unix.h"
@@ -1443,7 +1347,7 @@ Index: dbus/dbus-transport-unix.c
  /**
 Index: dbus/dbus-mainloop.c
 ===================================================================
---- dbus/dbus-mainloop.c	(revision 141)
+--- dbus/dbus-mainloop.c	(revision 167)
 +++ dbus/dbus-mainloop.c	(working copy)
 @@ -609,7 +609,7 @@
                    
@@ -1456,7 +1360,7 @@ Index: dbus/dbus-mainloop.c
                if (flags & DBUS_WATCH_READABLE)
 Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus/dbus-sysdeps.c	(revision 141)
+--- dbus/dbus-sysdeps.c	(revision 167)
 +++ dbus/dbus-sysdeps.c	(working copy)
 @@ -3,6 +3,7 @@
   * 
@@ -2454,7 +2358,7 @@ Index: dbus/dbus-sysdeps.c
    dbus_set_error (error, DBUS_ERROR_FAILED,
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 141)
+--- dbus/dbus-sysdeps.h	(revision 167)
 +++ dbus/dbus-sysdeps.h	(working copy)
 @@ -101,6 +101,22 @@
  #define DBUS_UID_FORMAT "%lu"
@@ -2481,7 +2385,7 @@ Index: dbus/dbus-sysdeps.h
   */
 Index: dbus/dbus-string-util.c
 ===================================================================
---- dbus/dbus-string-util.c	(revision 141)
+--- dbus/dbus-string-util.c	(revision 167)
 +++ dbus/dbus-string-util.c	(working copy)
 @@ -739,7 +739,27 @@
    test_roundtrips (test_hex_roundtrip);
@@ -2514,7 +2418,7 @@ Index: dbus/dbus-string-util.c
  
 Index: dbus/Makefile.am
 ===================================================================
---- dbus/Makefile.am	(revision 141)
+--- dbus/Makefile.am	(revision 167)
 +++ dbus/Makefile.am	(working copy)
 @@ -129,6 +129,7 @@
  	dbus-spawn.h				\
@@ -2526,7 +2430,7 @@ Index: dbus/Makefile.am
  	dbus-userdb-util.c
 Index: tools/dbus-monitor.c
 ===================================================================
---- tools/dbus-monitor.c	(revision 141)
+--- tools/dbus-monitor.c	(revision 167)
 +++ tools/dbus-monitor.c	(working copy)
 @@ -19,6 +19,7 @@
   *
@@ -2538,7 +2442,7 @@ Index: tools/dbus-monitor.c
  #include <string.h>
 Index: tools/dbus-send.c
 ===================================================================
---- tools/dbus-send.c	(revision 141)
+--- tools/dbus-send.c	(revision 167)
 +++ tools/dbus-send.c	(working copy)
 @@ -19,6 +19,7 @@
   *
@@ -2548,16 +2452,3 @@ Index: tools/dbus-send.c
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
-Index: dbus/dbus-transport.c
-===================================================================
---- dbus/dbus-transport.c	(revision 160)
-+++ dbus/dbus-transport.c	(working copy)
-@@ -68,7 +68,7 @@
-   /* disable or re-enable the read watch for the transport if
-    * required.
-    */
--  if (* transport->vtable->live_messages_changed)
-+  if (transport->vtable->live_messages_changed)
-     (* transport->vtable->live_messages_changed) (transport);
- 
-   _dbus_transport_unref (transport);
