@@ -2548,3 +2548,16 @@ Index: tools/dbus-send.c
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
+Index: dbus-transport.c
+===================================================================
+--- dbus-transport.c	(revision 160)
++++ dbus-transport.c	(working copy)
+@@ -68,7 +68,7 @@
+   /* disable or re-enable the read watch for the transport if
+    * required.
+    */
+-  if (* transport->vtable->live_messages_changed)
++  if (transport->vtable->live_messages_changed)
+     (* transport->vtable->live_messages_changed) (transport);
+ 
+   _dbus_transport_unref (transport);
