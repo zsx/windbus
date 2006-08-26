@@ -20,26 +20,6 @@ find_package(LibXML2)
 find_package(LibExpat)
 find_package(X11)
 
-if(NOT LIBXML2_FOUND AND NOT LIBEXPAT_FOUND)
-    message(FATAL "Neither expat nor libxml2 found!")
-endif(NOT LIBXML2_FOUND AND NOT LIBEXPAT_FOUND)
-
-if(LIBEXPAT_FOUND)
-    OPTION(DBUS_USE_EXPAT "Use expat (== ON) or libxml2 (==OFF)" ON)
-else(LIBEXPAT_FOUND)
-    OPTION(DBUS_USE_EXPAT "Use expat (== ON) or libxml2 (==OFF)" OFF)
-endif(LIBEXPAT_FOUND)
-
-if(DBUS_USE_EXPAT)
-    SET(XML_LIB "Expat")
-    SET(XML_LIBRARY     ${LIBEXPAT_LIBRARIES})
-    SET(XML_INCLUDE_DIR ${LIBEXPAT_INCLUDE_DIR})
-else(DBUS_USE_EXPAT)
-    SET(XML_LIB "LibXML2")
-    SET(XML_LIBRARY     ${LIBXML2_LIBRARIES})
-    SET(XML_INCLUDE_DIR ${LIBXML2_INCLUDE_DIR})
-endif(DBUS_USE_EXPAT)
-
 # @TODO: how to remove last dir from ${CMAKE_SOURCE_DIR} ? 
 SET(DBUS_SOURCE_DIR ${CMAKE_SOURCE_DIR}/..)
 
@@ -48,11 +28,6 @@ include (MacroLibrary)
 
 if(MSVC)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
-	SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} " CACHE STRING "runtime-library flags" FORCE)
-	SET(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE}" CACHE STRING "runtime-library flags" FORCE)
-	SET(CMAKE_C_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
-	SET(CMAKE_C_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
-else(MSVC)
 endif(MSVC)
 
 ENABLE_TESTING()
@@ -103,7 +78,7 @@ endif (WIN32)
 ########### command line options ###############
 # TODO: take check from configure.in 
 
-OPTION(DBUS_DISABLE_ASSERTS "Disable assertion checking" OFF)
+#AC_ARG_ENABLE(tests, AS_HELP_STRING([--enable-tests],[enable unit test code]),enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
 OPTION(DBUS_BUILD_TESTS "enable unit test code" ON)
 if (DBUS_BUILD_TESTS)	
 	if(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
@@ -111,6 +86,7 @@ if (DBUS_BUILD_TESTS)
 	endif(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
 endif (DBUS_BUILD_TESTS)	
 
+#AC_ARG_ENABLE(ansi, AS_HELP_STRING([--enable-ansi],[enable -ansi -pedantic gcc flags]),enable_ansi=$enableval,enable_ansi=no)
 OPTION(DBUS_ENABLE_ANSI "enable -ansi -pedantic gcc flags" OFF)
 if(DBUS_ENABLE_ANSI)
    if(NOT MSVC)
@@ -120,6 +96,22 @@ if(DBUS_ENABLE_ANSI)
    endif(NOT MSVC) 
 endif(DBUS_ENABLE_ANSI)
 
+#AC_ARG_ENABLE(verbose-mode, AS_HELP_STRING([--enable-verbose-mode],[support verbose debug mode]),enable_verbose_mode=$enableval,enable_verbose_mode=$USE_MAINTAINER_MODE)
+OPTION(DBUS_ENABLE_VERBOSE_MODE "support verbose debug mode" ON)
+
+#AC_ARG_ENABLE(asserts, AS_HELP_STRING([--enable-asserts],[include assertion checks]),enable_asserts=$enableval,enable_asserts=$USE_MAINTAINER_MODE)
+OPTION(DBUS_DISABLE_ASSERTS "Disable assertion checking" OFF)
+
+#AC_ARG_ENABLE(checks, AS_HELP_STRING([--enable-checks],[include sanity checks on public API]),enable_checks=$enableval,enable_checks=yes)
+OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)
+
+#AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentation (requires xmlto)]),enable_xml_docs=$enableval,enable_xml_docs=auto)
+#xmldocs missing
+
+#AC_ARG_ENABLE(doxygen-docs, AS_HELP_STRING([--enable-doxygen-docs],[build DOXYGEN documentation (requires Doxygen)]),enable_doxygen_docs=$enableval,enable_doxygen_docs=auto)
+#doxygen missing
+
+#AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
 OPTION(DBUS_ENABLE_GCOV "compile with coverage profiling instrumentation (gcc only)" OFF)
 if(DBUS_ENABLE_GCOV)
    if(NOT MSVC)
@@ -130,10 +122,57 @@ if(DBUS_ENABLE_GCOV)
    endif(NOT MSVC) 
 endif(DBUS_ENABLE_GCOV)
 
-OPTION(DBUS_ENABLE_VERBOSE_MODE "support verbose debug mode" ON)
+#AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use abstract socket namespace (linux only)]),enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
+#abstract sockets missing
 
-OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)    # not handled yet!
+#AC_ARG_ENABLE(selinux, AS_HELP_STRING([--enable-selinux],[build with SELinux support]),enable_selinux=$enableval,enable_selinux=auto)
+#selinux missing
 
+#AC_ARG_ENABLE(dnotify, AS_HELP_STRING([--enable-dnotify],[build with dnotify support (linux only)]),enable_dnotify=$enableval,enable_dnotify=auto)
+if(LINUX)
+    OPTION(DBUS_ENABLE_DNOTIFY "build with dnotify support (linux only)" ON) # add a check !
+endif(LINUX)
+
+#AC_ARG_ENABLE(kqueue, AS_HELP_STRING([--enable-kqueue],[build with kqueue support (FreeBSD only)]),enable_kqueue=$enableval,enable_kqueue=auto)
+#missing
+
+#AC_ARG_ENABLE(console-owner-file, AS_HELP_STRING([--enable-console-owner-file],[enable console owner file]),enable_console_owner_file=$enableval,enable_console_owner_file=auto)
+#missing
+
+#AC_ARG_WITH(xml, AS_HELP_STRING([--with-xml=[libxml/expat]],[XML library to use]))
+if(NOT LIBXML2_FOUND AND NOT LIBEXPAT_FOUND)
+    message(FATAL "Neither expat nor libxml2 found!")
+endif(NOT LIBXML2_FOUND AND NOT LIBEXPAT_FOUND)
+
+if(LIBEXPAT_FOUND)
+    OPTION(DBUS_USE_EXPAT "Use expat (== ON) or libxml2 (==OFF)" ON)
+else(LIBEXPAT_FOUND)
+    OPTION(DBUS_USE_EXPAT "Use expat (== ON) or libxml2 (==OFF)" OFF)
+endif(LIBEXPAT_FOUND)
+
+if(DBUS_USE_EXPAT)
+    SET(XML_LIB "Expat")
+    SET(XML_LIBRARY     ${LIBEXPAT_LIBRARIES})
+    SET(XML_INCLUDE_DIR ${LIBEXPAT_INCLUDE_DIR})
+else(DBUS_USE_EXPAT)
+    SET(XML_LIB "LibXML2")
+    SET(XML_LIBRARY     ${LIBXML2_LIBRARIES})
+    SET(XML_INCLUDE_DIR ${LIBXML2_INCLUDE_DIR})
+endif(DBUS_USE_EXPAT)
+
+
+#AC_ARG_WITH(init-scripts, AS_HELP_STRING([--with-init-scripts=[redhat]],[Style of init scripts to install]))
+#AC_ARG_WITH(session-socket-dir, AS_HELP_STRING([--with-session-socket-dir=[dirname]],[Where to put sockets for the per-login-session message bus]))
+#AC_ARG_WITH(test-socket-dir, AS_HELP_STRING([--with-test-socket-dir=[dirname]],[Where to put sockets for make check]))
+#AC_ARG_WITH(system-pid-file, AS_HELP_STRING([--with-system-pid-file=[pidfile]],[PID file for systemwide daemon]))
+#AC_ARG_WITH(system-socket, AS_HELP_STRING([--with-system-socket=[filename]],[UNIX domain socket for systemwide daemon]))
+#AC_ARG_WITH(console-auth-dir, AS_HELP_STRING([--with-console-auth-dir=[dirname]],[directory to check for console ownerhip]))
+#AC_ARG_WITH(console-owner-file, AS_HELP_STRING([--with-console-owner-file=[filename]],[file whose owner determines current console owner]))
+#AC_ARG_WITH(dbus_user, AS_HELP_STRING([--with-dbus-user=<user>],[User for running the DBUS daemon (messagebus)]))
+#AC_ARG_WITH(dbus_daemondir, AS_HELP_STRING([--with-dbus-daemondir=[dirname]],[Directory for installing the DBUS daemon]))
+# all missing or hardcoded for now
+
+# 'hidden' ones
 set(atomic_int "OFF")
 set(atomic_int486 "OFF")
 if(GCC AND NOT DBUS_ENABLE_ANSI)
@@ -158,25 +197,8 @@ endif(GCC AND NOT DBUS_ENABLE_ANSI)
 OPTION(DBUS_HAVE_ATOMIC_INT    "Some atomic integer implementation present" ${atomic_int})
 OPTION(DBUS_USE_ATOMIC_INT_486 "Use atomic integer implementation for 486" ${atomic_int_486})
 
-if(LINUX)
-    OPTION(DBUS_ENABLE_DNOTIFY "build with dnotify support (linux only)" ON) # add a check
-endif(LINUX)
-
-#AC_ARG_ENABLE(checks, AS_HELP_STRING([--enable-checks],[include sanity checks on public API]),enable_checks=$enableval,enable_checks=yes)
-#AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentation (requires xmlto)]),enable_xml_docs=$enableval,enable_xml_docs=auto)
-#AC_ARG_ENABLE(doxygen-docs, AS_HELP_STRING([--enable-doxygen-docs],[build DOXYGEN documentation (requires Doxygen)]),enable_doxygen_docs=$enableval,enable_doxygen_docs=auto)
-#AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use abstract socket namespace (linux only)]),enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
-#AC_ARG_ENABLE(gcj, AS_HELP_STRING([--enable-gcj],[build gcj bindings]),enable_gcj=$enableval,enable_gcj=no)
-#AC_ARG_ENABLE(mono, AS_HELP_STRING([--enable-mono],[build mono bindings]),enable_mono=$enableval,enable_mono=no)
-#AC_ARG_ENABLE(mono_docs, AS_HELP_STRING([--enable-mono-docs],[build mono docs]),enable_mono_docs=$enableval,enable_mono_docs=no)
-#AC_ARG_ENABLE(python, AS_HELP_STRING([--enable-python],[build python bindings]),enable_python=$enableval,enable_python=auto)
-#AC_ARG_ENABLE(selinux, AS_HELP_STRING([--enable-selinux],[build with SELinux support]),enable_selinux=$enableval,enable_selinux=auto)
-#
-#AC_ARG_WITH(xml, AS_HELP_STRING([--with-xml=[libxml/expat]],[XML library to use]))
-#AC_ARG_WITH(init-scripts, AS_HELP_STRING([--with-init-scripts=[redhat]],[Style of init scripts to install]))
-#AC_ARG_WITH(session-socket-dir, AS_HELP_STRING([--with-session-socket-dir=[dirname]],[Where to put sockets for the per-login-session message bus]))
 if(HAVE_X11)
-  SET(DBUS_BUILD_X11 1)
+  OPTION(DBUS_BUILD_X11 "Build X11-dependent code " ON)
 endif(HAVE_X11)
 
 #### Find socket directories
@@ -277,6 +299,7 @@ add_subdirectory( tools )
 
 
 OPTION(DBUS_INSTALL_SYSTEM_LIBS "install required system libraries" OFF)
+MESSAGE(" ")
 MESSAGE("set -DDBUS_INSTALL_SYSTEM_LIBS=1 to install runtime libraries too")
 
 GET_FILENAME_COMPONENT(C_COMPILER ${CMAKE_C_COMPILER} NAME)
@@ -358,8 +381,8 @@ if(NOT DBUS_DISABLE_ASSERTS)
     message("NOTE: building with assertions increases library size and decreases performance.")
 endif(NOT DBUS_DISABLE_ASSERTS)
 
-#if (NOT DBUS_BUILD_TESTS)
+#if (NOT DBUS_ENABLE_CHECKS)
     message("NOTE: building without checks for arguments passed to public API makes it harder to debug apps using D-BUS, but will slightly decrease D-BUS library size and _very_ slightly improve performance.")
-endif(NOT DBUS_BUILD_TESTS)
+endif(NOT DBUS_ENABLE_CHECKS)
 
 INCLUDE(modules/CPackInstallConfig.cmake)

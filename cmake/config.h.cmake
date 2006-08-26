@@ -18,13 +18,21 @@
 
 /* Some dbus features */
 #cmakedefine DBUS_BUILD_TESTS 1
-#cmakedefine DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 1
-#cmakedefine DBUS_DISABLE_ASSERTS 1
+#cmakedefine DBUS_ENABLE_ANSI 1
 #cmakedefine DBUS_ENABLE_VERBOSE_MODE 1
+#cmakedefine DBUS_DISABLE_ASSERTS 1
 #cmakedefine DBUS_DISABLE_CHECKS 1
+/* xmldocs */
+/* doxygen */
+#cmakedefine DBUS_ENABLE_GCOV 1
+/* abstract-sockets */
+/* selinux */
+#cmakedefine DBUS_ENABLE_DNOTIFY 1
+/* kqueue */
+/* console-owner-file */
+
 #cmakedefine DBUS_HAVE_ATOMIC_INT 1
 #cmakedefine DBUS_USE_ATOMIC_INT_486 1
-#cmakedefine DBUS_ENABLE_DNOTIFY 1
 #cmakedefine DBUS_BUILD_X11 1
 
 // headers
