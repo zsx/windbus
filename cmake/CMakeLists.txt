@@ -48,7 +48,7 @@ include (MacroLibrary)
 
 if(MSVC)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
-	SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -Zi " CACHE STRING "runtime-library flags" FORCE)
+	SET(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} " CACHE STRING "runtime-library flags" FORCE)
 	SET(CMAKE_CXX_FLAGS_RELEASE  "${CMAKE_CXX_FLAGS_RELEASE}" CACHE STRING "runtime-library flags" FORCE)
 	SET(CMAKE_C_FLAGS_DEBUG ${CMAKE_CXX_FLAGS_DEBUG})
 	SET(CMAKE_C_FLAGS_RELEASE ${CMAKE_CXX_FLAGS_RELEASE})
@@ -153,7 +153,7 @@ if(GCC AND NOT DBUS_ENABLE_ANSI)
             endif("UNMAE_OUTPUT" MATCHES "^.*i?86.*$")
         endif("UNMAE_OUTPUT" MATCHES "^.*i[0123]86.*$")
     endif(UNAME_EXECUTABLE)
-endif(NOT DBUS_ENABLE_ANSI)
+endif(GCC AND NOT DBUS_ENABLE_ANSI)
 
 OPTION(DBUS_HAVE_ATOMIC_INT    "Some atomic integer implementation present" ${atomic_int})
 OPTION(DBUS_USE_ATOMIC_INT_486 "Use atomic integer implementation for 486" ${atomic_int_486})
@@ -279,9 +279,11 @@ add_subdirectory( tools )
 OPTION(DBUS_INSTALL_SYSTEM_LIBS "install required system libraries" OFF)
 MESSAGE("set -DDBUS_INSTALL_SYSTEM_LIBS=1 to install runtime libraries too")
 
+GET_FILENAME_COMPONENT(C_COMPILER ${CMAKE_C_COMPILER} NAME)
+GET_FILENAME_COMPONENT(CXX_COMPILER ${CMAKE_CXX_COMPILER} NAME)
 
 message("                  D-BUS ${VERSION}                                    ")
-message("                  ==========                                      ")
+message("                  ==========                                          ")
 message("                                                                      ")
 message("        prefix:                   ${prefix}                           ")
 message("        exec_prefix:              ${exec_prefix}                      ")
@@ -291,13 +293,17 @@ message("        sysconfdir:               ${EXPANDED_SYSCONFDIR}              "
 message("        localstatedir:            ${EXPANDED_LOCALSTATEDIR}           ")
 message("        datadir:                  ${EXPANDED_DATADIR}                 ")
 message("        source code location:     ${DBUS_SOURCE_DIR}                  ")
-#message("        compiler:            		 ${CC}                               ")       
-#message("        cflags:	                 ${CFLAGS}                           ") 
-#message("        cppflags:             	   ${CPPFLAGS}                         ")       
-#message("        cxxflags:            		 ${CXXFLAGS}                         ")       
-message("        64-bit int:            	  ${DBUS_INT64_TYPE}                  ")     
-message("        32-bit int:            	  ${DBUS_INT32_TYPE}                  ")     
-message("        16-bit int:            	  ${DBUS_INT16_TYPE}                  ")     
+message("        c compiler:               ${C_COMPILER}                       ")       
+message("        cflags:                   ${CMAKE_C_FLAGS}                    ") 
+message("        cflags debug:             ${CMAKE_C_FLAGS_DEBUG}              ") 
+message("        cflags release:           ${CMAKE_C_FLAGS_RELEASE}            ") 
+message("        cxx compiler:             ${CXX_COMPILER}                     ")       
+message("        cxxflags:                 ${CMAKE_CXX_FLAGS}                  ")       
+message("        cxxflags debug:           ${CMAKE_CXX_FLAGS_DEBUG}            ")       
+message("        cxxflags release:         ${CMAKE_CXX_FLAGS_RELEASE}          ")       
+message("        64-bit int:               ${DBUS_INT64_TYPE}                  ")     
+message("        32-bit int:               ${DBUS_INT32_TYPE}                  ")     
+message("        16-bit int:               ${DBUS_INT16_TYPE}                  ")     
 #message("        Doxygen:                  ${DOXYGEN}                          ")
 #message("        xmlto:                    ${XMLTO}                            ")
 
@@ -332,23 +338,28 @@ message("        Session bus services dir: ${DBUS_SERVICE_DIR}                 "
 message("        'make check' socket dir:  ${TEST_SOCKET_DIR}                  ")
 endif (WIN32)
 
-#if test x$enable_tests = xyes; then
-#        echo "NOTE: building with unit tests increases the size of the installed library and renders it insecure."
-#fi
-#if test x$enable_tests = xyes -a x$enable_asserts = xno; then
-#        echo "NOTE: building with unit tests but without assertions means tests may not properly report failures (this configuration is only useful when doing something like profiling the tests)"
-#fi
-#if test x$enable_gcov = xyes; then
-#        echo "NOTE: building with coverage profiling is definitely for developers only."
-#fi
-#if test x$enable_verbose_mode = xyes; then
-#        echo "NOTE: building with verbose mode increases library size, may slightly increase security risk, and decreases performance."
-#fi
-#if test x$enable_asserts = xyes; then
-#        echo "NOTE: building with assertions increases library size and decreases performance."
-#fi
-#if test x$enable_checks = xno; then
-#        echo "NOTE: building without checks for arguments passed to public API makes it harder to debug apps using D-BUS, but will slightly decrease D-BUS library size and _very_ slightly improve performance."
-#fi
+if (DBUS_BUILD_TESTS)
+    message("NOTE: building with unit tests increases the size of the installed library and renders it insecure.")
+endif(DBUS_BUILD_TESTS)
+
+if (DBUS_BUILD_TESTS AND DBUS_DISABLE_ASSERTS)
+    message("NOTE: building with unit tests but without assertions means tests may not properly report failures (this configuration is only useful when doing something like profiling the tests)")
+endif(DBUS_BUILD_TESTS AND DBUS_DISABLE_ASSERTS)
+
+if (DBUS_ENABLE_GCOV)
+    message("NOTE: building with coverage profiling is definitely for developers only.")
+endif(DBUS_ENABLE_GCOV)
+
+if (DBUS_ENABLE_VERBOSE_MODE)
+    message("NOTE: building with verbose mode increases library size, may slightly increase security risk, and decreases performance.")
+endif(DBUS_ENABLE_VERBOSE_MODE)
+
+if(NOT DBUS_DISABLE_ASSERTS)
+    message("NOTE: building with assertions increases library size and decreases performance.")
+endif(NOT DBUS_DISABLE_ASSERTS)
+
+#if (NOT DBUS_BUILD_TESTS)
+    message("NOTE: building without checks for arguments passed to public API makes it harder to debug apps using D-BUS, but will slightly decrease D-BUS library size and _very_ slightly improve performance.")
+endif(NOT DBUS_BUILD_TESTS)
 
 INCLUDE(modules/CPackInstallConfig.cmake)
