@@ -57,15 +57,19 @@ $ diff -ubB  src/gui/painting/painting.pri.orig src/gui/painting/painting.pri
  }
  
  #load up the headers info
---- ./tools/qdbus/tools/dbus/dbus.pro.orig	2006-08-26 21:42:56.739976000 +0200
-+++ ./tools/qdbus/tools/dbus/dbus.pro	2006-08-26 22:11:30.744593600 +0200
-@@ -1,5 +1,5 @@
+$ diff -ubB tools/qdbus/tools/dbus/dbus.pro.orig tools/qdbus/tools/dbus/dbus.pro
+--- tools/qdbus/tools/dbus/dbus.pro.orig        2006-08-26 01:24:15.000000000 +0200
++++ tools/qdbus/tools/dbus/dbus.pro     2006-08-26 22:59:41.859375000 +0200
+@@ -1,7 +1,7 @@
  SOURCES = dbus.cpp
 -DESTDIR = ../../../bin
 +DESTDIR = ../../../../bin
  TARGET = dbus
- QT = core xml
+-QT = core
++QT = core xml
  CONFIG += qdbus
+
+ target.path=$$[QT_INSTALL_BINS]
 --- ./tools/qdbus/tools/dbuscpp2xml/dbuscpp2xml.pro.orig	2006-08-26 21:42:27.497928000 +0200
 +++ ./tools/qdbus/tools/dbuscpp2xml/dbuscpp2xml.pro	2006-08-26 22:11:20.640064000 +0200
 @@ -1,5 +1,5 @@
