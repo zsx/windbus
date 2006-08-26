@@ -1,149 +1,107 @@
-diff -ubB -r tools/qdbus/src/src.pro tools/qdbus/src/src.pro
---- tools/qdbus/src/src.pro	2006-08-03 01:35:44.000000000 +0200
-+++ tools/qdbus/src/src.pro	2006-08-03 08:44:06.859375000 +0200
-@@ -17,6 +17,11 @@
- QT = core xml
- 
- INCLUDEPATH += .
-+win32 {
-+	DBUS_INSTALL_DIR=c:/Programme/dbus
-+	INCLUDEPATH += $$DBUS_INSTALL_DIR/include
-+	LIBS +=  -L$$DBUS_INSTALL_DIR/lib -ldbus-1
-+}
- 
- MOC_DIR         = tmp
- DESTDIR = ../../../lib
-diff -ubB -r tools/qdbus/tools/dbus.pro tools/qdbus/tools/dbus.pro
---- tools/qdbus/tools/dbus.pro	2006-08-03 01:35:45.000000000 +0200
-+++ tools/qdbus/tools/dbus.pro	2006-08-03 08:58:23.781250000 +0200
-@@ -1,8 +1,9 @@
- SOURCES = dbus.cpp
- DESTDIR = ../../../bin
- TARGET = dbus
--QT = core
-+QT = core xml
+--- ./demos/dbus-viewer/dbus-viewer.pro.orig	2006-08-26 22:21:06.943126400 +0200
++++ ./demos/dbus-viewer/dbus-viewer.pro	2006-08-26 22:21:26.080644800 +0200
+@@ -16,6 +16,8 @@
  CONFIG += qdbus
-+win32: CONFIG += console
+ QT += xml
  
- target.path=$$[QT_INSTALL_BINS]
- INSTALLS += target
-diff -ubB -r tools/qdbus/tools/dbuscpp2xml.pro tools/qdbus/tools/dbuscpp2xml.pro
---- tools/qdbus/tools/dbuscpp2xml.pro	2006-08-03 01:35:45.000000000 +0200
-+++ tools/qdbus/tools/dbuscpp2xml.pro	2006-08-03 08:58:07.640625000 +0200
-@@ -3,6 +3,7 @@
++win32:DESTDIR=../../bin
++
+ # install
+ target.path = $$[QT_INSTALL_DEMOS]/dbus-viewer
+ sources.files = $$SOURCES $$HEADERS *.pro *.html *.doc images
+--- ./demos/demos.pro.orig	2006-08-26 22:23:30.108988800 +0200
++++ ./demos/demos.pro	2006-08-26 22:23:32.923035200 +0200
+@@ -13,7 +13,7 @@
+         demos_textedit \
+ 	demos_chip
+ 
+-unix:!embedded:contains(QT_CONFIG, qdbus):SUBDIRS += dbus-viewer
++!embedded:contains(QT_CONFIG, qdbus):SUBDIRS += dbus-viewer
+ !contains(QT_EDITION, Console):!cross_compile:SUBDIRS += demos_arthurplugin
+ 
+ !cross_compile:SUBDIRS += demos_sqlbrowser
+--- ./mkspecs/features/qdbus.prf.orig	2006-08-26 22:13:16.296369600 +0200
++++ ./mkspecs/features/qdbus.prf	2006-08-26 22:12:42.918374400 +0200
+@@ -1,6 +1,10 @@
+ 
+ qtAddLibrary(QtDBus)
+ 
++win32: !contains(QT, gui):contains(TEMPLATE, app) {
++	CONFIG += console 
++}
++
+ isEmpty(QMAKE_QDBUSXML2CPP) {
+     win32:QMAKE_QDBUSXML2CPP = $$[QT_INSTALL_BINS]\dbusxml2cpp.exe
+     else:QMAKE_QDBUSXML2CPP = $$[QT_INSTALL_BINS]/dbusxml2cpp
+--- ./src/gui/painting/painting.pri.orig	2006-08-22 21:44:30.532264000 +0200
++++ ./src/gui/painting/painting.pri	2006-08-26 19:04:25.533532800 +0200
+@@ -141,8 +141,7 @@
+     SOURCES += painting/qdrawhelper_x86.cpp
+     DEFINES += QT_HAVE_IWMMXT
+     DEFINES += QT_HAVE_SSE
+-} 
+-else:win32:!win32-msvc {
++} else:win32-borland: {
+     SOURCES += painting/qdrawhelper_x86.cpp
+     DEFINES += QT_HAVE_SSE
+ }
+--- ./tools/qdbus/src/src.pro.orig	2006-08-26 21:08:54.112822400 +0200
++++ ./tools/qdbus/src/src.pro	2006-08-26 21:22:58.717304000 +0200
+@@ -44,6 +44,9 @@
+    LIBS += -lws2_32 -ladvapi32 -lnetapi32
+    CONFIG(debug, debug|release):LIBS += -ldbus-1d
+    else:LIBS += -ldbus-1
++   DBUS_INSTALL_DIR=c:/Programme/dbus
++   INCLUDEPATH += $$DBUS_INSTALL_DIR/include
++   LIBS +=  -L$$DBUS_INSTALL_DIR/lib
+ }
+ 
+ #load up the headers info
+--- ./tools/qdbus/tools/dbus/dbus.pro.orig	2006-08-26 21:42:56.739976000 +0200
++++ ./tools/qdbus/tools/dbus/dbus.pro	2006-08-26 22:11:30.744593600 +0200
+@@ -1,5 +1,5 @@
+ SOURCES = dbus.cpp
+-DESTDIR = ../../../bin
++DESTDIR = ../../../../bin
+ TARGET = dbus
+ QT = core xml
+ CONFIG += qdbus
+--- ./tools/qdbus/tools/dbuscpp2xml/dbuscpp2xml.pro.orig	2006-08-26 21:42:27.497928000 +0200
++++ ./tools/qdbus/tools/dbuscpp2xml/dbuscpp2xml.pro	2006-08-26 22:11:20.640064000 +0200
+@@ -1,5 +1,5 @@
+ SOURCES = dbuscpp2xml.cpp
+-DESTDIR = ../../../bin
++DESTDIR = ../../../../bin
  TARGET = dbuscpp2xml
  QT = core xml
  CONFIG += qdbus
-+win32: CONFIG += console
- 
- target.path=$$[QT_INSTALL_BINS]
- INSTALLS += target
-diff -ubB -r tools/qdbus/tools/dbusxml2cpp.cpp tools/qdbus/tools/dbusxml2cpp.cpp
---- tools/qdbus/tools/dbusxml2cpp.cpp	2006-08-03 01:35:45.000000000 +0200
-+++ tools/qdbus/tools/dbusxml2cpp.cpp	2006-08-03 08:50:20.703125000 +0200
-@@ -38,6 +38,9 @@
- #include <sys/types.h>
- #include <stdio.h>
- #include <stdlib.h>
-+#ifdef Q_WS_WIN
-+#include <process.h>
-+#endif
- 
- #define PROGRAMNAME     "dbusxml2cpp"
- #define PROGRAMVERSION  "0.6"
-diff -ubB -r tools/qdbus/tools/dbusxml2cpp.pro tools/qdbus/tools/dbusxml2cpp.pro
---- tools/qdbus/tools/dbusxml2cpp.pro	2006-08-03 01:35:45.000000000 +0200
-+++ tools/qdbus/tools/dbusxml2cpp.pro	2006-08-03 08:58:11.312500000 +0200
-@@ -3,6 +3,7 @@
+--- ./tools/qdbus/tools/dbusxml2cpp/dbusxml2cpp.pro.orig	2006-08-26 21:42:43.811385600 +0200
++++ ./tools/qdbus/tools/dbusxml2cpp/dbusxml2cpp.pro	2006-08-26 22:11:24.125075200 +0200
+@@ -1,5 +1,5 @@
+ SOURCES = dbusxml2cpp.cpp
+-DESTDIR = ../../../bin
++DESTDIR = ../../../../bin
  TARGET = dbusxml2cpp
  QT = core xml
  CONFIG += qdbus
-+win32: CONFIG += console
- 
- target.path=$$[QT_INSTALL_BINS]
- INSTALLS += target
-diff -ubB -r examples/qdbus/complexpingpong/complexping.pro examples/qdbus/complexpingpong/complexping.pro
---- examples/qdbus/complexpingpong/complexping.pro	2006-08-03 01:35:54.000000000 +0200
-+++ examples/qdbus/complexpingpong/complexping.pro	2006-08-03 08:44:06.718750000 +0200
-@@ -4,6 +4,7 @@
- INCLUDEPATH += .
- QT -= gui
- CONFIG += qdbus
-+win32: CONFIG += console
- 
- # Input
- HEADERS += complexping.h
-diff -ubB -r examples/qdbus/complexpingpong/complexpong.pro examples/qdbus/complexpingpong/complexpong.pro
---- examples/qdbus/complexpingpong/complexpong.pro	2006-08-03 01:35:54.000000000 +0200
-+++ examples/qdbus/complexpingpong/complexpong.pro	2006-08-03 08:44:06.734375000 +0200
-@@ -4,6 +4,7 @@
- INCLUDEPATH += .
- QT -= gui
- CONFIG += qdbus
-+win32: CONFIG += console
- 
- # Input
- HEADERS += complexpong.h
-diff -ubB -r examples/qdbus/listnames/listnames.pro examples/qdbus/listnames/listnames.pro
---- examples/qdbus/listnames/listnames.pro	2006-08-03 01:35:54.000000000 +0200
-+++ examples/qdbus/listnames/listnames.pro	2006-08-03 08:44:06.796875000 +0200
-@@ -4,6 +4,7 @@
- INCLUDEPATH += .
- QT -= gui
- CONFIG += qdbus
-+win32: CONFIG += console
- 
- # Input
- SOURCES += listnames.cpp
-diff -ubB -r examples/qdbus/pingpong/pong.pro examples/qdbus/pingpong/pong.pro
---- examples/qdbus/pingpong/pong.pro	2006-08-03 01:35:55.000000000 +0200
-+++ examples/qdbus/pingpong/pong.pro	2006-08-03 08:44:06.812500000 +0200
-@@ -4,6 +4,7 @@
- INCLUDEPATH += .
- QT -= gui
- CONFIG += qdbus
-+win32: CONFIG += console
- 
- # Input
- HEADERS += ping-common.h pong.h
-diff -ubB -r examples/qdbus/qdbus.pro examples/qdbus/qdbus.pro
---- examples/qdbus/qdbus.pro	2006-08-03 01:36:15.000000000 +0200
-+++ examples/qdbus/qdbus.pro	2006-08-03 09:00:03.500000000 +0200
-@@ -2,4 +2,6 @@
- SUBDIRS = listnames \
- 	  pingpong \
- 	  complexpingpong \
--	  chat
+--- ./tools/tools.pro.orig	2006-08-26 21:11:11.961038400 +0200
++++ ./tools/tools.pro	2006-08-26 21:11:00.554636800 +0200
+@@ -2,7 +2,7 @@
+ no-png {
+     message("Tools not available without PNG support")
+ } else {
+-    unix:contains(QT_CONFIG, qdbus):SUBDIRS += qdbus
++    contains(QT_CONFIG, qdbus):SUBDIRS += qdbus
+     SUBDIRS		+= assistant/lib \
+ 			assistant \
+ 			porting \
+--- /dev/null	2006-08-26 22:39:57.288483200 +0200
++++ README-qdbus.txt	2006-08-26 22:39:29.117976000 +0200
+@@ -0,0 +1,7 @@
++to activate qdbus support add the line 
 +
-+# compile errors
-+#	  chat
---- src\gui\gui.pro.orig	2006-08-22 20:31:04.436609600 +0200
-+++ src\gui\gui.pro	2006-08-22 20:30:26.301774400 +0200
-@@ -38,3 +38,5 @@
- contains(DEFINES,QT_EVAL):include($$QT_BUILD_TREE/src/corelib/eval.pri)
- 
- DEFINES += Q_INTERNAL_QAPP_SRC
++QT_CONFIG = qdbus
 +
-+win32:DEFINES += TMT_TEXTSHADOWTYPE=4010
---- src\gui\painting\painting.pri.orig	2006-08-22 21:44:30.532264000 +0200
-+++ src\gui\painting\painting.pri	2006-08-22 21:46:00.321374400 +0200
-@@ -125,7 +125,7 @@
- 
- mac {
- 
--} else:sse|win32-g++ {
-+} else:win32 {
-     sse_compiler.commands = $$QMAKE_CXX -c -msse $(CXXFLAGS) $(INCPATH) ${QMAKE_FILE_IN} -o ${QMAKE_FILE_OUT}
-     sse_compiler.dependency_type = TYPE_C
-     sse_compiler.output = ${QMAKE_VAR_OBJECTS_DIR}${QMAKE_FILE_BASE}$${first(QMAKE_EXT_OBJ)}
-@@ -142,10 +142,6 @@
-     DEFINES += QT_HAVE_IWMMXT
-     DEFINES += QT_HAVE_SSE
- } 
--else:win32:!win32-msvc {
--    SOURCES += painting/qdrawhelper_x86.cpp
--    DEFINES += QT_HAVE_SSE
--}
- 
- win32|x11|embedded {
- 	HEADERS += painting/qwindowsurface_p.h \
++to .qmake.cache after configuring and run your make tool
++
++
