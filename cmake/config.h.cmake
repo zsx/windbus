@@ -21,6 +21,9 @@
 #cmakedefine DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX 1
 #cmakedefine DBUS_DISABLE_ASSERTS 1
 #cmakedefine DBUS_ENABLE_VERBOSE_MODE 1
+#cmakedefine DBUS_DISABLE_CHECKS 1
+#cmakedefine DBUS_HAVE_ATOMIC_INT 1
+#cmakedefine DBUS_USE_ATOMIC_INT_486 1
 #cmakedefine DBUS_BUILD_X11 1
 
 // headers

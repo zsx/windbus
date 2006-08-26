@@ -115,6 +115,8 @@ OPTION(DBUS_ENABLE_ANSI "enable -ansi -pedantic gcc flags" OFF)
 if(DBUS_ENABLE_ANSI)
    if(NOT MSVC)
 		add_definitions(-ansi -D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE -pedantic)
+   else(NOT MSVC)
+		add_definitions(-Za -D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE -W4)
    endif(NOT MSVC) 
 endif(DBUS_ENABLE_ANSI)
 
@@ -131,6 +133,30 @@ endif(DBUS_ENABLE_GCOV)
 OPTION(DBUS_ENABLE_VERBOSE_MODE "support verbose debug mode" ON)
 
 OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)    # not handled yet!
+
+set(atomic_int "OFF")
+set(atomic_int486 "OFF")
+if(GCC AND NOT DBUS_ENABLE_ANSI)
+    FIND_PROGRAM(UNAME_EXECUTABLE
+                    NAMES uname
+                    PATHS /bin /usr/bin /usr/local/bin c:/Programme/MSys/bin d:/Programme/MSys/bin)
+
+    if(UNAME_EXECUTABLE)
+        EXECUTE_PROCESS(COMMAND ${UNAME_EXECUTABLE} "-m"
+                        OUTPUT_VARIABLE UNMAE_OUTPUT)
+
+        if("UNMAE_OUTPUT" MATCHES "^.*i[0123]86.*$")
+            set(atomic_int "ON")
+        else("UNMAE_OUTPUT" MATCHES "^.*i[0123]86.*$")
+            if("UNMAE_OUTPUT" MATCHES "^.*i?86.*$")
+                set(atomic_int_486 "ON")
+            endif("UNMAE_OUTPUT" MATCHES "^.*i?86.*$")
+        endif("UNMAE_OUTPUT" MATCHES "^.*i[0123]86.*$")
+    endif(UNAME_EXECUTABLE)
+endif(NOT DBUS_ENABLE_ANSI)
+
+OPTION(DBUS_HAVE_ATOMIC_INT    "Some atomic integer implementation present" ${atomic_int})
+OPTION(DBUS_USE_ATOMIC_INT_486 "Use atomic integer implementation for 486" ${atomic_int_486})
 
 if(LINUX)
     OPTION(DBUS_ENABLE_DNOTIFY "build with dnotify support (linux only)" ON) # add a check

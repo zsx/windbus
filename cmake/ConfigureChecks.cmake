@@ -26,7 +26,6 @@ check_struct_member(cmsgcred cmcred_pid "sys/types.h sys/socket.h" HAVE_CMSGCRED
 
 # missing:
 # HAVE_ABSTRACT_SOCKETS
-# DBUS_USE_ATOMIC_INT_486 // check for cpu type
 # DBUS_HAVE_GCC33_GCOV
 
 check_type_size("short"     SIZEOF_SHORT)
@@ -77,5 +76,3 @@ else(SIZEOF_INT EQUAL 2)
         set (DBUS_INT16_TYPE "short")
     endif(SIZEOF_SHORT EQUAL 2)
 endif(SIZEOF_INT EQUAL 2)
-
-#DBUS_HAVE_ATOMIC_INT
