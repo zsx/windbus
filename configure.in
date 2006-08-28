@@ -5,7 +5,7 @@ AC_INIT(dbus/dbus.h)
 
 AC_CANONICAL_TARGET
 
-AM_INIT_AUTOMAKE(dbus, 0.92)
+AM_INIT_AUTOMAKE(dbus, 0.93)
 
 AM_CONFIG_HEADER(config.h)
 
@@ -57,7 +57,7 @@ AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profil
 AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use abstract socket namespace (linux only)]),enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--enable-selinux],[build with SELinux support]),enable_selinux=$enableval,enable_selinux=auto)
 AC_ARG_ENABLE(dnotify, AS_HELP_STRING([--enable-dnotify],[build with dnotify support (linux only)]),enable_dnotify=$enableval,enable_dnotify=auto)
-AC_ARG_ENABLE(kqueue, AS_HELP_STRING([--enable-kqueue],[build with kqueue support (FreeBSD only)]),enable_kqueue=$enableval,enable_kqueue=auto)
+AC_ARG_ENABLE(kqueue, AS_HELP_STRING([--enable-kqueue],[build with kqueue support]),enable_kqueue=$enableval,enable_kqueue=auto)
 AC_ARG_ENABLE(console-owner-file, AS_HELP_STRING([--enable-console-owner-file],[enable console owner file]),enable_console_owner_file=$enableval,enable_console_owner_file=auto)
 
 AC_ARG_WITH(xml, AS_HELP_STRING([--with-xml=[libxml/expat]],[XML library to use]))
@@ -721,24 +721,23 @@ AM_CONDITIONAL(DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX, test x$have_dnotify = xyes)
 
 # kqueue checks
 if test x$enable_kqueue = xno ; then
-    have_kqueue=no;
+    have_kqueue=no
 else
-    case "${target_os}" in
-      freebsd*)
-        have_kqueue=yes;
-        ;;
-      *)
-        have_kqueue=no;
-        ;;
-    esac
+    have_kqueue=yes
+    AC_CHECK_HEADER(sys/event.h, , have_kqueue=no)
+    AC_CHECK_FUNC(kqueue, , have_kqueue=no)
+
+    if test x$enable_kqueue = xyes -a x$have_kqueue = xno; then
+        AC_MSG_ERROR(kqueue support explicitly enabled but not available)
+    fi
 fi
 
 dnl check if kqueue backend is enabled
 if test x$have_kqueue = xyes; then
-   AC_DEFINE(DBUS_BUS_ENABLE_KQUEUE_ON_FREEBSD,1,[Use kqueue on FreeBSD])
+   AC_DEFINE(DBUS_BUS_ENABLE_KQUEUE,1,[Use kqueue])
 fi
 
-AM_CONDITIONAL(DBUS_BUS_ENABLE_KQUEUE_ON_FREEBSD, test x$have_kqueue = xyes) 
+AM_CONDITIONAL(DBUS_BUS_ENABLE_KQUEUE, test x$have_kqueue = xyes) 
 
 dnl console owner file
 if test x$enable_console_owner_file = xno ; then
@@ -995,7 +994,7 @@ AC_DEFINE_UNQUOTED(DBUS_USER,"$DBUS_USER", [User for running the system BUS daem
 
 #### Directory to install dbus-daemon
 if test -z "$with_dbus_daemondir" ; then
-    DBUS_DAEMONDIR="${bindir}"
+    DBUS_DAEMONDIR=$EXPANDED_BINDIR
 else
     DBUS_DAEMONDIR=$with_dbus_daemondir
 fi
@@ -1003,10 +1002,10 @@ AC_SUBST(DBUS_DAEMONDIR)
 AC_DEFINE_UNQUOTED(DBUS_DAEMONDIR,"$DBUS_DAEMONDIR", [Directory for installing the DBUS daemon])
 
 #### Tell tests where to find certain stuff in builddir
-ABSOLUTE_TOP_BUILDDIR=`cd ${ac_top_builddir}. && pwd`
 
+DBUS_PWD=`pwd`
 AC_DEFUN([TEST_PATH], [
-TEST_$1=${ABSOLUTE_TOP_BUILDDIR}/test/$2
+TEST_$1=${DBUS_PWD}/test/$2
 AC_DEFINE_UNQUOTED(TEST_$1, "$TEST_$1",
                    [Full path to test file test/$2 in builddir])
 AC_SUBST(TEST_$1)
@@ -1018,7 +1017,6 @@ TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
 TEST_PATH(EXIT_BINARY, test-exit)
 TEST_PATH(SEGFAULT_BINARY, test-segfault)
 TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
-AC_SUBST(ABSOLUTE_TOP_BUILDDIR)
 
 #### Find socket directories
 if ! test -z "$TMPDIR" ; then
