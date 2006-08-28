@@ -381,8 +381,8 @@ if(NOT DBUS_DISABLE_ASSERTS)
     message("NOTE: building with assertions increases library size and decreases performance.")
 endif(NOT DBUS_DISABLE_ASSERTS)
 
-#if (NOT DBUS_ENABLE_CHECKS)
+if (DBUS_DISABLE_CHECKS)
     message("NOTE: building without checks for arguments passed to public API makes it harder to debug apps using D-BUS, but will slightly decrease D-BUS library size and _very_ slightly improve performance.")
-endif(NOT DBUS_ENABLE_CHECKS)
+endif(DBUS_DISABLE_CHECKS)
 
 INCLUDE(modules/CPackInstallConfig.cmake)
