@@ -517,17 +517,7 @@ Index: dbus/dbus-server-unix.c
        _dbus_string_free (&address);
        return NULL;
      }
-Index: dbus/dbus-transport.c
-===================================================================
---- dbus/dbus-transport.c	(revision 167)
-+++ dbus/dbus-transport.c	(working copy)
-@@ -68,7 +68,7 @@
-   /* disable or re-enable the read watch for the transport if
-    * required.
-    */
--  if (* transport->vtable->live_messages_changed)
-+  if (transport->vtable->live_messages_changed)
-     (* transport->vtable->live_messages_changed) (transport);
+
  
    _dbus_transport_unref (transport);
 Index: dbus/dbus-test.c
