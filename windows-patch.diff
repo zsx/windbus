@@ -2452,3 +2452,24 @@ Index: tools/dbus-send.c
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
+
+
+Index: test/name-test/test-names.c
+===================================================================
+--- test/name-test/test-names.c (revision 178)
++++ test/name-test/test-names.c (working copy)
+@@ -1,9 +1,11 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+-#include <unistd.h>
+ #include <string.h>
+ #include <dbus/dbus.h>
+ #include <dbus/dbus-connection-internal.h>
++#ifndef DBUS_WIN
++#include <unistd.h>
++#endif
+
+ #define REMOVE_CONNECTION 0
+ #define ADD_CONNECTION 1
+ 
+ 
