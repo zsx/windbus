@@ -26,12 +26,14 @@
 #include "dbus-protocol.h"
 #include "dbus-string.h"
 #include "dbus-sysdeps-win.h"
+#include "dbus-memory.h"
 
 #include <io.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <aclapi.h>
+#include <fcntl.h>
 
 /**
  * Does the chdir, fork, setsid, etc. to become a daemon process.
@@ -46,6 +48,64 @@ _dbus_become_daemon (const DBusString *pidfile,
 		     int               print_pid_fd,
                      DBusError        *error)
 {
+  return TRUE;
+}
+
+/**
+ * Creates a file containing the process ID.
+ *
+ * @param filename the filename to write to
+ * @param pid our process ID
+ * @param error return location for errors
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_write_pid_file (const DBusString *filename,
+                      unsigned long     pid,
+		      DBusError        *error)
+{
+  const char *cfilename;
+  int fd;
+  FILE *f;
+
+  cfilename = _dbus_string_get_const_data (filename);
+  
+  fd = open (cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644);
+  
+  if (fd < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to open \"%s\": %s", cfilename,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  if ((f = fdopen (fd, "w")) == NULL)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to fdopen fd %d: %s", fd, _dbus_strerror (errno));
+      close (fd);
+      return FALSE;
+    }
+  
+  if (fprintf (f, "%lu\n", pid) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to write to \"%s\": %s", cfilename,
+                      _dbus_strerror (errno));
+      
+      fclose (f);
+      return FALSE;
+    }
+
+  if (fclose (f) == EOF)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to close \"%s\": %s", cfilename,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+  
   return TRUE;
 }
 
@@ -144,6 +204,34 @@ _dbus_user_at_console(const char *username,
   dbus_free (wusername);
 
   return retval;
+}
+
+/**
+ * Removes a directory; Directory must be empty
+ * 
+ * @param filename directory filename
+ * @param error initialized error object
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_delete_directory (const DBusString *filename,
+			DBusError        *error)
+{
+  const char *filename_c;
+  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  filename_c = _dbus_string_get_const_data (filename);
+
+  if (rmdir (filename_c) != 0)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+		      "Failed to remove directory %s: %s\n",
+		      filename_c, _dbus_strerror (errno));
+      return FALSE;
+    }
+  
+  return TRUE;
 }
 
 /** Installs a signal handler
@@ -247,6 +335,253 @@ _dbus_stat(const DBusString *filename,
   return TRUE;
 }
 
+#ifdef HAVE_DIRENT_H
+#include <dirent.h>
+#define _dbus_opendir opendir
+#define _dbus_readdir readdir
+#define _dbus_closedir closedir
+#else
+#ifdef HAVE_IO_H
+#include <io.h> // win32 file functions
+#endif
+#include <sys/types.h>
+#include <stdlib.h>
+
+/* This file is part of the KDE project
+   Copyright (C) 2000 Werner Almesberger
+
+   libc/sys/linux/sys/dirent.h - Directory entry as returned by readdir
+
+   This program is free software; you can redistribute it and/or
+   modify it under the terms of the GNU Library General Public
+   License as published by the Free Software Foundation; either
+   version 2 of the License, or (at your option) any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+   Library General Public License for more details.
+
+   You should have received a copy of the GNU Library General Public License
+   along with this program; see the file COPYING.  If not, write to
+   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+   Boston, MA 02110-1301, USA.
+*/
+#define HAVE_NO_D_NAMLEN	/* no struct dirent->d_namlen */
+#define HAVE_DD_LOCK  		/* have locking mechanism */
+
+#define MAXNAMLEN 255		/* sizeof(struct dirent.d_name)-1 */
+
+#define __dirfd(dir) (dir)->dd_fd
+
+/* struct dirent - same as Unix */
+struct dirent {
+    long d_ino;                    /* inode (always 1 in WIN32) */
+    off_t d_off;                /* offset to this dirent */
+    unsigned short d_reclen;    /* length of d_name */
+    char d_name[_MAX_FNAME+1];    /* filename (null terminated) */
+};
+
+/* typedef DIR - not the same as Unix */
+typedef struct {
+    long handle;                /* _findfirst/_findnext handle */
+    short offset;                /* offset into directory */
+    short finished;             /* 1 if there are not more files */
+    struct _finddata_t fileinfo;  /* from _findfirst/_findnext */
+    char *dir;                  /* the dir we are reading */
+    struct dirent dent;         /* the dirent to return */
+} DIR;
+
+/**********************************************************************
+ * Implement dirent-style opendir/readdir/closedir on Window 95/NT
+ *
+ * Functions defined are opendir(), readdir() and closedir() with the
+ * same prototypes as the normal dirent.h implementation.
+ *
+ * Does not implement telldir(), seekdir(), rewinddir() or scandir(). 
+ * The dirent struct is compatible with Unix, except that d_ino is 
+ * always 1 and d_off is made up as we go along.
+ *
+ * The DIR typedef is not compatible with Unix.
+ **********************************************************************/
+
+DIR * _dbus_opendir(const char *dir)
+{
+    DIR *dp;
+    char *filespec;
+    long handle;
+    int index;
+
+    filespec = malloc(strlen(dir) + 2 + 1);
+    strcpy(filespec, dir);
+    index = strlen(filespec) - 1;
+    if (index >= 0 && (filespec[index] == '/' || filespec[index] == '\\'))
+        filespec[index] = '\0';
+    strcat(filespec, "\\*");
+
+    dp = (DIR *)malloc(sizeof(DIR));
+    dp->offset = 0;
+    dp->finished = 0;
+    dp->dir = strdup(dir);
+
+    if ((handle = _findfirst(filespec, &(dp->fileinfo))) < 0) {
+        if (errno == ENOENT)
+            dp->finished = 1;
+        else
+        return NULL;
+    }
+
+    dp->handle = handle;
+    free(filespec);
+
+    return dp;
+}
+
+struct dirent * _dbus_readdir(DIR *dp)
+{
+    if (!dp || dp->finished) return NULL;
+
+    if (dp->offset != 0) {
+        if (_findnext(dp->handle, &(dp->fileinfo)) < 0) {
+            dp->finished = 1;
+			errno = 0;
+            return NULL;
+        }
+    }
+    dp->offset++;
+
+    strncpy(dp->dent.d_name, dp->fileinfo.name, _MAX_FNAME);
+    dp->dent.d_ino = 1;
+    dp->dent.d_reclen = strlen(dp->dent.d_name);
+    dp->dent.d_off = dp->offset;
+
+    return &(dp->dent);
+}
+
+
+int _dbus_closedir(DIR *dp)
+{
+    if (!dp) return 0;
+    _findclose(dp->handle);
+    if (dp->dir) free(dp->dir);
+    if (dp) free(dp);
+
+    return 0;
+}
+#endif
+
+/**
+ * Internals of directory iterator
+ */
+struct DBusDirIter
+{
+  DIR *d; /**< The DIR* from opendir() */
+  
+};
+
+/**
+ * Open a directory to iterate over.
+ *
+ * @param filename the directory name
+ * @param error exception return object or #NULL
+ * @returns new iterator, or #NULL on error
+ */
+DBusDirIter*
+_dbus_directory_open (const DBusString *filename,
+                      DBusError        *error)
+{
+  DIR *d;
+  DBusDirIter *iter;
+  const char *filename_c;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  filename_c = _dbus_string_get_const_data (filename);
+
+  d = opendir (filename_c);
+  if (d == NULL)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to read directory \"%s\": %s",
+                      filename_c,
+                      _dbus_strerror (errno));
+      return NULL;
+    }
+  iter = dbus_new0 (DBusDirIter, 1);
+  if (iter == NULL)
+    {
+      closedir (d);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                      "Could not allocate memory for directory iterator");
+      return NULL;
+    }
+
+  iter->d = d;
+
+  return iter;
+}
+
+/**
+ * Get next file in the directory. Will not return "." or ".."  on
+ * UNIX. If an error occurs, the contents of "filename" are
+ * undefined. The error is never set if the function succeeds.
+ *
+ * @todo for thread safety, I think we have to use
+ * readdir_r(). (GLib has the same issue, should file a bug.)
+ *
+ * @param iter the iterator
+ * @param filename string to be set to the next file in the dir
+ * @param error return location for error
+ * @returns #TRUE if filename was filled in with a new filename
+ */
+dbus_bool_t
+_dbus_directory_get_next_file (DBusDirIter      *iter,
+                               DBusString       *filename,
+                               DBusError        *error)
+{
+  struct dirent *ent;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+ again:
+  errno = 0;
+  ent = readdir (iter->d);
+  if (ent == NULL)
+    {
+      if (errno != 0)
+        dbus_set_error (error,
+                        _dbus_error_from_errno (errno),
+                        "%s", _dbus_strerror (errno));
+      return FALSE;
+    }
+  else if (ent->d_name[0] == '.' &&
+           (ent->d_name[1] == '\0' ||
+            (ent->d_name[1] == '.' && ent->d_name[2] == '\0')))
+    goto again;
+  else
+    {
+      _dbus_string_set_length (filename, 0);
+      if (!_dbus_string_append (filename, ent->d_name))
+        {
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                          "No memory to read directory entry");
+          return FALSE;
+        }
+      else
+        return TRUE;
+    }
+}
+
+/**
+ * Closes a directory iteration.
+ */
+void
+_dbus_directory_close (DBusDirIter *iter)
+{
+  closedir (iter->d);
+  dbus_free (iter);
+}
+
 /**
  * Checks whether the filename is an absolute path
  *
@@ -340,132 +675,6 @@ fill_group_info(DBusGroupInfo    *info,
       return retval;
     }
 }
-
-#ifndef HAVE_DIRENT_H
-/* This file is part of the KDE project
-   Copyright (C) 2000 Werner Almesberger
-
-   libc/sys/linux/sys/dirent.h - Directory entry as returned by readdir
-
-   This program is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this program; see the file COPYING.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
-*/
-#if 0 // copied to dbus-arch-deps.h.cmake  
-#define HAVE_NO_D_NAMLEN	/* no struct dirent->d_namlen */
-#define HAVE_DD_LOCK  		/* have locking mechanism */
-
-#define MAXNAMLEN 255		/* sizeof(struct dirent.d_name)-1 */
-
-#define __dirfd(dir) (dir)->dd_fd
-
-/* struct dirent - same as Unix */
-struct dirent {
-    long d_ino;                    /* inode (always 1 in WIN32) */
-    off_t d_off;                /* offset to this dirent */
-    unsigned short d_reclen;    /* length of d_name */
-    char d_name[_MAX_FNAME+1];    /* filename (null terminated) */
-};
-
-/* typedef DIR - not the same as Unix */
-typedef struct {
-    long handle;                /* _findfirst/_findnext handle */
-    short offset;                /* offset into directory */
-    short finished;             /* 1 if there are not more files */
-    struct _finddata_t fileinfo;  /* from _findfirst/_findnext */
-    char *dir;                  /* the dir we are reading */
-    struct dirent dent;         /* the dirent to return */
-} DIR;
-#endif
-
-/**********************************************************************
- * Implement dirent-style opendir/readdir/closedir on Window 95/NT
- *
- * Functions defined are opendir(), readdir() and closedir() with the
- * same prototypes as the normal dirent.h implementation.
- *
- * Does not implement telldir(), seekdir(), rewinddir() or scandir(). 
- * The dirent struct is compatible with Unix, except that d_ino is 
- * always 1 and d_off is made up as we go along.
- *
- * The DIR typedef is not compatible with Unix.
- **********************************************************************/
-
-DIR * _dbus_opendir(const char *dir)
-{
-    DIR *dp;
-    char *filespec;
-    long handle;
-    int index;
-
-    filespec = malloc(strlen(dir) + 2 + 1);
-    strcpy(filespec, dir);
-    index = strlen(filespec) - 1;
-    if (index >= 0 && (filespec[index] == '/' || filespec[index] == '\\'))
-        filespec[index] = '\0';
-    strcat(filespec, "\\*");
-
-    dp = (DIR *)malloc(sizeof(DIR));
-    dp->offset = 0;
-    dp->finished = 0;
-    dp->dir = strdup(dir);
-
-    if ((handle = _findfirst(filespec, &(dp->fileinfo))) < 0) {
-        if (errno == ENOENT)
-            dp->finished = 1;
-        else
-        return NULL;
-    }
-
-    dp->handle = handle;
-    free(filespec);
-
-    return dp;
-}
-
-struct dirent * _dbus_readdir(DIR *dp)
-{
-    if (!dp || dp->finished) return NULL;
-
-    if (dp->offset != 0) {
-        if (_findnext(dp->handle, &(dp->fileinfo)) < 0) {
-            dp->finished = 1;
-			errno = 0;
-            return NULL;
-        }
-    }
-    dp->offset++;
-
-    strncpy(dp->dent.d_name, dp->fileinfo.name, _MAX_FNAME);
-    dp->dent.d_ino = 1;
-    dp->dent.d_reclen = strlen(dp->dent.d_name);
-    dp->dent.d_off = dp->offset;
-
-    return &(dp->dent);
-}
-
-
-int _dbus_closedir(DIR *dp)
-{
-    if (!dp) return 0;
-    _findclose(dp->handle);
-    if (dp->dir) free(dp->dir);
-    if (dp) free(dp);
-
-    return 0;
-}
-#endif
 
 /**
  * Initializes the given DBusGroupInfo struct
