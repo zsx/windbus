@@ -336,7 +336,19 @@ _dbus_stat(const DBusString *filename,
 }
 
 
+#ifdef HAVE_DIRENT_H
+
+// mingw ships with dirent.h
+#include <dirent.h>
+#define _dbus_opendir opendir
+#define _dbus_readdir readdir
+#define _dbus_closedir closedir
+
+#else
+
+#ifdef HAVE_IO_H
 #include <io.h> // win32 file functions
+#endif
 
 #include <sys/types.h>
 #include <stdlib.h>
@@ -463,6 +475,7 @@ int _dbus_closedir(DIR *dp)
     return 0;
 }
 
+#endif //#ifdef HAVE_DIRENT_H
 
 /**
  * Internals of directory iterator
