@@ -29,7 +29,8 @@
 /* selinux */
 #cmakedefine DBUS_ENABLE_DNOTIFY 1
 /* kqueue */
-/* console-owner-file */
+#cmakedefine HAVE_CONSOLE_OWNER_FILE 1
+#define DBUS_CONSOLE_OWNER_FILE "@DBUS_CONSOLE_OWNER_FILE@"
 
 #cmakedefine DBUS_HAVE_ATOMIC_INT 1
 #cmakedefine DBUS_USE_ATOMIC_INT_486 1

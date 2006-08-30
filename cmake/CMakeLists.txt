@@ -90,9 +90,9 @@ endif (DBUS_BUILD_TESTS)
 OPTION(DBUS_ENABLE_ANSI "enable -ansi -pedantic gcc flags" OFF)
 if(DBUS_ENABLE_ANSI)
    if(NOT MSVC)
-		add_definitions(-ansi -D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE -pedantic)
+        add_definitions(-ansi -D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE -pedantic)
    else(NOT MSVC)
-		add_definitions(-Za -D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE -W4)
+        add_definitions(-Za -D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE -W4)
    endif(NOT MSVC) 
 endif(DBUS_ENABLE_ANSI)
 
@@ -115,8 +115,8 @@ OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)
 OPTION(DBUS_ENABLE_GCOV "compile with coverage profiling instrumentation (gcc only)" OFF)
 if(DBUS_ENABLE_GCOV)
    if(NOT MSVC)
-		add_definitions(-fprofile-arcs -ftest-coverage)
-		# FIXME!!!!
+        add_definitions(-fprofile-arcs -ftest-coverage)
+        # FIXME!!!!
         ## remove optimization
 #        CFLAGS=`echo "$CFLAGS" | sed -e 's/-O[0-9]*//g'`
    endif(NOT MSVC) 
@@ -137,7 +137,13 @@ endif(LINUX)
 #missing
 
 #AC_ARG_ENABLE(console-owner-file, AS_HELP_STRING([--enable-console-owner-file],[enable console owner file]),enable_console_owner_file=$enableval,enable_console_owner_file=auto)
-#missing
+STRING(TOUPPER ${CMAKE_SYSTEM_NAME} sysname)
+if("${sysname}" MATCHES ".*SOLARIS.*")
+    OPTION(HAVE_CONSOLE_OWNER_FILE "enable console owner file (solaris only)" ON)
+    if(HAVE_CONSOLE_OWNER_FILE)
+        SET(DBUS_CONSOLE_OWNER_FILE "/dev/console" CACHE STRING "Directory to check for console ownerhip")
+    endif(HAVE_CONSOLE_OWNER_FILE)
+endif("${sysname}" MATCHES ".*SOLARIS.*")
 
 #AC_ARG_WITH(xml, AS_HELP_STRING([--with-xml=[libxml/expat]],[XML library to use]))
 if(NOT LIBXML2_FOUND AND NOT LIBEXPAT_FOUND)
