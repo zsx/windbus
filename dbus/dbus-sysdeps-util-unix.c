@@ -176,6 +176,66 @@ _dbus_become_daemon (const DBusString *pidfile,
   return TRUE;
 }
 
+
+/**
+ * Creates a file containing the process ID.
+ *
+ * @param filename the filename to write to
+ * @param pid our process ID
+ * @param error return location for errors
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_write_pid_file (const DBusString *filename,
+                      unsigned long     pid,
+		      DBusError        *error)
+{
+  const char *cfilename;
+  int fd;
+  FILE *f;
+
+  cfilename = _dbus_string_get_const_data (filename);
+  
+  fd = open (cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644);
+  
+  if (fd < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to open \"%s\": %s", cfilename,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  if ((f = fdopen (fd, "w")) == NULL)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to fdopen fd %d: %s", fd, _dbus_strerror (errno));
+      close (fd);
+      return FALSE;
+    }
+  
+  if (fprintf (f, "%lu\n", pid) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to write to \"%s\": %s", cfilename,
+                      _dbus_strerror (errno));
+      
+      fclose (f);
+      return FALSE;
+    }
+
+  if (fclose (f) == EOF)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to close \"%s\": %s", cfilename,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+  
+  return TRUE;
+}
+
+
 /**
  * Changes the user and group the bus is running as.
  *
@@ -237,7 +297,36 @@ _dbus_set_signal_handler (int               sig,
   act.sa_handler = handler;
   act.sa_mask    = empty_mask;
   act.sa_flags   = 0;
-  sigaction (sig,  &act, 0);
+  sigaction (sig,  &act, NULL);
+}
+
+
+/**
+ * Removes a directory; Directory must be empty
+ * 
+ * @param filename directory filename
+ * @param error initialized error object
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_delete_directory (const DBusString *filename,
+			DBusError        *error)
+{
+  const char *filename_c;
+  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  filename_c = _dbus_string_get_const_data (filename);
+
+  if (rmdir (filename_c) != 0)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+		      "Failed to remove directory %s: %s\n",
+		      filename_c, _dbus_strerror (errno));
+      return FALSE;
+    }
+  
+  return TRUE;
 }
 
 /** Checks if a file exists
@@ -348,6 +437,119 @@ _dbus_stat (const DBusString *filename,
   return TRUE;
 }
 
+
+/**
+ * Internals of directory iterator
+ */
+struct DBusDirIter
+{
+  DIR *d; /**< The DIR* from opendir() */
+  
+};
+
+/**
+ * Open a directory to iterate over.
+ *
+ * @param filename the directory name
+ * @param error exception return object or #NULL
+ * @returns new iterator, or #NULL on error
+ */
+DBusDirIter*
+_dbus_directory_open (const DBusString *filename,
+                      DBusError        *error)
+{
+  DIR *d;
+  DBusDirIter *iter;
+  const char *filename_c;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  filename_c = _dbus_string_get_const_data (filename);
+
+  d = opendir (filename_c);
+  if (d == NULL)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to read directory \"%s\": %s",
+                      filename_c,
+                      _dbus_strerror (errno));
+      return NULL;
+    }
+  iter = dbus_new0 (DBusDirIter, 1);
+  if (iter == NULL)
+    {
+      closedir (d);
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                      "Could not allocate memory for directory iterator");
+      return NULL;
+    }
+
+  iter->d = d;
+
+  return iter;
+}
+
+/**
+ * Get next file in the directory. Will not return "." or ".."  on
+ * UNIX. If an error occurs, the contents of "filename" are
+ * undefined. The error is never set if the function succeeds.
+ *
+ * @todo for thread safety, I think we have to use
+ * readdir_r(). (GLib has the same issue, should file a bug.)
+ *
+ * @param iter the iterator
+ * @param filename string to be set to the next file in the dir
+ * @param error return location for error
+ * @returns #TRUE if filename was filled in with a new filename
+ */
+dbus_bool_t
+_dbus_directory_get_next_file (DBusDirIter      *iter,
+                               DBusString       *filename,
+                               DBusError        *error)
+{
+  struct dirent *ent;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+ again:
+  errno = 0;
+  ent = readdir (iter->d);
+  if (ent == NULL)
+    {
+      if (errno != 0)
+        dbus_set_error (error,
+                        _dbus_error_from_errno (errno),
+                        "%s", _dbus_strerror (errno));
+      return FALSE;
+    }
+  else if (ent->d_name[0] == '.' &&
+           (ent->d_name[1] == '\0' ||
+            (ent->d_name[1] == '.' && ent->d_name[2] == '\0')))
+    goto again;
+  else
+    {
+      _dbus_string_set_length (filename, 0);
+      if (!_dbus_string_append (filename, ent->d_name))
+        {
+          dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                          "No memory to read directory entry");
+          return FALSE;
+        }
+      else
+        return TRUE;
+    }
+}
+
+/**
+ * Closes a directory iteration.
+ */
+void
+_dbus_directory_close (DBusDirIter *iter)
+{
+  closedir (iter->d);
+  dbus_free (iter);
+}
+
 static dbus_bool_t
 fill_user_info_from_group (struct group  *g,
                            DBusGroupInfo *info,
@@ -446,6 +648,25 @@ fill_group_info (DBusGroupInfo    *info,
 
 /**
  * Initializes the given DBusGroupInfo struct
+ * with information about the given group name.
+ *
+ * @param info the group info struct
+ * @param groupname name of group
+ * @param error the error return
+ * @returns #FALSE if error is set
+ */
+dbus_bool_t
+_dbus_group_info_fill (DBusGroupInfo    *info,
+                       const DBusString *groupname,
+                       DBusError        *error)
+{
+  return fill_group_info (info, DBUS_GID_UNSET,
+                          groupname, error);
+
+}
+
+/**
+ * Initializes the given DBusGroupInfo struct
  * with information about the given group ID.
  *
  * @param info the group info struct
@@ -459,24 +680,6 @@ _dbus_group_info_fill_gid (DBusGroupInfo *info,
                            DBusError     *error)
 {
   return fill_group_info (info, gid, NULL, error);
-}
-
-/**
- * Initializes the given DBusGroupInfo struct
- * with information about the given group name.
- *
- * @param info the group info struct
- * @param groupname name of group
- * @param error the error return
- * @returns #FALSE if error is set
- */
-dbus_bool_t
-_dbus_group_info_fill (DBusGroupInfo    *info,
-                       const DBusString *groupname,
-            DBusError        *error)
-{
-  return fill_group_info (info, DBUS_GID_UNSET,
-                          groupname, error);
 }
 
 /** @} */ /* End of DBusInternalsUtils functions */
@@ -535,125 +738,3 @@ _dbus_string_get_dirname  (const DBusString *filename,
 }
 /** @} */ /* DBusString stuff */
 
-
-#ifdef DBUS_BUILD_TESTS
-#include <stdlib.h>
-static void
-check_dirname (const char *filename,
-               const char *dirname)
-{
-  DBusString f, d;
-  
-  _dbus_string_init_const (&f, filename);
-
-  if (!_dbus_string_init (&d))
-    _dbus_assert_not_reached ("no memory");
-
-  if (!_dbus_string_get_dirname (&f, &d))
-    _dbus_assert_not_reached ("no memory");
-
-  if (!_dbus_string_equal_c_str (&d, dirname))
-    {
-      _dbus_warn ("For filename \"%s\" got dirname \"%s\" and expected \"%s\"\n",
-                  filename,
-                  _dbus_string_get_const_data (&d),
-                  dirname);
-      exit (1);
-    }
-
-  _dbus_string_free (&d);
-}
-
-static void
-check_path_absolute (const char *path,
-                     dbus_bool_t expected)
-{
-  DBusString p;
-
-  _dbus_string_init_const (&p, path);
-
-  if (_dbus_path_is_absolute (&p) != expected)
-    {
-      _dbus_warn ("For path \"%s\" expected absolute = %d got %d\n",
-                  path, expected, _dbus_path_is_absolute (&p));
-      exit (1);
-    }
-}
-
-/**
- * Unit test for dbus-sysdeps.c.
- * 
- * @returns #TRUE on success.
- */
-dbus_bool_t
-_dbus_sysdeps_test (void)
-{
-  DBusString str;
-  double val;
-  int pos;
-  
-  check_dirname ("foo", ".");
-  check_dirname ("foo/bar", "foo");
-  check_dirname ("foo//bar", "foo");
-  check_dirname ("foo///bar", "foo");
-  check_dirname ("foo/bar/", "foo");
-  check_dirname ("foo//bar/", "foo");
-  check_dirname ("foo///bar/", "foo");
-  check_dirname ("foo/bar//", "foo");
-  check_dirname ("foo//bar////", "foo");
-  check_dirname ("foo///bar///////", "foo");
-  check_dirname ("/foo", "/");
-  check_dirname ("////foo", "/");
-  check_dirname ("/foo/bar", "/foo");
-  check_dirname ("/foo//bar", "/foo");
-  check_dirname ("/foo///bar", "/foo");
-  check_dirname ("/", "/");
-  check_dirname ("///", "/");
-  check_dirname ("", ".");  
-
-
-  _dbus_string_init_const (&str, "3.5");
-  if (!_dbus_string_parse_double (&str,
-				  0, &val, &pos))
-    {
-      _dbus_warn ("Failed to parse double");
-      exit (1);
-    }
-  if (ABS(3.5 - val) > 1e-6)
-    {
-      _dbus_warn ("Failed to parse 3.5 correctly, got: %f", val);
-      exit (1);
-    }
-  if (pos != 3)
-    {
-      _dbus_warn ("_dbus_string_parse_double of \"3.5\" returned wrong position %d", pos);
-      exit (1);
-    }
-
-  _dbus_string_init_const (&str, "0xff");
-  if (!_dbus_string_parse_double (&str,
-				  0, &val, &pos))
-    {
-      _dbus_warn ("Failed to parse double");
-      exit (1);
-    }
-  if (ABS (0xff - val) > 1e-6)
-    {
-      _dbus_warn ("Failed to parse 0xff correctly, got: %f\n", val);
-      exit (1);
-    }
-  if (pos != 4)
-    {
-      _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
-      exit (1);
-    }
-  
-  check_path_absolute ("/", TRUE);
-  check_path_absolute ("/foo", TRUE);
-  check_path_absolute ("", FALSE);
-  check_path_absolute ("foo", FALSE);
-  check_path_absolute ("foo/bar", FALSE);
-  
-  return TRUE;
-}
-#endif /* DBUS_BUILD_TESTS */
