@@ -1562,33 +1562,38 @@ _dbus_win_startup_winsock (void)
 int
 _dbus_handle_from_socket (int socket)
 {
+	if (IS_RANDOMIZED(socket))
+		return socket;
+              
   int i = _dbus_win_allocate_fd ();
-  int retval;
 
   win_fds[i].fd = socket;
   win_fds[i].type = DBUS_win_FD_SOCKET;
 
-  retval = RANDOMIZE (i);
-
-  _dbus_verbose ("encapsulated socket fd=%d i=%d socket=%d\n", retval, i, socket);
-
+  int retval = RANDOMIZE (i);
+                
+  _dbus_verbose ("encapsulated socket dfd=%x i=%d socket=%d\n", retval, i, socket);
+                
   return retval;
-}
-
-// in: handle
-// out: socket
-int
+}               
+                
+// in: handle   
+// out: socket  
+int             
 _dbus_handle_to_socket (int fd)
-{
+{               
+	if (fd == -1 || !IS_RANDOMIZED(fd))
+		return fd;
+	
   int i = UNRANDOMIZE (fd);
-  int retval;
   
   _dbus_assert (i >= 0 && i < win32_n_fds);
   _dbus_assert (win_fds[i].type == DBUS_win_FD_SOCKET);
 
-  retval = win_fds[i].fd;
-  _dbus_verbose ("deencapsulated socket fd=%d i=%d socket=%d\n", fd,i,retval);
+  int retval = win_fds[i].fd;
 
+  _dbus_verbose ("deencapsulated socket dfd=%x i=%d socket=%d\n", fd,i,retval);
+                
   return retval;
 /*
   int i;
@@ -1617,15 +1622,17 @@ _dbus_handle_to_socket (int fd)
 int
 _dbus_handle_from_fd (int fd)
 {
+	if (IS_RANDOMIZED(fd))
+		return fd;
+
   int i = _dbus_win_allocate_fd ();
-  int retval;
 
   win_fds[i].fd = fd;
   win_fds[i].type = DBUS_WIN_FD_C_LIB;
 
-  retval = RANDOMIZE (i);
+  int retval = RANDOMIZE (i);
 
-  _dbus_verbose ("encapsulated C file descriptor %d:%d:%d\n", retval, i, fd);
+  _dbus_verbose ("encapsulated C file descriptor dfd=%x i=%d fd=%d\n", retval, i, fd);
 
   return retval;
 }
@@ -1633,22 +1640,17 @@ _dbus_handle_from_fd (int fd)
 int
 _dbus_handle_to_fd (int fd)
 {
-  int i;
-  int retval = -1;
+	if (!IS_RANDOMIZED(fd))
+		return fd;
 
-  _DBUS_LOCK (win_fds);
-
-  _dbus_assert (win_fds != NULL);
-
-  for (i = 0; i < win32_n_fds; i++)
-    if (win_fds[i].type == DBUS_WIN_FD_C_LIB &&
-	win_fds[i].fd == fd)
-      {
-	retval = RANDOMIZE (i);
-	break;
-      }
+  int i = UNRANDOMIZE (fd);
   
-  _DBUS_UNLOCK (win_fds);
+  _dbus_assert (i >= 0 && i < win32_n_fds);
+  _dbus_assert (win_fds[i].type == DBUS_win_FD_SOCKET);
+
+  int retval = win_fds[i].fd;
+  
+  _dbus_verbose ("deencapsulated C file descriptor fd=%d i=%d dfd=%x\n", retval, i, fd);
 
   return retval;
 }
@@ -1656,21 +1658,19 @@ _dbus_handle_to_fd (int fd)
 int
 _dbus_decapsulate (int fd)
 {
-  if (fd == -1)
-    return -1;
+	if (fd == -1 || !IS_RANDOMIZED(fd))
+		return fd;
 
-  _DBUS_LOCK (win_fds);
+  int i = UNRANDOMIZE (fd);
 
-  fd = UNRANDOMIZE (fd);
-
-  _dbus_assert (fd >= 0 && fd < win32_n_fds);
   _dbus_assert (win_fds != NULL);
+  _dbus_assert (i >= 0 && i < win32_n_fds);
 
-  fd = win_fds[fd].fd;
+  int retval = win_fds[i].fd;
   
-  _DBUS_UNLOCK (win_fds);
+  _dbus_verbose ("deencapsulated C file descriptor fd=%d i=%d dfd=%x\n", retval, i, fd);
 
-  return fd;
+  return retval;
 }
 
 dbus_bool_t
