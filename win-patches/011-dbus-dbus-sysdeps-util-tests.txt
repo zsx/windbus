@@ -1,0 +1,3 @@
+ChangeLog Entry
+
+  * dbus-sysdeps-util.c: added win32 related tests
