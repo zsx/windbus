@@ -1557,6 +1557,8 @@ _dbus_win_startup_winsock (void)
   beenhere = TRUE;
 }
 
+// in: socket
+// out: handle
 int
 _dbus_handle_from_socket (int socket)
 {
@@ -1568,14 +1570,27 @@ _dbus_handle_from_socket (int socket)
 
   retval = RANDOMIZE (i);
 
-  _dbus_verbose ("encapsulated socket %d:%d:%d\n", retval, i, socket);
+  _dbus_verbose ("encapsulated socket fd=%d i=%d socket=%d\n", retval, i, socket);
 
   return retval;
 }
 
+// in: handle
+// out: socket
 int
-_dbus_handle_to_socket (int socket)
+_dbus_handle_to_socket (int fd)
 {
+  int i = UNRANDOMIZE (fd);
+  int retval;
+  
+  _dbus_assert (i >= 0 && i < win32_n_fds);
+  _dbus_assert (win_fds[i].type == DBUS_win_FD_SOCKET);
+
+  retval = win_fds[i].fd;
+  _dbus_verbose ("deencapsulated socket fd=%d i=%d socket=%d\n", fd,i,retval);
+
+  return retval;
+/*
   int i;
   int retval = -1;
 
@@ -1593,7 +1608,10 @@ _dbus_handle_to_socket (int socket)
   
   _DBUS_UNLOCK (win_fds);
 
+  _dbus_assert (retval != -1);
+
   return retval;
+*/
 }
 
 int
