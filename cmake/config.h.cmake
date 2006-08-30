@@ -113,34 +113,4 @@
 #define SIGHUP	1
 #endif
 
-#ifndef HAVE_DIRENT_H
-#ifdef HAVE_IO_H
-#include <io.h> // win32 file functions
-#endif
-#include <sys/types.h>
-#include <stdlib.h>
-#include <fcntl.h>
-
-#define MAXNAMLEN 255		/* sizeof(struct dirent.d_name)-1 */
-#define __dirfd(dir) (dir)->dd_fd
-
-/* struct dirent - same as Unix */
-struct dirent {
-    long d_ino;                    /* inode (always 1 in WIN32) */
-    off_t d_off;                /* offset to this dirent */
-    unsigned short d_reclen;    /* length of d_name */
-    char d_name[_MAX_FNAME+1];    /* filename (null terminated) */
-};
-
-/* typedef DIR - not the same as Unix */
-typedef struct {
-    long handle;                /* _findfirst/_findnext handle */
-    short offset;                /* offset into directory */
-    short finished;             /* 1 if there are not more files */
-    struct _finddata_t fileinfo;  /* from _findfirst/_findnext */
-    char *dir;                  /* the dir we are reading */
-    struct dirent dent;         /* the dirent to return */
-} DIR;
-#endif
-
 #endif  // _DBUS_CONFIG_H
