@@ -335,15 +335,9 @@ _dbus_stat(const DBusString *filename,
   return TRUE;
 }
 
-#ifdef HAVE_DIRENT_H
-#include <dirent.h>
-#define _dbus_opendir opendir
-#define _dbus_readdir readdir
-#define _dbus_closedir closedir
-#else
-#ifdef HAVE_IO_H
+
 #include <io.h> // win32 file functions
-#endif
+
 #include <sys/types.h>
 #include <stdlib.h>
 
@@ -468,7 +462,7 @@ int _dbus_closedir(DIR *dp)
 
     return 0;
 }
-#endif
+
 
 /**
  * Internals of directory iterator
@@ -498,7 +492,7 @@ _dbus_directory_open (const DBusString *filename,
   
   filename_c = _dbus_string_get_const_data (filename);
 
-  d = opendir (filename_c);
+  d = _dbus_opendir (filename_c);
   if (d == NULL)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -510,7 +504,7 @@ _dbus_directory_open (const DBusString *filename,
   iter = dbus_new0 (DBusDirIter, 1);
   if (iter == NULL)
     {
-      closedir (d);
+      _dbus_closedir (d);
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
                       "Could not allocate memory for directory iterator");
       return NULL;
@@ -545,7 +539,7 @@ _dbus_directory_get_next_file (DBusDirIter      *iter,
   
  again:
   errno = 0;
-  ent = readdir (iter->d);
+  ent = _dbus_readdir (iter->d);
   if (ent == NULL)
     {
       if (errno != 0)
@@ -578,7 +572,7 @@ _dbus_directory_get_next_file (DBusDirIter      *iter,
 void
 _dbus_directory_close (DBusDirIter *iter)
 {
-  closedir (iter->d);
+  _dbus_closedir (iter->d);
   dbus_free (iter);
 }
 
