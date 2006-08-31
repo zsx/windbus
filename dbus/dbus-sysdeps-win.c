@@ -486,7 +486,7 @@ _dbus_lm_strerror(int error_number)
     case NERR_PasswordNotComplexEnough:     return "The password does not meet the complexity policy.";
     case NERR_PasswordFilterError:          return "The password does not meet the requirements of the password filter DLLs.";
 #endif 
-        }
+		}
   msg = strerror (error_number);
   if (msg == NULL)
     msg = "unknown";
@@ -497,8 +497,8 @@ _dbus_lm_strerror(int error_number)
 
 int
 _dbus_read_win (int               fd,
-                DBusString       *buffer,
-                int               count)
+            DBusString       *buffer,
+            int               count)
 {
 #ifdef DBUS_WIN
   DBusWin32FDType type;
@@ -540,22 +540,22 @@ _dbus_read_win (int               fd,
       _dbus_verbose ("recv: count=%d socket=%d\n", count, fd);
       bytes_read = recv (fd, data, count, 0);
       if (bytes_read == SOCKET_ERROR)
-    {
-      DBUS_SOCKET_SET_ERRNO();
-      _dbus_verbose ("recv: failed: %s\n", _dbus_strerror (errno));
-      bytes_read = -1;
-    }
+	{
+	  DBUS_SOCKET_SET_ERRNO();
+	  _dbus_verbose ("recv: failed: %s\n", _dbus_strerror (errno));
+	  bytes_read = -1;
+	}
       else
-    _dbus_verbose ("recv: = %d\n", bytes_read); 
+	_dbus_verbose ("recv: = %d\n", bytes_read); 
       break;
 
     case DBUS_WIN_FD_C_LIB:
       _dbus_verbose ("read: count=%d fd=%d\n", count, fd);
       bytes_read = read (fd, data, count);
       if (bytes_read == -1)
-    _dbus_verbose ("read: failed: %s\n", _dbus_strerror (errno));
+	_dbus_verbose ("read: failed: %s\n", _dbus_strerror (errno));
       else
-    _dbus_verbose ("read: = %d\n", bytes_read); 
+	_dbus_verbose ("read: = %d\n", bytes_read); 
       break;
 
     default:
@@ -619,22 +619,22 @@ _dbus_write_win (int               fd,
       _dbus_verbose ("send: len=%d socket=%d\n", len, fd);
       bytes_written = send (fd, data, len, 0);
       if (bytes_written == SOCKET_ERROR)
-    {
-      DBUS_SOCKET_SET_ERRNO();
-      _dbus_verbose ("send: failed: %s\n", _dbus_strerror (errno));
-      bytes_written = -1;
-    }
+	{
+	  DBUS_SOCKET_SET_ERRNO();
+	  _dbus_verbose ("send: failed: %s\n", _dbus_strerror (errno));
+	  bytes_written = -1;
+	}
       else
-    _dbus_verbose ("send: = %d\n", bytes_written); 
+	_dbus_verbose ("send: = %d\n", bytes_written); 
       break;
 
     case DBUS_WIN_FD_C_LIB:
       _dbus_verbose ("write: len=%d fd=%d\n", len, fd);
       bytes_written = write (fd, data, len);
       if (bytes_written == -1)
-    _dbus_verbose ("write: failed: %s\n", _dbus_strerror (errno));
+	_dbus_verbose ("write: failed: %s\n", _dbus_strerror (errno));
       else
-    _dbus_verbose ("write: = %d\n", bytes_written); 
+	_dbus_verbose ("write: = %d\n", bytes_written); 
       break;
 
     default:
@@ -672,41 +672,41 @@ _dbus_close_win (int        fd,
     {
     case DBUS_WIN_FD_SOCKET:
       if (win_fds[fd].port_file_fd >= 0)
-    {
-      _chsize (win_fds[fd].port_file_fd, 0);
-      close (win_fds[fd].port_file_fd);
-      win_fds[fd].port_file_fd = -1;
-      unlink (_dbus_string_get_const_data (&win_fds[fd].port_file));
-      free ((char *) _dbus_string_get_const_data (&win_fds[fd].port_file));
-    }
+	{
+	  _chsize (win_fds[fd].port_file_fd, 0);
+	  close (win_fds[fd].port_file_fd);
+	  win_fds[fd].port_file_fd = -1;
+	  unlink (_dbus_string_get_const_data (&win_fds[fd].port_file));
+	  free ((char *) _dbus_string_get_const_data (&win_fds[fd].port_file));
+	}
       
       if (closesocket (win_fds[fd].fd) == SOCKET_ERROR)
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-              "Could not close socket %d:%d:%d %s",
-              encapsulated_fd, fd, win_fds[fd].fd,
-              _dbus_strerror (errno));
-      _DBUS_UNLOCK (win_fds);
-      return FALSE;
-    }
+	{
+	  DBUS_SOCKET_SET_ERRNO ();
+	  dbus_set_error (error, _dbus_error_from_errno (errno),
+			  "Could not close socket %d:%d:%d %s",
+			  encapsulated_fd, fd, win_fds[fd].fd,
+			  _dbus_strerror (errno));
+	  _DBUS_UNLOCK (win_fds);
+	  return FALSE;
+	}
       _dbus_verbose ("closed socket %d:%d:%d\n",
-             encapsulated_fd, fd, win_fds[fd].fd);
+		     encapsulated_fd, fd, win_fds[fd].fd);
       _DBUS_UNLOCK (win_fds);
       break;
 
     case DBUS_WIN_FD_C_LIB:
       if (close (win_fds[fd].fd) == -1)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-              "Could not close fd %d:%d:%d: %s",
-              encapsulated_fd, fd, win_fds[fd].fd,
-              _dbus_strerror (errno));
-      _DBUS_UNLOCK (win_fds);
-      return FALSE;
-    }
+	{
+	  dbus_set_error (error, _dbus_error_from_errno (errno),
+			  "Could not close fd %d:%d:%d: %s",
+			  encapsulated_fd, fd, win_fds[fd].fd,
+			  _dbus_strerror (errno));
+	  _DBUS_UNLOCK (win_fds);
+	  return FALSE;
+	}
       _dbus_verbose ("closed C file descriptor %d:%d:%d\n",
-             encapsulated_fd, fd, win_fds[fd].fd);
+		     encapsulated_fd, fd, win_fds[fd].fd);
       _DBUS_UNLOCK (win_fds);
       break;
 
@@ -760,14 +760,14 @@ _dbus_set_fd_nonblocking_win (int             fd,
     {
     case DBUS_WIN_FD_SOCKET:
       if (ioctlsocket (win_fds[fd].fd, FIONBIO, &one) == SOCKET_ERROR)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
-              "Failed to set socket %d:%d to nonblocking: %s",
-              encapsulated_fd, win_fds[fd].fd,
-              _dbus_strerror (WSAGetLastError ()));
-      _DBUS_UNLOCK (win_fds);
-      return FALSE;
-    }
+	{
+	  dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
+			  "Failed to set socket %d:%d to nonblocking: %s",
+			  encapsulated_fd, win_fds[fd].fd,
+			  _dbus_strerror (WSAGetLastError ()));
+	  _DBUS_UNLOCK (win_fds);
+	  return FALSE;
+	}
       break;
 
     case DBUS_WIN_FD_C_LIB:
@@ -834,13 +834,13 @@ _dbus_write_two_win (int               fd,
       
       _dbus_verbose ("WSASend: len1+2=%d+%d socket=%d\n", len1, len2, fd);
       rc = WSASend (fd, vectors, data2 ? 2 : 1, &bytes_written,
-            0, NULL, NULL);
+		    0, NULL, NULL);
       if (rc < 0)
-        {
+	    {
           DBUS_SOCKET_SET_ERRNO ();
-          _dbus_verbose ("WSASend: failed: %s\n", _dbus_strerror (errno));
-          bytes_written = -1;
-        }
+	      _dbus_verbose ("WSASend: failed: %s\n", _dbus_strerror (errno));
+	      bytes_written = -1;
+	    }
       else
         _dbus_verbose ("WSASend: = %ld\n", bytes_written);
       return bytes_written;
@@ -848,14 +848,14 @@ _dbus_write_two_win (int               fd,
     case DBUS_WIN_FD_C_LIB:
       ret1 = _dbus_write (fd, buffer1, start1, len1);
       if (ret1 == len1 && buffer2 != NULL)
-        {
-          int ret2 = _dbus_write (fd, buffer2, start2, len2);
-          if (ret2 < 0)
-          ret2 = 0; /* we can't report an error as the first write was OK */
+	    {
+	      int ret2 = _dbus_write (fd, buffer2, start2, len2);
+	      if (ret2 < 0)
+	      ret2 = 0; /* we can't report an error as the first write was OK */
           return ret1 + ret2;
-        }
+	    }
       else
-        return ret1;
+	    return ret1;
 
     default:
       _dbus_assert_not_reached ("unhandled fd type");
@@ -888,8 +888,8 @@ _dbus_connect_unix_socket_win (const char     *path,
   if (fd == -1)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-              "Failed to open file %s: %s",
-              path, _dbus_strerror (errno));
+		      "Failed to open file %s: %s",
+		      path, _dbus_strerror (errno));
       return -1;
     }
 
@@ -899,8 +899,8 @@ _dbus_connect_unix_socket_win (const char     *path,
   if (n == 0)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-              "Failed to read port number from file %s",
-              path);
+		      "Failed to read port number from file %s",
+		      path);
       return -1;
     }
 
@@ -910,8 +910,8 @@ _dbus_connect_unix_socket_win (const char     *path,
   if (port <= 0 || port > 0xFFFF)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-              "Invalid port numer in file %s",
-              path);
+		      "Invalid port numer in file %s",
+		      path);
       return -1;
     }
  
@@ -955,8 +955,8 @@ _dbus_listen_unix_socket_win (const char     *path,
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
-              "getsockname failed: %s",
-              _dbus_strerror (errno));
+		      "getsockname failed: %s",
+		      _dbus_strerror (errno));
       _dbus_close (listen_fd, NULL);
       return -1;
     }
@@ -968,8 +968,8 @@ _dbus_listen_unix_socket_win (const char     *path,
   if (filefd == -1)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-              "Failed to create pseudo-unix socket port number file %s: %s",
-              path, _dbus_strerror (errno));
+		      "Failed to create pseudo-unix socket port number file %s: %s",
+		      path, _dbus_strerror (errno));
       _dbus_close (listen_fd, NULL);
       return -1;
     }
@@ -1008,16 +1008,16 @@ _dbus_listen_unix_socket_win (const char     *path,
   if (n == -1)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-              "Failed to write port number to file %s: %s",
-              path, _dbus_strerror (errno));
+		      "Failed to write port number to file %s: %s",
+		      path, _dbus_strerror (errno));
       _dbus_close (listen_fd, NULL);
       return -1;
     }
   else if (n < l)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-              "Failed to write port number to file %s",
-              path);
+		      "Failed to write port number to file %s",
+		      path);
       _dbus_close (listen_fd, NULL);
       return -1;
     }
@@ -1038,7 +1038,7 @@ _dbus_listen_unix_socket_win (const char     *path,
  */
 int
 _dbus_connect_named_pipe (const char     *path,
-              DBusError      *error)
+			  DBusError      *error)
 {
   _dbus_assert_not_reached ("not implemented");
 }
@@ -1086,7 +1086,7 @@ _dbus_win_allocate_fd (void)
       _dbus_assert (win_fds != NULL);
 
       for (j = oldn; j < win32_n_fds; j++)
-    win_fds[i].type = DBUS_WIN_FD_UNUSED;
+	win_fds[i].type = DBUS_WIN_FD_UNUSED;
     }
 
   win_fds[i].type = DBUS_WIN_FD_BEING_OPENED;
@@ -1109,13 +1109,13 @@ _dbus_account_to_win_sid (const wchar_t  *waccount,
   DWORD sid_length, wdomain_length;
   SID_NAME_USE use;
   wchar_t *wdomain;
-             
+		     
   *ppsid = NULL;
 
   sid_length = 0;
   wdomain_length = 0;
   if (!LookupAccountNameW (NULL, waccount, NULL, &sid_length,
-         NULL, &wdomain_length, &use) 
+	     NULL, &wdomain_length, &use) 
       && GetLastError () != ERROR_INSUFFICIENT_BUFFER)
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
@@ -1137,7 +1137,7 @@ _dbus_account_to_win_sid (const wchar_t  *waccount,
     }
 
   if (!LookupAccountNameW (NULL, waccount, (PSID) *ppsid, &sid_length,
-               wdomain, &wdomain_length, &use))
+			   wdomain, &wdomain_length, &use))
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
       goto out2;
@@ -1165,10 +1165,10 @@ _dbus_account_to_win_sid (const wchar_t  *waccount,
 
 
 dbus_bool_t
-fill_win_user_info_name_and_groups (wchar_t       *wname,
-                                    wchar_t       *wdomain,
-                                    DBusUserInfo  *info,
-                                    DBusError     *error)
+fill_win_user_info_name_and_groups (wchar_t 	  *wname,
+				      wchar_t 	  *wdomain,
+				      DBusUserInfo *info,
+				      DBusError    *error)
 {
   dbus_bool_t retval = FALSE;
   char *name, *domain;
@@ -1197,56 +1197,56 @@ fill_win_user_info_name_and_groups (wchar_t       *wname,
 
   info->n_group_ids = 0;
   if (NetUserGetLocalGroups (NULL, wname, 0, LG_INCLUDE_INDIRECT,
-                 (LPBYTE *) &local_groups, MAX_PREFERRED_LENGTH,
-                 &nread, &ntotal) == NERR_Success)
+			     (LPBYTE *) &local_groups, MAX_PREFERRED_LENGTH,
+			     &nread, &ntotal) == NERR_Success)
     {
       DWORD i;
       int n;
 
       info->group_ids = dbus_new (dbus_gid_t, nread);
       if (!info->group_ids)
-    {
-      _DBUS_SET_OOM (error);
-      goto out3;
-    }
+	{
+	  _DBUS_SET_OOM (error);
+	  goto out3;
+	}
 
       for (i = n = 0; i < nread; i++)
-    {
-      PSID group_sid;
-      if (_dbus_account_to_win_sid (local_groups[i].lgrui0_name,
-                      &group_sid, error))
-        {
-          info->group_ids[n++] = _dbus_win_sid_to_uid_t (group_sid);
-          dbus_free (group_sid);
-        }
-    }
+	{
+	  PSID group_sid;
+	  if (_dbus_account_to_win_sid (local_groups[i].lgrui0_name,
+					  &group_sid, error))
+	    {
+	      info->group_ids[n++] = _dbus_win_sid_to_uid_t (group_sid);
+	      dbus_free (group_sid);
+	    }
+	}
       info->n_group_ids = n;
     }
 
   if (NetUserGetGroups (NULL, wname, 0,
-            (LPBYTE *) &global_groups, MAX_PREFERRED_LENGTH,
-            &nread, &ntotal) == NERR_Success)
+			(LPBYTE *) &global_groups, MAX_PREFERRED_LENGTH,
+			&nread, &ntotal) == NERR_Success)
     {
       DWORD i;
       int n = info->n_group_ids;
 
       info->group_ids = dbus_realloc (info->group_ids, (n + nread) * sizeof (dbus_gid_t));
       if (!info->group_ids)
-    {
-      _DBUS_SET_OOM (error);
-      goto out4;
-    }
+	{
+	  _DBUS_SET_OOM (error);
+	  goto out4;
+	}
 
       for (i = 0; i < nread; i++)
-    {
-      PSID group_sid;
-      if (_dbus_account_to_win_sid (global_groups[i].grui0_name,
-                      &group_sid, error))
-        {
-          info->group_ids[n++] = _dbus_win_sid_to_uid_t (group_sid);
-          dbus_free (group_sid);
-        }
-    }
+	{
+	  PSID group_sid;
+	  if (_dbus_account_to_win_sid (global_groups[i].grui0_name,
+					  &group_sid, error))
+	    {
+	      info->group_ids[n++] = _dbus_win_sid_to_uid_t (group_sid);
+	      dbus_free (group_sid);
+	    }
+	}
       info->n_group_ids = n;
     }
   
@@ -1280,10 +1280,10 @@ fill_win_user_info_name_and_groups (wchar_t       *wname,
 }
 
 dbus_bool_t
-fill_win_user_info_homedir (wchar_t       *wname,
-                            wchar_t       *wdomain,
-                            DBusUserInfo  *info,
-                            DBusError     *error)
+fill_win_user_info_homedir (wchar_t  	 *wname,
+			      wchar_t  	 *wdomain,
+			      DBusUserInfo *info,
+			      DBusError    *error)
 {
   dbus_bool_t retval = FALSE;
   USER_INFO_1 *user_info = NULL;
@@ -1302,12 +1302,12 @@ fill_win_user_info_homedir (wchar_t       *wname,
 
   if (!local_computer)
     {
-        ret = NetGetAnyDCName (NULL, wdomain, (LPBYTE *) &dc);
+    	ret = NetGetAnyDCName (NULL, wdomain, (LPBYTE *) &dc);
       if (ret != NERR_Success) {
-          info->homedir = _dbus_strdup ("\\");
-          _dbus_warn("NetGetAnyDCName() failed with errorcode %d '%s'\n",ret,_dbus_lm_strerror(ret));
-                return TRUE;
-            }
+	      info->homedir = _dbus_strdup ("\\");
+      	_dbus_warn("NetGetAnyDCName() failed with errorcode %d '%s'\n",ret,_dbus_lm_strerror(ret));
+				return TRUE;
+			}
     }
       
   /* No way to find out the profile of another user, let's try the
@@ -1315,17 +1315,17 @@ fill_win_user_info_homedir (wchar_t       *wname,
    */
   ret = NetUserGetInfo (NULL, wname, 1, (LPBYTE *) &user_info); 
   if (ret == NERR_Success )
-      if(user_info->usri1_home_dir != NULL &&
+	  if(user_info->usri1_home_dir != NULL &&
          user_info->usri1_home_dir != 0xfeeefeee &&  /* freed memory http://www.gamedev.net/community/forums/topic.asp?topic_id=158402 */
          user_info->usri1_home_dir[0] != '\0')
         {
           info->homedir = _dbus_win_utf16_to_utf8 (user_info->usri1_home_dir, error);
           if (!info->homedir)
-            goto out1;
-        }
-      else
+	        goto out1;
+	    }
+	  else
         {
-            _dbus_warn("NetUserGetInfo() failed: now valid  user_info\n");
+			_dbus_warn("NetUserGetInfo() failed: now valid  user_info\n");
           /* Not set, so use something random. */
           info->homedir = _dbus_strdup ("\\");
          }
@@ -1342,7 +1342,7 @@ fill_win_user_info_homedir (wchar_t       *wname,
   if (dc != NULL)
     NetApiBufferFree (dc);
   if (user_info != NULL)
-      NetApiBufferFree (user_info);
+  	NetApiBufferFree (user_info);
 
   return retval;
 }
@@ -1357,11 +1357,11 @@ fill_win_user_info_from_name (wchar_t      *wname,
   wchar_t *wdomain;
   DWORD sid_length, wdomain_length;
   SID_NAME_USE use;
-             
+		     
   sid_length = 0;
   wdomain_length = 0;
   if (!LookupAccountNameW (NULL, wname, NULL, &sid_length,
-               NULL, &wdomain_length, &use) &&
+			   NULL, &wdomain_length, &use) &&
       GetLastError () != ERROR_INSUFFICIENT_BUFFER)
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
@@ -1383,7 +1383,7 @@ fill_win_user_info_from_name (wchar_t      *wname,
     }
 
   if (!LookupAccountNameW (NULL, wname, sid, &sid_length,
-               wdomain, &wdomain_length, &use))
+			   wdomain, &wdomain_length, &use))
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
       goto out1;
@@ -1415,9 +1415,9 @@ fill_win_user_info_from_name (wchar_t      *wname,
 
 dbus_bool_t
 _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
-                                  wchar_t  **wname,
-                                  wchar_t  **wdomain,
-                                  DBusError *error)
+				    wchar_t  **wname,
+				    wchar_t  **wdomain,
+				    DBusError *error)
 {
   PSID sid;
   DWORD wname_length, wdomain_length;
@@ -1432,7 +1432,7 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
   wname_length = 0;
   wdomain_length = 0;
   if (!LookupAccountSidW (NULL, sid, NULL, &wname_length,
-              NULL, &wdomain_length, &use) &&
+			  NULL, &wdomain_length, &use) &&
       GetLastError () != ERROR_INSUFFICIENT_BUFFER)
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
@@ -1454,7 +1454,7 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
     }
 
   if (!LookupAccountSidW (NULL, sid, *wname, &wname_length,
-              *wdomain, &wdomain_length, &use))
+			  *wdomain, &wdomain_length, &use))
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
       goto out2;
@@ -1476,8 +1476,8 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
 
 dbus_bool_t
 fill_win_user_info_from_uid (dbus_uid_t    uid,
-                             DBusUserInfo *info,
-                             DBusError    *error)
+			       DBusUserInfo *info,
+			       DBusError    *error)
 {
   dbus_bool_t retval = FALSE;
   wchar_t *wname, *wdomain;
@@ -1485,21 +1485,21 @@ fill_win_user_info_from_uid (dbus_uid_t    uid,
   info->uid = uid;
 
   if (!_dbus_win_sid_to_name_and_domain (uid, &wname, &wdomain, error)) {
-       _dbus_verbose("%s after _dbus_win_sid_to_name_and_domain\n",__FUNCTION__);
+   	_dbus_verbose("%s after _dbus_win_sid_to_name_and_domain\n",__FUNCTION__);
     return FALSE;
-      }
+ 	 }
 
   if (!fill_win_user_info_name_and_groups (wname, wdomain, info, error)) {
-      _dbus_verbose("%s after fill_win_user_info_name_and_groups\n",__FUNCTION__);
+  	_dbus_verbose("%s after fill_win_user_info_name_and_groups\n",__FUNCTION__);
     goto out0;
-      }
+ 	 }
 
     
   if (!fill_win_user_info_homedir (wname, wdomain, info, error)) {
-      _dbus_verbose("%s after fill_win_user_info_homedir\n",__FUNCTION__);
+  	_dbus_verbose("%s after fill_win_user_info_homedir\n",__FUNCTION__);
      goto out0; 
-      }
-      
+ 	 }
+ 	 
   retval = TRUE;
 
  out0:
@@ -1600,10 +1600,10 @@ _dbus_handle_to_socket (int socket)
 
   for (i = 0; i < win32_n_fds; i++)
     if (win_fds[i].type == DBUS_WIN_FD_SOCKET &&
-    win_fds[i].fd == socket)
+	win_fds[i].fd == socket)
       {
-    retval = RANDOMIZE (i);
-    break;
+	retval = RANDOMIZE (i);
+	break;
       }
   
   _DBUS_UNLOCK (win_fds);
@@ -1680,21 +1680,21 @@ _dbus_decapsulate (int fd)
 }
 
 dbus_bool_t
-_dbus_win_account_to_sid (const wchar_t   *waccount,
-                          void           **ppsid,
-                          DBusError       *error)
+_dbus_win_account_to_sid (const wchar_t *waccount,
+			    void      	 **ppsid,
+			    DBusError 	  *error)
 {
   dbus_bool_t retval = FALSE;
   DWORD sid_length, wdomain_length;
   SID_NAME_USE use;
   wchar_t *wdomain;
-             
+		     
   *ppsid = NULL;
 
   sid_length = 0;
   wdomain_length = 0;
   if (!LookupAccountNameW (NULL, waccount, NULL, &sid_length,
-               NULL, &wdomain_length, &use) &&
+			   NULL, &wdomain_length, &use) &&
       GetLastError () != ERROR_INSUFFICIENT_BUFFER)
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
@@ -1716,7 +1716,7 @@ _dbus_win_account_to_sid (const wchar_t   *waccount,
     }
 
   if (!LookupAccountNameW (NULL, waccount, (PSID) *ppsid, &sid_length,
-               wdomain, &wdomain_length, &use))
+			   wdomain, &wdomain_length, &use))
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
       goto out2;
@@ -1848,10 +1848,10 @@ _dbus_win_set_error_from_win_error (DBusError *error,
 
   /* As we want the English message, use the A API */
   FormatMessageA (FORMAT_MESSAGE_ALLOCATE_BUFFER |
-          FORMAT_MESSAGE_IGNORE_INSERTS |
-          FORMAT_MESSAGE_FROM_SYSTEM,
-          NULL, code, MAKELANGID (LANG_ENGLISH, SUBLANG_ENGLISH_US),
-          (LPTSTR) &msg, 0, NULL);
+		  FORMAT_MESSAGE_IGNORE_INSERTS |
+		  FORMAT_MESSAGE_FROM_SYSTEM,
+		  NULL, code, MAKELANGID (LANG_ENGLISH, SUBLANG_ENGLISH_US),
+		  (LPTSTR) &msg, 0, NULL);
   if (msg)
     {
       char *msg_copy;
@@ -1886,10 +1886,10 @@ _sid_atom_cache_shutdown_win (void *unused)
  _dbus_hash_iter_init (sid_atom_cache, &iter);
  while (_dbus_hash_iter_next (&iter))
    {
-     ATOM atom;
+	 ATOM atom;
      atom = (ATOM) _dbus_hash_iter_get_value (&iter);
      GlobalDeleteAtom(atom);
-     _dbus_hash_iter_remove_entry(&iter);
+	 _dbus_hash_iter_remove_entry(&iter);
    }
   _DBUS_UNLOCK (sid_atom_cache);
   _dbus_hash_table_unref (sid_atom_cache);
@@ -1916,7 +1916,7 @@ _dbus_win_sid_to_uid_t (PSID psid)
     }  
   if (!ConvertSidToStringSidA (psid, &string)) 
     {
-       _dbus_verbose("%s invalid sid\n",__FUNCTION__);
+ 	  _dbus_verbose("%s invalid sid\n",__FUNCTION__);
       return DBUS_UID_UNSET;
     }
 
@@ -1924,8 +1924,8 @@ _dbus_win_sid_to_uid_t (PSID psid)
 
   if (atom == 0)
     {
-       _dbus_verbose("%s GlobalAddAtom failed\n",__FUNCTION__);
-      LocalFree (string);
+ 	  _dbus_verbose("%s GlobalAddAtom failed\n",__FUNCTION__);
+	  LocalFree (string);
       return DBUS_UID_UNSET;
     }
 
@@ -1963,7 +1963,7 @@ dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
 
   atom = _dbus_hash_table_lookup_ulong (sid_atom_cache, uid);
   if (atom == NULL)
-    {
+	{
       _dbus_verbose("%s uid %i not found in cache\n",__FUNCTION__,uid);
       return FALSE;
     }
@@ -1998,9 +1998,9 @@ _dbus_getuid_win (void)
   if (!OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &process_token))
     _dbus_win_warn_win_error ("OpenProcessToken failed", GetLastError ());
   else if ((!GetTokenInformation (process_token, TokenUser, NULL, 0, &n) 
-            && GetLastError () != ERROR_INSUFFICIENT_BUFFER) 
-            || (token_user = alloca (n)) == NULL 
-            || !GetTokenInformation (process_token, TokenUser, token_user, n, &n))
+	        && GetLastError () != ERROR_INSUFFICIENT_BUFFER) 
+			|| (token_user = alloca (n)) == NULL 
+			|| !GetTokenInformation (process_token, TokenUser, token_user, n, &n))
     _dbus_win_warn_win_error ("GetTokenInformation failed", GetLastError ());
   else
     retval = _dbus_win_sid_to_uid_t (token_user->User.Sid);
@@ -2023,11 +2023,11 @@ _dbus_getgid_win (void)
   if (!OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &process_token))
     _dbus_win_warn_win_error ("OpenProcessToken failed", GetLastError ());
   else if ((!GetTokenInformation (process_token, TokenPrimaryGroup,
-                  NULL, 0, &n) &&
-        GetLastError () != ERROR_INSUFFICIENT_BUFFER) ||
-       (token_primary_group = alloca (n)) == NULL ||
-       !GetTokenInformation (process_token, TokenPrimaryGroup,
-                 token_primary_group, n, &n))
+				  NULL, 0, &n) &&
+	    GetLastError () != ERROR_INSUFFICIENT_BUFFER) ||
+	   (token_primary_group = alloca (n)) == NULL ||
+	   !GetTokenInformation (process_token, TokenPrimaryGroup,
+				 token_primary_group, n, &n))
     _dbus_win_warn_win_error ("GetTokenInformation failed", GetLastError ());
   else
     retval = _dbus_win_sid_to_uid_t (token_primary_group->PrimaryGroup);
@@ -2110,7 +2110,7 @@ _dbus_full_duplex_pipe_win (int        *fd1,
       WSAGetLastError () != WSAEWOULDBLOCK)
     {
       dbus_set_error_const (error, DBUS_ERROR_FAILED,
-                "_dbus_full_duplex_pipe socketpair() emulation failed");
+			    "_dbus_full_duplex_pipe socketpair() emulation failed");
       goto out1;
     }
 
@@ -2153,26 +2153,26 @@ _dbus_full_duplex_pipe_win (int        *fd1,
     {
       arg = 0;
       if (ioctlsocket (socket1, FIONBIO, &arg) == SOCKET_ERROR)
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      goto out2;
-    }
+	{
+	  DBUS_SOCKET_SET_ERRNO ();
+	  goto out2;
+	}
 
       arg = 0;
       if (ioctlsocket (socket2, FIONBIO, &arg) == SOCKET_ERROR)
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      goto out2;
-    }
+	{
+	  DBUS_SOCKET_SET_ERRNO ();
+	  goto out2;
+	}
     }
   else
     {
       arg = 1;
       if (ioctlsocket (socket2, FIONBIO, &arg) == SOCKET_ERROR)
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      goto out2;
-    }
+	{
+	  DBUS_SOCKET_SET_ERRNO ();
+	  goto out2;
+	}
     }
       
   
@@ -2194,8 +2194,8 @@ _dbus_full_duplex_pipe_win (int        *fd1,
   closesocket (temp);
 
   dbus_set_error (error, _dbus_error_from_errno (errno),
-          "Could not setup socket pair: %s",
-          _dbus_strerror (errno));
+		  "Could not setup socket pair: %s",
+		  _dbus_strerror (errno));
   
   return FALSE;
 }
@@ -2306,36 +2306,36 @@ _dbus_poll_win (DBusPollFD *fds,
       _DBUS_LOCK (win_fds);
       for (i = 0; i < n_fds; i++)
         {
-          DBusPollFD *f = fds+i;
+	      DBusPollFD *f = fds+i;
 
-          if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &read_set))
-            msgp += sprintf (msgp, "R:%d ", _dbus_handle_to_fd_quick (f->fd));
+	      if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &read_set))
+	        msgp += sprintf (msgp, "R:%d ", _dbus_handle_to_fd_quick (f->fd));
 
-          if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &write_set))
-            msgp += sprintf (msgp, "W:%d ", _dbus_handle_to_fd_quick (f->fd));
+	      if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &write_set))
+	        msgp += sprintf (msgp, "W:%d ", _dbus_handle_to_fd_quick (f->fd));
 
-          if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &err_set))
-            msgp += sprintf (msgp, "E:%d ", _dbus_handle_to_fd_quick (f->fd));
-        }
+	      if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &err_set))
+	        msgp += sprintf (msgp, "E:%d ", _dbus_handle_to_fd_quick (f->fd));
+	    }
       msgp += sprintf (msgp, "\n");
       _dbus_verbose ("%s",msg);
 #endif
 
     for (i = 0; i < n_fds; i++)
-    {
-      DBusPollFD *fdp = &fds[i];
+	{
+	  DBusPollFD *fdp = &fds[i];
 
-      fdp->revents = 0;
+	  fdp->revents = 0;
 
-      if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &read_set))
-        fdp->revents |= _DBUS_POLLIN;
+	  if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &read_set))
+	    fdp->revents |= _DBUS_POLLIN;
 
-      if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &write_set))
-        fdp->revents |= _DBUS_POLLOUT;
+	  if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &write_set))
+	    fdp->revents |= _DBUS_POLLOUT;
 
-      if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &err_set))
-        fdp->revents |= _DBUS_POLLERR;
-    }
+	  if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &err_set))
+	    fdp->revents |= _DBUS_POLLERR;
+	}
 #ifdef DBUS_WIN
       _DBUS_UNLOCK (win_fds);
 #endif
