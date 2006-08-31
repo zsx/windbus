@@ -42,7 +42,7 @@
 #define mkdir(path, mode) _mkdir (path)
 
 #ifndef S_ISREG
-#define	S_ISREG(mode) (((mode) & S_IFMT) == S_IFREG)
+#define    S_ISREG(mode) (((mode) & S_IFMT) == S_IFREG)
 #endif
 
 /* Declarations missing in mingw's headers */
@@ -53,10 +53,10 @@ typedef enum
 {
   DBUS_WIN_FD_UNUSED,
   DBUS_WIN_FD_BEING_OPENED,
-  DBUS_WIN_FD_C_LIB,		   /* Unix-style file descriptor
+  DBUS_WIN_FD_C_LIB,           /* Unix-style file descriptor
                                 * (implemented by the C runtime)
                                 */
-  DBUS_WIN_FD_SOCKET,		    /* Winsock SOCKET */
+  DBUS_WIN_FD_SOCKET,            /* Winsock SOCKET */
   DBUS_WIN_FD_NAMED_PIPE_HANDLE /* HANDLE for a named pipe */
 } DBusWin32FDType;
 
@@ -66,9 +66,9 @@ typedef struct
 {
   DBusWin32FDType type;
   int fd;               /* File descriptor, SOCKET or file HANDLE */
-  int port_file_fd;		/* File descriptor for file containing
-				         * port number for "pseudo-unix" sockets
-				         */
+  int port_file_fd;        /* File descriptor for file containing
+                         * port number for "pseudo-unix" sockets
+                         */
   DBusString port_file; /* File name for said file */
   dbus_bool_t close_on_exec;
   dbus_bool_t non_blocking;
@@ -97,7 +97,7 @@ int  _dbus_win_allocate_fd     (void);
 void _dbus_win_deallocate_fd   (int  fd);
 void _dbus_win_startup_winsock (void);
 void _dbus_win_warn_win_error  (const char *message,
-                                       int         code);
+                                int         code);
 extern const char* _dbus_lm_strerror  (int error_number);
 
 
@@ -121,35 +121,35 @@ _dbus_write_win (int               fd,
 
 int
 _dbus_connect_unix_socket_win (const char     *path,
-                           dbus_bool_t     abstract,
-                           DBusError      *error);
+                               dbus_bool_t     abstract,
+                               DBusError      *error);
 int
 _dbus_listen_unix_socket_win (const char     *path,
-                          dbus_bool_t     abstract,
-                          DBusError      *error);
+                              dbus_bool_t     abstract,
+                              DBusError      *error);
 dbus_bool_t
 fill_win_user_info_from_uid (dbus_uid_t    uid,
-			       DBusUserInfo *info,
-			       DBusError    *error);
+                             DBusUserInfo *info,
+                             DBusError    *error);
 dbus_bool_t
 fill_win_user_info_from_name (wchar_t      *wname,
                               DBusUserInfo *info,
                               DBusError    *error);
 
 dbus_bool_t _dbus_win_account_to_sid (const wchar_t *waccount,
-					void         **ppsid,
-					DBusError     *error);
+                                      void         **ppsid,
+                                      DBusError     *error);
 
 dbus_bool_t 
-_dbus_win32_sid_to_name_and_domain (dbus_uid_t uid,
-						wchar_t  **wname,
-						wchar_t  **wdomain,
-						DBusError *error);
+_dbus_win32_sid_to_name_and_domain (dbus_uid_t  uid,
+                                    wchar_t   **wname,
+                                    wchar_t   **wdomain,
+                                    DBusError  *error);
 dbus_bool_t
-_dbus_full_duplex_pipe_win (int        *fd1,
-                            int        *fd2,
-                            dbus_bool_t blocking,
-                            DBusError  *error);
+_dbus_full_duplex_pipe_win (int         *fd1,
+                            int         *fd2,
+                            dbus_bool_t  blocking,
+                            DBusError   *error);
 
 /* Don't define DBUS_CONSOLE_DIR on Win32 */                                                                                       
                                                                                                                                   
@@ -169,9 +169,9 @@ _dbus_account_to_win_sid (const wchar_t  *waccount,
                           DBusError      *error);
 dbus_bool_t
 _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
-				    wchar_t  **wname,
-				    wchar_t  **wdomain,
-				    DBusError *error);
+                                  wchar_t  **wname,
+                                  wchar_t  **wdomain,
+                                  DBusError *error);
 
 dbus_uid_t    _dbus_getuid_win (void);
 dbus_gid_t    _dbus_getgid_win (void);
@@ -180,8 +180,8 @@ dbus_bool_t   _dbus_close (int        fd,
                            DBusError *error);
 int
 _dbus_poll_win (DBusPollFD *fds,
-            int         n_fds,
-            int         timeout_milliseconds);
+                int         n_fds,
+                int         timeout_milliseconds);
 void
 _dbus_fd_set_close_on_exec_win (int fd);
 
@@ -189,8 +189,8 @@ dbus_bool_t
 _dbus_close_win (int        fd,
                  DBusError *error);
 dbus_bool_t
-_dbus_set_fd_nonblocking_win (int             fd,
-                              DBusError      *error);
+_dbus_set_fd_nonblocking_win (int         fd,
+                              DBusError  *error);
 
 #endif
 
