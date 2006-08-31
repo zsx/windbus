@@ -1,7 +1,7 @@
 Index: test/spawn-test.c
 ===================================================================
---- test/spawn-test.c	(revision 184)
-+++ test/spawn-test.c	(working copy)
+--- test/spawn-test.c	(Revision 206)
++++ test/spawn-test.c	(Arbeitskopie)
 @@ -31,7 +31,7 @@
      argv_copy [i] = argv[i + 1];
    argv_copy[argc - 1] = NULL;
@@ -13,8 +13,8 @@ Index: test/spawn-test.c
  	       error.message);
 Index: test/name-test/test-names.c
 ===================================================================
---- test/name-test/test-names.c	(revision 184)
-+++ test/name-test/test-names.c	(working copy)
+--- test/name-test/test-names.c	(Revision 206)
++++ test/name-test/test-names.c	(Arbeitskopie)
 @@ -1,9 +1,11 @@
  #include <stdio.h>
  #include <stdlib.h>
@@ -30,8 +30,8 @@ Index: test/name-test/test-names.c
  #define ADD_CONNECTION 1
 Index: test/test-segfault.c
 ===================================================================
---- test/test-segfault.c	(revision 184)
-+++ test/test-segfault.c	(working copy)
+--- test/test-segfault.c	(Revision 206)
++++ test/test-segfault.c	(Arbeitskopie)
 @@ -1,10 +1,27 @@
  /* This is simply a process that segfaults */
 +#include <config.h>
@@ -62,8 +62,8 @@ Index: test/test-segfault.c
  {
 Index: test/test-sleep-forever.c
 ===================================================================
---- test/test-sleep-forever.c	(revision 184)
-+++ test/test-sleep-forever.c	(working copy)
+--- test/test-sleep-forever.c	(Revision 206)
++++ test/test-sleep-forever.c	(Arbeitskopie)
 @@ -1,6 +1,10 @@
  /* This is a process that just sleeps infinitely. */
  
@@ -77,8 +77,8 @@ Index: test/test-sleep-forever.c
  main (int argc, char **argv)
 Index: bus/activation.c
 ===================================================================
---- bus/activation.c	(revision 184)
-+++ bus/activation.c	(working copy)
+--- bus/activation.c	(Revision 206)
++++ bus/activation.c	(Arbeitskopie)
 @@ -34,7 +34,6 @@
  #include <dbus/dbus-spawn.h>
  #include <dbus/dbus-timeout.h>
@@ -105,13 +105,13 @@ Index: bus/activation.c
      {
 Index: bus/test-main.c
 ===================================================================
---- bus/test-main.c	(revision 184)
-+++ bus/test-main.c	(working copy)
+--- bus/test-main.c	(Revision 206)
++++ bus/test-main.c	(Arbeitskopie)
 @@ -123,16 +123,23 @@
      die ("signals");
    test_post_hook ();
  
-+#ifndef DBUS_WIN
++#ifdef DBUS_WIN
    test_pre_hook ();
    printf ("%s: Running SHA1 connection test\n", argv[0]);
    if (!bus_dispatch_sha1_test (&test_data_dir))
@@ -134,8 +134,8 @@ Index: bus/test-main.c
    test_pre_hook ();
 Index: bus/desktop-file.c
 ===================================================================
---- bus/desktop-file.c	(revision 184)
-+++ bus/desktop-file.c	(working copy)
+--- bus/desktop-file.c	(Revision 206)
++++ bus/desktop-file.c	(Arbeitskopie)
 @@ -360,15 +360,15 @@
  static void
  parse_comment_or_blank (BusDesktopFileParser *parser)
@@ -218,8 +218,8 @@ Index: bus/desktop-file.c
  
 Index: dbus/dbus-string.c
 ===================================================================
---- dbus/dbus-string.c	(revision 184)
-+++ dbus/dbus-string.c	(working copy)
+--- dbus/dbus-string.c	(Revision 206)
++++ dbus/dbus-string.c	(Arbeitskopie)
 @@ -1790,6 +1790,72 @@
  }
  
@@ -351,8 +351,8 @@ Index: dbus/dbus-string.c
  #ifdef DBUS_BUILD_TESTS
 Index: dbus/dbus-string.h
 ===================================================================
---- dbus/dbus-string.h	(revision 184)
-+++ dbus/dbus-string.h	(working copy)
+--- dbus/dbus-string.h	(Revision 206)
++++ dbus/dbus-string.h	(Arbeitskopie)
 @@ -215,6 +215,10 @@
                                                    int                start,
                                                    const char        *substr,
@@ -366,8 +366,8 @@ Index: dbus/dbus-string.h
                                                    int                end,
 Index: dbus/dbus-server-unix.c
 ===================================================================
---- dbus/dbus-server-unix.c	(revision 184)
-+++ dbus/dbus-server-unix.c	(working copy)
+--- dbus/dbus-server-unix.c	(Revision 206)
++++ dbus/dbus-server-unix.c	(Arbeitskopie)
 @@ -27,12 +27,16 @@
  #include "dbus-connection-internal.h"
  #include "dbus-string.h"
@@ -523,8 +523,8 @@ Index: dbus/dbus-server-unix.c
      }
 Index: dbus/dbus-test.c
 ===================================================================
---- dbus/dbus-test.c	(revision 184)
-+++ dbus/dbus-test.c	(working copy)
+--- dbus/dbus-test.c	(Revision 206)
++++ dbus/dbus-test.c	(Arbeitskopie)
 @@ -154,7 +154,9 @@
    
    run_test ("hash", specific_test, _dbus_hash_test);
@@ -537,8 +537,8 @@ Index: dbus/dbus-test.c
    
 Index: dbus/dbus-spawn.c
 ===================================================================
---- dbus/dbus-spawn.c	(revision 184)
-+++ dbus/dbus-spawn.c	(working copy)
+--- dbus/dbus-spawn.c	(Revision 206)
++++ dbus/dbus-spawn.c	(Arbeitskopie)
 @@ -1021,6 +1021,7 @@
   *
   * @param sitter_p return location for babysitter or #NULL
@@ -593,8 +593,8 @@ Index: dbus/dbus-spawn.c
        _dbus_babysitter_kill_child (sitter);
 Index: dbus/dbus-spawn.h
 ===================================================================
---- dbus/dbus-spawn.h	(revision 184)
-+++ dbus/dbus-spawn.h	(working copy)
+--- dbus/dbus-spawn.h	(Revision 206)
++++ dbus/dbus-spawn.h	(Arbeitskopie)
 @@ -37,6 +37,7 @@
  
  dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
@@ -605,8 +605,8 @@ Index: dbus/dbus-spawn.h
                                                     DBusError                 *error);
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 186)
-+++ dbus/dbus-sysdeps-util.c	(working copy)
+--- dbus/dbus-sysdeps-util.c	(Revision 206)
++++ dbus/dbus-sysdeps-util.c	(Arbeitskopie)
 @@ -81,7 +81,28 @@
    DBusString str;
    double val;
@@ -678,8 +678,8 @@ Index: dbus/dbus-sysdeps-util.c
  }
 Index: dbus/dbus-transport-unix.c
 ===================================================================
---- dbus/dbus-transport-unix.c	(revision 184)
-+++ dbus/dbus-transport-unix.c	(working copy)
+--- dbus/dbus-transport-unix.c	(Revision 206)
++++ dbus/dbus-transport-unix.c	(Arbeitskopie)
 @@ -26,6 +26,9 @@
  #include "dbus-transport-unix.h"
  #include "dbus-transport-protected.h"
@@ -692,21 +692,21 @@ Index: dbus/dbus-transport-unix.c
  /**
 Index: dbus/dbus-mainloop.c
 ===================================================================
---- dbus/dbus-mainloop.c	(revision 184)
-+++ dbus/dbus-mainloop.c	(working copy)
+--- dbus/dbus-mainloop.c	(Revision 206)
++++ dbus/dbus-mainloop.c	(Arbeitskopie)
 @@ -609,7 +609,7 @@
                    
                flags = dbus_watch_get_flags (wcb->watch);
                    
 -              fds[n_fds].fd = dbus_watch_get_fd (wcb->watch);
-+              fds[n_fds].fd = _dbus_handle_to_socket(dbus_watch_get_fd (wcb->watch));
++              fds[n_fds].fd = _dbus_re_encapsulate_socket(dbus_watch_get_fd (wcb->watch));
                fds[n_fds].revents = 0;
                fds[n_fds].events = 0;
                if (flags & DBUS_WATCH_READABLE)
 Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus/dbus-sysdeps.c	(revision 186)
-+++ dbus/dbus-sysdeps.c	(working copy)
+--- dbus/dbus-sysdeps.c	(Revision 206)
++++ dbus/dbus-sysdeps.c	(Arbeitskopie)
 @@ -3,6 +3,7 @@
   * 
   * Copyright (C) 2002, 2003  Red Hat, Inc.
@@ -751,12 +751,12 @@ Index: dbus/dbus-sysdeps.c
  #ifdef HAVE_WRITEV
  #include <sys/uio.h>
  #endif
-@@ -72,6 +81,14 @@
+@@ -72,11 +81,19 @@
  _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
  _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
  
 +#ifndef DBUS_WIN
-+#define _dbus_handle_to_fd_quick(i)       (i)
++#define _dbus_decapsulate_quick(i)       (i)
 +#define DBUS_SOCKET_IS_INVALID(s)        ((s) < 0)
 +#define DBUS_SOCKET_API_RETURNS_ERROR(n) ((n) < 0)
 +#define DBUS_SOCKET_SET_ERRNO()          /* empty */
@@ -766,6 +766,12 @@ Index: dbus/dbus-sysdeps.c
  /**
   * @addtogroup DBusInternalsUtils
   * @{
+  */
+-#ifndef DBUS_DISABLE_ASSERT
++#if !defined(DBUS_DISABLE_ASSERT) && !defined(DBUS_WIN)
+ /**
+  * Aborts the program with SIGABRT (dumping core).
+  */
 @@ -89,6 +106,10 @@
    if (s && *s)
      _dbus_print_backtrace ();
@@ -979,7 +985,7 @@ Index: dbus/dbus-sysdeps.c
        return -1;
      }
  
-+  fd = _dbus_handle_from_socket (fd);
++  fd = _dbus_encapsulate_socket (fd);
 +
    if (!_dbus_set_fd_nonblocking (fd, error))
      {
@@ -1091,7 +1097,7 @@ Index: dbus/dbus-sysdeps.c
        return -1;
      }
  
-+  listen_fd = _dbus_handle_from_socket (listen_fd);
++  listen_fd = _dbus_encapsulate_socket (listen_fd);
 +
    if (!_dbus_set_fd_nonblocking (listen_fd, error))
      {
@@ -1190,7 +1196,7 @@ Index: dbus/dbus-sysdeps.c
      }
    
 -  return client_fd;
-+  return _dbus_handle_from_socket (client_fd);
++  return _dbus_encapsulate_socket (client_fd);
  }
  
  /** @} */
@@ -1444,7 +1450,7 @@ Index: dbus/dbus-sysdeps.c
    if (sb.st_size > 0 && S_ISREG (sb.st_mode))
      {
        int bytes_read;
-+      const int encapsulated_fd = _dbus_handle_from_fd (fd);
++      const int encapsulated_fd = _dbus_encapsulate_fd (fd);
  
        while (total < (int) sb.st_size)
          {
@@ -1475,7 +1481,7 @@ Index: dbus/dbus-sysdeps.c
        goto out;
      }
  
-+  fd = _dbus_handle_from_fd (fd);
++  fd = _dbus_encapsulate_fd (fd);
 +
    need_unlink = TRUE;
    
@@ -1720,24 +1726,24 @@ Index: dbus/dbus-sysdeps.c
   * Gets the temporary files directory by inspecting the environment variables 
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 186)
-+++ dbus/dbus-sysdeps.h	(working copy)
+--- dbus/dbus-sysdeps.h	(Revision 206)
++++ dbus/dbus-sysdeps.h	(Arbeitskopie)
 @@ -101,6 +101,22 @@
  #define DBUS_UID_FORMAT "%lu"
  #define DBUS_GID_FORMAT "%lu"
  
 +#ifdef DBUS_WIN
-+int _dbus_handle_from_socket    (int socket);
-+int _dbus_handle_to_socket      (int socket);
-+int _dbus_handle_from_fd        (int fd);
-+int _dbus_handle_to_fd          (int fd);
++int _dbus_encapsulate_socket    (int socket);
++int _dbus_re_encapsulate_socket (int socket);
++int _dbus_encapsulate_fd        (int fd);
++int _dbus_re_encapsulate_fd     (int fd);
 +int _dbus_decapsulate           (int fd);
 +#else
-+#define _dbus_handle_from_socket(socket) (socket)
-+#define _dbus_handle_to_socket(socket)   (socket)
-+#define _dbus_handle_from_fd(fd)         (fd)
-+#define _dbus_handle_to_fd(fd)           (fd)
-+#define _dbus_decapsulate(fd)            (fd)
++#define _dbus_encapsulate_socket(socket)    (socket)
++#define _dbus_re_encapsulate_socket(socket) (socket)
++#define _dbus_encapsulate_fd(fd)            (fd)
++#define _dbus_re_encapsulate_fd(fd)         (fd)
++#define _dbus_decapsulate(fd)               (fd)
 +#endif
 +                                                                                                                               
 +                                                                                                                                    
@@ -1747,8 +1753,8 @@ Index: dbus/dbus-sysdeps.h
   */
 Index: dbus/dbus-string-util.c
 ===================================================================
---- dbus/dbus-string-util.c	(revision 184)
-+++ dbus/dbus-string-util.c	(working copy)
+--- dbus/dbus-string-util.c	(Revision 206)
++++ dbus/dbus-string-util.c	(Arbeitskopie)
 @@ -739,7 +739,27 @@
    test_roundtrips (test_hex_roundtrip);
    
@@ -1780,8 +1786,8 @@ Index: dbus/dbus-string-util.c
  
 Index: tools/dbus-monitor.c
 ===================================================================
---- tools/dbus-monitor.c	(revision 184)
-+++ tools/dbus-monitor.c	(working copy)
+--- tools/dbus-monitor.c	(Revision 206)
++++ tools/dbus-monitor.c	(Arbeitskopie)
 @@ -19,6 +19,7 @@
   *
   */
@@ -1792,8 +1798,8 @@ Index: tools/dbus-monitor.c
  #include <string.h>
 Index: tools/dbus-send.c
 ===================================================================
---- tools/dbus-send.c	(revision 184)
-+++ tools/dbus-send.c	(working copy)
+--- tools/dbus-send.c	(Revision 206)
++++ tools/dbus-send.c	(Arbeitskopie)
 @@ -19,6 +19,7 @@
   *
   */
