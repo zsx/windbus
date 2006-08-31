@@ -71,17 +71,43 @@
 
 #include "dbus-sysdeps-win.h"
 
-int win32_n_fds = 0;
+int win_n_fds = 0;
 DBusWin32FD *win_fds = NULL;
 
 
-static int  win32_encap_randomizer;
+static int  win_encap_randomizer;
 static DBusHashTable *sid_atom_cache = NULL;
 
 
 
 _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
+
+/**
+ * @addtogroup DBusInternalsUtils
+ * @{
+ */
+#ifndef DBUS_DISABLE_ASSERT
+/**
+ * Aborts the program with SIGABRT (dumping core).
+ */
+void
+_dbus_abort (void)
+{
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+  const char *s;
+  s = _dbus_getenv ("DBUS_PRINT_BACKTRACE");
+  if (s && *s)
+    _dbus_print_backtrace ();
+#endif
+#if defined (DBUS_WIN) && defined (__GNUC__)
+  if (IsDebuggerPresent ())
+    __asm__ __volatile__ ("int $03");
+#endif
+  abort ();
+  _exit (1); /* in case someone manages to ignore SIGABRT */
+}
+#endif
 
 /**
  * A wrapper around strerror() because some platforms
@@ -526,7 +552,7 @@ _dbus_read_win (int               fd,
 
   fd = UNRANDOMIZE (fd);
 
-  _dbus_assert (fd >= 0 && fd < win32_n_fds);
+  _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
 
   type = win_fds[fd].type;
@@ -605,7 +631,7 @@ _dbus_write_win (int               fd,
 
   fd = UNRANDOMIZE (fd);
 
-  _dbus_assert (fd >= 0 && fd < win32_n_fds);
+  _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
 
   type = win_fds[fd].type;
@@ -665,7 +691,7 @@ _dbus_close_win (int        fd,
 
   fd = UNRANDOMIZE (fd);
 
-  _dbus_assert (fd >= 0 && fd < win32_n_fds);
+  _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
 
   switch (win_fds[fd].type)
@@ -731,8 +757,8 @@ _dbus_fd_set_close_on_exec_win (int fd)
   _DBUS_LOCK (win_fds);
 
   fd2 = UNRANDOMIZE (fd);
-  _dbus_verbose("fd %d %d %d\n",fd,fd2,win32_n_fds);
-  _dbus_assert (fd2 >= 0 && fd2 < win32_n_fds);
+  _dbus_verbose("fd %d %d %d\n",fd,fd2,win_n_fds);
+  _dbus_assert (fd2 >= 0 && fd2 < win_n_fds);
   _dbus_assert (win_fds != NULL);
 
   win_fds[fd2].close_on_exec = TRUE;
@@ -753,7 +779,7 @@ _dbus_set_fd_nonblocking_win (int             fd,
 
   fd = UNRANDOMIZE (fd);
 
-  _dbus_assert (fd >= 0 && fd < win32_n_fds);
+  _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
 
   switch (win_fds[fd].type)
@@ -805,7 +831,7 @@ _dbus_write_two_win (int               fd,
 
   fd = UNRANDOMIZE (fd);
 
-  _dbus_assert (fd >= 0 && fd < win32_n_fds);
+  _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
 
   type = win_fds[fd].type;
@@ -1056,36 +1082,36 @@ _dbus_win_allocate_fd (void)
     {
       DBusString random;
 
-      win32_n_fds = 16;
+      win_n_fds = 16;
       /* Use malloc to avoid memory leak failure in dbus-test */
-      win_fds = malloc (win32_n_fds * sizeof (*win_fds));
+      win_fds = malloc (win_n_fds * sizeof (*win_fds));
 
       _dbus_assert (win_fds != NULL);
 
-      for (i = 0; i < win32_n_fds; i++)
+      for (i = 0; i < win_n_fds; i++)
         win_fds[i].type = DBUS_WIN_FD_UNUSED;
 
       _dbus_string_init (&random);
       _dbus_generate_random_bytes (&random, sizeof (int));
-      memmove (&win32_encap_randomizer, _dbus_string_get_const_data (&random), sizeof (int));
-      win32_encap_randomizer &= 0xFF;
+      memmove (&win_encap_randomizer, _dbus_string_get_const_data (&random), sizeof (int));
+      win_encap_randomizer &= 0xFF;
       _dbus_string_free (&random);
     }
 
-  for (i = 0; i < win32_n_fds && win_fds[i].type != DBUS_WIN_FD_UNUSED; i++)
+  for (i = 0; i < win_n_fds && win_fds[i].type != DBUS_WIN_FD_UNUSED; i++)
     ;
 
-  if (i == win32_n_fds)
+  if (i == win_n_fds)
     {
-      int oldn = win32_n_fds;
+      int oldn = win_n_fds;
       int j;
 
-      win32_n_fds += 16;
-      win_fds = realloc (win_fds, win32_n_fds * sizeof (*win_fds));
+      win_n_fds += 16;
+      win_fds = realloc (win_fds, win_n_fds * sizeof (*win_fds));
 
       _dbus_assert (win_fds != NULL);
 
-      for (j = oldn; j < win32_n_fds; j++)
+      for (j = oldn; j < win_n_fds; j++)
 	win_fds[i].type = DBUS_WIN_FD_UNUSED;
     }
 
@@ -1557,48 +1583,33 @@ _dbus_win_startup_winsock (void)
   beenhere = TRUE;
 }
 
-// in: new socket
-// out: new handle
-int
-_dbus_handle_from_socket (int socket)
+int                                                                     
+_dbus_encapsulate_socket (int socket)                                   
+{                                                                       
+  int i = _dbus_win_allocate_fd ();                                   
+  int retval;                                                           
+                                                                        
+  win_fds[i].fd = socket;                                             
+  win_fds[i].type = DBUS_WIN_FD_SOCKET;                             
+                                                                        
+  retval = RANDOMIZE (i);                                               
+                                                                        
+  _dbus_verbose ("encapsulated socket %d:%d:%d\n", retval, i, socket);  
+                                                                        
+  return retval;                                                        
+}                                                                       
+
+int                 
+_dbus_re_encapsulate_socket (int socket)
 {
-  int i, retval;
-
-  if (IS_RANDOMIZED(socket)) {
-    _dbus_assert( 1 );
-    return socket;
-  }
-              
-  i = _dbus_win_allocate_fd ();
-
-  win_fds[i].fd = socket;
-  win_fds[i].type = DBUS_WIN_FD_SOCKET;
-
-  retval = RANDOMIZE (i);
-                
-  _dbus_verbose ("encapsulated socket dfd=%x i=%d socket=%d\n", retval, i, socket);
-                
-  return retval;
-}               
-                
-// in: existing socket
-// out: existing handle
-int
-_dbus_handle_to_socket (int socket)
-{               
   int i;
   int retval = -1;
-
-  if (socket == -1 || IS_RANDOMIZED(socket)) {
-    _dbus_assert( 0 );
-    return socket;
-  }
 
   _DBUS_LOCK (win_fds);
 
   _dbus_assert (win_fds != NULL);
 
-  for (i = 0; i < win32_n_fds; i++)
+  for (i = 0; i < win_n_fds; i++)
     if (win_fds[i].type == DBUS_WIN_FD_SOCKET &&
 	win_fds[i].fd == socket)
       {
@@ -1608,13 +1619,12 @@ _dbus_handle_to_socket (int socket)
   
   _DBUS_UNLOCK (win_fds);
 
-  _dbus_assert (retval != -1);
-
   return retval;
 }
 
+
 int
-_dbus_handle_from_fd (int fd)
+_dbus_encapsulate_fd (int fd)
 {
   int i, retval;
 
@@ -1635,27 +1645,28 @@ _dbus_handle_from_fd (int fd)
   return retval;
 }
 
-int
-_dbus_handle_to_fd (int fd)
-{
-  int i, retval;
-  
-  if (fd == -1 || !IS_RANDOMIZED(fd)) {
-    _dbus_assert( 0 );
-    return fd;
-  }
-
-  i = UNRANDOMIZE (fd);
-  
-  _dbus_assert (i >= 0 && i < win32_n_fds);
-  _dbus_assert (win_fds[i].type == DBUS_WIN_FD_SOCKET);
-
-  retval = win_fds[i].fd;
-  
-  _dbus_verbose ("deencapsulated C file descriptor fd=%d i=%d dfd=%x\n", retval, i, fd);
-
-  return retval;
-}
+int                                                    
+_dbus_re_encapsulate_fd (int fd)                       
+{                                                      
+  int i;                                               
+  int retval = -1;                                     
+                                                       
+  _DBUS_LOCK (win_fds);                              
+                                                       
+  _dbus_assert (win_fds != NULL);                    
+                                                       
+  for (i = 0; i < win_n_fds; i++)                    
+    if (win_fds[i].type == DBUS_WIN_FD_C_LIB &&    
+	win_fds[i].fd == fd)                                
+      {                                                
+	retval = RANDOMIZE (i);                               
+	break;                                                
+      }                                                
+                                                       
+  _DBUS_UNLOCK (win_fds);                            
+                                                       
+  return retval;                                       
+}                                                      
 
 int
 _dbus_decapsulate (int fd)
@@ -1670,7 +1681,7 @@ _dbus_decapsulate (int fd)
   i = UNRANDOMIZE (fd);
 
   _dbus_assert (win_fds != NULL);
-  _dbus_assert (i >= 0 && i < win32_n_fds);
+  _dbus_assert (i >= 0 && i < win_n_fds);
 
   retval = win_fds[i].fd;
   
@@ -2176,8 +2187,8 @@ _dbus_full_duplex_pipe_win (int        *fd1,
     }
       
   
-  *fd1 = _dbus_handle_from_socket (socket1);
-  *fd2 = _dbus_handle_from_socket (socket2);
+  *fd1 = _dbus_encapsulate_socket (socket1);
+  *fd2 = _dbus_encapsulate_socket (socket2);
 
   _dbus_verbose ("full-duplex pipe %d:%d <-> %d:%d\n",
                  *fd1, socket1, *fd2, socket2);
@@ -2233,9 +2244,9 @@ _dbus_poll_win (DBusPollFD *fds,
     {
       static dbus_bool_t warned = FALSE;
       DBusPollFD *f = fds+i;
-      int fd = UNRANDOMIZE (_dbus_handle_to_socket (f->fd));
+      int fd = UNRANDOMIZE (_dbus_re_encapsulate_socket (f->fd));
 
-      _dbus_assert (fd >= 0 && fd < win32_n_fds);
+      _dbus_assert (fd >= 0 && fd < win_n_fds);
 
       if (!warned &&
           win_fds[fd].type != DBUS_WIN_FD_SOCKET)
@@ -2245,12 +2256,12 @@ _dbus_poll_win (DBusPollFD *fds,
       }
 
       if (f->events & _DBUS_POLLIN)
-        msgp += sprintf (msgp, "R:%d ", _dbus_handle_to_fd_quick (f->fd));
+        msgp += sprintf (msgp, "R:%d ", _dbus_decapsulate_quick (f->fd));
 
       if (f->events & _DBUS_POLLOUT)
-        msgp += sprintf (msgp, "W:%d ", _dbus_handle_to_fd_quick (f->fd));
+        msgp += sprintf (msgp, "W:%d ", _dbus_decapsulate_quick (f->fd));
 
-      msgp += sprintf (msgp, "E:%d ", _dbus_handle_to_fd_quick (f->fd));
+      msgp += sprintf (msgp, "E:%d ", _dbus_decapsulate_quick (f->fd));
     }
 
   msgp += sprintf (msgp, "\n");
@@ -2262,19 +2273,19 @@ _dbus_poll_win (DBusPollFD *fds,
       DBusPollFD *fdp = &fds[i];
 
 #ifdef DBUS_WIN
-      if (_dbus_handle_to_type_quick(fdp->fd) != DBUS_WIN_FD_SOCKET)
+      if (win_fds[UNRANDOMIZE (fdp->fd)].type != DBUS_WIN_FD_SOCKET)
         continue;
 #endif
 
       if (fdp->events & _DBUS_POLLIN)
-        FD_SET (_dbus_handle_to_fd_quick (fdp->fd), &read_set);
+        FD_SET (_dbus_decapsulate_quick (fdp->fd), &read_set);
 
       if (fdp->events & _DBUS_POLLOUT)
-        FD_SET (_dbus_handle_to_fd_quick (fdp->fd), &write_set);
+        FD_SET (_dbus_decapsulate_quick (fdp->fd), &write_set);
 
-      FD_SET (_dbus_handle_to_fd_quick (fdp->fd), &err_set);
+      FD_SET (_dbus_decapsulate_quick (fdp->fd), &err_set);
 
-      max_fd = MAX (max_fd, _dbus_handle_to_fd_quick (fdp->fd));
+      max_fd = MAX (max_fd, _dbus_decapsulate_quick (fdp->fd));
     }
     
 #ifdef DBUS_WIN
@@ -2308,14 +2319,14 @@ _dbus_poll_win (DBusPollFD *fds,
         {
 	      DBusPollFD *f = fds+i;
 
-	      if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &read_set))
-	        msgp += sprintf (msgp, "R:%d ", _dbus_handle_to_fd_quick (f->fd));
+	      if (FD_ISSET (_dbus_decapsulate_quick (f->fd), &read_set))
+	        msgp += sprintf (msgp, "R:%d ", _dbus_decapsulate_quick (f->fd));
 
-	      if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &write_set))
-	        msgp += sprintf (msgp, "W:%d ", _dbus_handle_to_fd_quick (f->fd));
+	      if (FD_ISSET (_dbus_decapsulate_quick (f->fd), &write_set))
+	        msgp += sprintf (msgp, "W:%d ", _dbus_decapsulate_quick (f->fd));
 
-	      if (FD_ISSET (_dbus_handle_to_fd_quick (f->fd), &err_set))
-	        msgp += sprintf (msgp, "E:%d ", _dbus_handle_to_fd_quick (f->fd));
+	      if (FD_ISSET (_dbus_decapsulate_quick (f->fd), &err_set))
+	        msgp += sprintf (msgp, "E:%d ", _dbus_decapsulate_quick (f->fd));
 	    }
       msgp += sprintf (msgp, "\n");
       _dbus_verbose ("%s",msg);
@@ -2327,13 +2338,13 @@ _dbus_poll_win (DBusPollFD *fds,
 
 	  fdp->revents = 0;
 
-	  if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &read_set))
+	  if (FD_ISSET (_dbus_decapsulate_quick (fdp->fd), &read_set))
 	    fdp->revents |= _DBUS_POLLIN;
 
-	  if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &write_set))
+	  if (FD_ISSET (_dbus_decapsulate_quick (fdp->fd), &write_set))
 	    fdp->revents |= _DBUS_POLLOUT;
 
-	  if (FD_ISSET (_dbus_handle_to_fd_quick (fdp->fd), &err_set))
+	  if (FD_ISSET (_dbus_decapsulate_quick (fdp->fd), &err_set))
 	    fdp->revents |= _DBUS_POLLERR;
 	}
 #ifdef DBUS_WIN

@@ -88,8 +88,7 @@ extern int win32_n_fds;
 
 #endif
 
-#define _dbus_handle_to_fd_quick(i) win_fds[UNRANDOMIZE (_dbus_handle_to_socket(i))].fd
-#define _dbus_handle_to_type_quick(i) win_fds[UNRANDOMIZE (_dbus_handle_to_socket(i))].type
+#define _dbus_decapsulate_quick(i) win_fds[UNRANDOMIZE (i)].fd
 
 extern const char*
 _dbus_strerror_win (int error_number);
