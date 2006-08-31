@@ -1072,7 +1072,6 @@ _dbus_win_allocate_fd (void)
       _dbus_string_free (&random);
     }
 
-  _dbus_assert(win32_n_fds >= 0 && win32_n_fds <= 16);
   for (i = 0; i < win32_n_fds && win_fds[i].type != DBUS_win_FD_UNUSED; i++)
     ;
 
