@@ -84,7 +84,7 @@ extern int win32_n_fds;
 #else
 #define RANDOMIZE(n) ((n)+0x10000000)
 #define UNRANDOMIZE(n) ((n)-0x10000000)
-#define IS_RANDOMIZED(n) ((n)&0x10000000)
+#define IS_HANDLE(n) ((n)&0x10000000)
 
 #endif
 
