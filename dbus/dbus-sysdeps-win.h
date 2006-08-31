@@ -60,10 +60,6 @@ typedef enum
   DBUS_win_FD_NAMED_PIPE_HANDLE /* HANDLE for a named pipe */
 } DBusWin32FDType;
 
-
-#define RANDOMIZE(n) ((n)+1000)
-#define UNRANDOMIZE(n) ((n)-1000)
-
 #define DBUS_CONSOLE_DIR "/var/run/console/"     
 
 typedef struct
@@ -86,8 +82,10 @@ extern int win32_n_fds;
 #define RANDOMIZE(n) ((n)^win32_encap_randomizer)
 #define UNRANDOMIZE(n) ((n)^win32_encap_randomizer)
 #else
-#define RANDOMIZE(n) ((n)+1000)
-#define UNRANDOMIZE(n) ((n)-1000)
+#define RANDOMIZE(n) ((n)+0x10000000)
+#define UNRANDOMIZE(n) ((n)-0x10000000)
+#define IS_RANDOMIZED(n) ((n)&0x10000000)
+
 #endif
 
 #define _dbus_handle_to_fd_quick(i) win_fds[UNRANDOMIZE (i)].fd
