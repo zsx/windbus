@@ -95,6 +95,7 @@
 
 #if defined(_WIN32) || defined(_WIN64)
 #define DBUS_WIN
+#define DBUS_WIN_FIXME 1
 #endif
 
 #ifndef _MSC_VER
