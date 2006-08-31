@@ -56,8 +56,8 @@ typedef enum
   DBUS_WIN_FD_C_LIB,		   /* Unix-style file descriptor
                                 * (implemented by the C runtime)
                                 */
-  DBUS_win_FD_SOCKET,		    /* Winsock SOCKET */
-  DBUS_win_FD_NAMED_PIPE_HANDLE /* HANDLE for a named pipe */
+  DBUS_WIN_FD_SOCKET,		    /* Winsock SOCKET */
+  DBUS_WIN_FD_NAMED_PIPE_HANDLE /* HANDLE for a named pipe */
 } DBusWin32FDType;
 
 #define DBUS_CONSOLE_DIR "/var/run/console/"     

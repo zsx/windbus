@@ -536,7 +536,7 @@ _dbus_read_win (int               fd,
     
   switch (type)
     {
-    case DBUS_win_FD_SOCKET:
+    case DBUS_WIN_FD_SOCKET:
       _dbus_verbose ("recv: count=%d socket=%d\n", count, fd);
       bytes_read = recv (fd, data, count, 0);
       if (bytes_read == SOCKET_ERROR)
@@ -615,7 +615,7 @@ _dbus_write_win (int               fd,
 
   switch (type)
     {
-    case DBUS_win_FD_SOCKET:
+    case DBUS_WIN_FD_SOCKET:
       _dbus_verbose ("send: len=%d socket=%d\n", len, fd);
       bytes_written = send (fd, data, len, 0);
       if (bytes_written == SOCKET_ERROR)
@@ -670,7 +670,7 @@ _dbus_close_win (int        fd,
 
   switch (win_fds[fd].type)
     {
-    case DBUS_win_FD_SOCKET:
+    case DBUS_WIN_FD_SOCKET:
       if (win_fds[fd].port_file_fd >= 0)
 	{
 	  _chsize (win_fds[fd].port_file_fd, 0);
@@ -758,7 +758,7 @@ _dbus_set_fd_nonblocking_win (int             fd,
 
   switch (win_fds[fd].type)
     {
-    case DBUS_win_FD_SOCKET:
+    case DBUS_WIN_FD_SOCKET:
       if (ioctlsocket (win_fds[fd].fd, FIONBIO, &one) == SOCKET_ERROR)
 	{
 	  dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
@@ -826,7 +826,7 @@ _dbus_write_two_win (int               fd,
    
   switch (type)
     {
-    case DBUS_win_FD_SOCKET:
+    case DBUS_WIN_FD_SOCKET:
       vectors[0].buf = (char*) data1;
       vectors[0].len = len1;
       vectors[1].buf = (char*) data2;
@@ -1572,7 +1572,7 @@ _dbus_handle_from_socket (int socket)
   i = _dbus_win_allocate_fd ();
 
   win_fds[i].fd = socket;
-  win_fds[i].type = DBUS_win_FD_SOCKET;
+  win_fds[i].type = DBUS_WIN_FD_SOCKET;
 
   retval = RANDOMIZE (i);
                 
@@ -1599,7 +1599,7 @@ _dbus_handle_to_socket (int socket)
   _dbus_assert (win_fds != NULL);
 
   for (i = 0; i < win32_n_fds; i++)
-    if (win_fds[i].type == DBUS_win_FD_SOCKET &&
+    if (win_fds[i].type == DBUS_WIN_FD_SOCKET &&
 	win_fds[i].fd == socket)
       {
 	retval = RANDOMIZE (i);
@@ -1648,7 +1648,7 @@ _dbus_handle_to_fd (int fd)
   i = UNRANDOMIZE (fd);
   
   _dbus_assert (i >= 0 && i < win32_n_fds);
-  _dbus_assert (win_fds[i].type == DBUS_win_FD_SOCKET);
+  _dbus_assert (win_fds[i].type == DBUS_WIN_FD_SOCKET);
 
   retval = win_fds[i].fd;
   
@@ -2238,7 +2238,7 @@ _dbus_poll_win (DBusPollFD *fds,
       _dbus_assert (fd >= 0 && fd < win32_n_fds);
 
       if (!warned &&
-          win_fds[fd].type != DBUS_win_FD_SOCKET)
+          win_fds[fd].type != DBUS_WIN_FD_SOCKET)
       {
         _dbus_warn ("Can poll only sockets on Win32");
         warned = TRUE;
@@ -2262,7 +2262,7 @@ _dbus_poll_win (DBusPollFD *fds,
       DBusPollFD *fdp = &fds[i];
 
 #ifdef DBUS_WIN
-      if (_dbus_handle_to_type_quick(fdp->fd) != DBUS_win_FD_SOCKET)
+      if (_dbus_handle_to_type_quick(fdp->fd) != DBUS_WIN_FD_SOCKET)
         continue;
 #endif
 
