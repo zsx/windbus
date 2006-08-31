@@ -51,8 +51,8 @@ extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
 
 typedef enum
 {
-  DBUS_win_FD_UNUSED,
-  DBUS_win_FD_BEING_OPENED,
+  DBUS_WIN_FD_UNUSED,
+  DBUS_WIN_FD_BEING_OPENED,
   DBUS_WIN_FD_C_LIB,		   /* Unix-style file descriptor
                                 * (implemented by the C runtime)
                                 */

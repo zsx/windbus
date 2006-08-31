@@ -1063,7 +1063,7 @@ _dbus_win_allocate_fd (void)
       _dbus_assert (win_fds != NULL);
 
       for (i = 0; i < win32_n_fds; i++)
-        win_fds[i].type = DBUS_win_FD_UNUSED;
+        win_fds[i].type = DBUS_WIN_FD_UNUSED;
 
       _dbus_string_init (&random);
       _dbus_generate_random_bytes (&random, sizeof (int));
@@ -1072,7 +1072,7 @@ _dbus_win_allocate_fd (void)
       _dbus_string_free (&random);
     }
 
-  for (i = 0; i < win32_n_fds && win_fds[i].type != DBUS_win_FD_UNUSED; i++)
+  for (i = 0; i < win32_n_fds && win_fds[i].type != DBUS_WIN_FD_UNUSED; i++)
     ;
 
   if (i == win32_n_fds)
@@ -1086,10 +1086,10 @@ _dbus_win_allocate_fd (void)
       _dbus_assert (win_fds != NULL);
 
       for (j = oldn; j < win32_n_fds; j++)
-	win_fds[i].type = DBUS_win_FD_UNUSED;
+	win_fds[i].type = DBUS_WIN_FD_UNUSED;
     }
 
-  win_fds[i].type = DBUS_win_FD_BEING_OPENED;
+  win_fds[i].type = DBUS_WIN_FD_BEING_OPENED;
   win_fds[i].fd = -1;
   win_fds[i].port_file_fd = -1;
   win_fds[i].close_on_exec = FALSE;
@@ -1515,7 +1515,7 @@ void
 _dbus_win_deallocate_fd (int fd)
 {
   _DBUS_LOCK (win_fds);
-  win_fds[UNRANDOMIZE (fd)].type = DBUS_win_FD_UNUSED;
+  win_fds[UNRANDOMIZE (fd)].type = DBUS_WIN_FD_UNUSED;
   _DBUS_UNLOCK (win_fds);
 }
 
