@@ -1585,17 +1585,21 @@ _dbus_win_startup_winsock (void)
 
 int                                                                     
 _dbus_encapsulate_socket (int socket)                                   
-{                                                                       
+{          
+  // get index of a new position in the map
   int i = _dbus_win_allocate_fd ();                                   
   int retval;                                                           
-                                                                        
+  
+   // fill new posiiton in the map: socket->index
   win_fds[i].fd = socket;                                             
   win_fds[i].type = DBUS_WIN_FD_SOCKET;                             
-                                                                        
+                              
+  // create handle from the index: index->handle
   retval = RANDOMIZE (i);                                               
                                                                         
   _dbus_verbose ("encapsulated socket %d:%d:%d\n", retval, i, socket);  
-                                                                        
+         
+  // return handle
   return retval;                                                        
 }                                                                       
 
@@ -1609,16 +1613,19 @@ _dbus_re_encapsulate_socket (int socket)
 
   _dbus_assert (win_fds != NULL);
 
+  // search for the socket in the map
+  // find the index of the socket: socket->index
   for (i = 0; i < win_n_fds; i++)
-    if (win_fds[i].type == DBUS_WIN_FD_SOCKET &&
-	win_fds[i].fd == socket)
+    if (win_fds[i].type == DBUS_WIN_FD_SOCKET && win_fds[i].fd == socket)
       {
-	retval = RANDOMIZE (i);
-	break;
+        // create handle from the index: index->handle
+        retval = RANDOMIZE (i);
+        break;
       }
   
   _DBUS_UNLOCK (win_fds);
 
+  // return handle
   return retval;
 }
 
@@ -1628,20 +1635,25 @@ _dbus_encapsulate_fd (int fd)
 {
   int i, retval;
 
-  if (fd == -1 || IS_RANDOMIZED(fd)) {
+  // check: parameter must be a valid fd
+  if (fd == -1 || IS_HANDLE(fd)) {
     _dbus_assert( 0 );
     return fd;
   }
 
+  // get index of a new position in the map
   i = _dbus_win_allocate_fd ();
 
+  // fill new posiiton in the map: fd->index
   win_fds[i].fd = fd;
   win_fds[i].type = DBUS_WIN_FD_C_LIB;
 
+  // create handle from the index: index->handle
   retval = RANDOMIZE (i);
 
   _dbus_verbose ("encapsulated C file descriptor dfd=%x i=%d fd=%d\n", retval, i, fd);
 
+  // return handle
   return retval;
 }
 
@@ -1654,39 +1666,50 @@ _dbus_re_encapsulate_fd (int fd)
   _DBUS_LOCK (win_fds);                              
                                                        
   _dbus_assert (win_fds != NULL);                    
-                                                       
+             
+  // search for the fd in the map
+  // find the index of fd: fd->index
   for (i = 0; i < win_n_fds; i++)                    
-    if (win_fds[i].type == DBUS_WIN_FD_C_LIB &&    
-	win_fds[i].fd == fd)                                
-      {                                                
-	retval = RANDOMIZE (i);                               
-	break;                                                
+    if (win_fds[i].type == DBUS_WIN_FD_C_LIB && win_fds[i].fd == fd)                                
+      {          
+		// create handle from the index: index->handle
+        retval = RANDOMIZE (i);                               
+        break;                                                
       }                                                
                                                        
   _DBUS_UNLOCK (win_fds);                            
-                                                       
+               
+  // return handle
   return retval;                                       
 }                                                      
 
+// decapsulate works for all handle
+// because it does not check
+// win_fds[i].type 
+// TODO: for each type a decapsulate
 int
 _dbus_decapsulate (int fd)
 {
   int i, retval; 
 
-  if (fd == -1 || !IS_RANDOMIZED(fd)) {
+  // check: parameter must be a valid handle
+  if (fd == -1 || !IS_HANDLE(fd)) {
     _dbus_assert( 0 );
     return fd;
   }
 
+  // map from handle to index: handle->index
   i = UNRANDOMIZE (fd);
 
   _dbus_assert (win_fds != NULL);
   _dbus_assert (i >= 0 && i < win_n_fds);
 
+  // get fd from index: index->fd
   retval = win_fds[i].fd;
   
   _dbus_verbose ("deencapsulated C file descriptor fd=%d i=%d dfd=%x\n", retval, i, fd);
 
+  // return fd
   return retval;
 }
 
