@@ -1795,3 +1795,16 @@ Index: bus/dispatch.c
  
    kill_client_connection_unchecked (foo);
  
+Index: test/Makefile.am
+===================================================================
+--- test/Makefile.am	(Revision 247)
++++ test/Makefile.am	(Arbeitskopie)
+@@ -110,7 +110,7 @@
+ 		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
+ 	done ;											\
+ 	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
+-		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
++		FILES=`(cd $(srcdir) && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;		\
+ 	        for F in $$FILES; do								\
+ 			SRC=$(srcdir)/$$F ;							\
+ 			DEST=$(top_builddir)/test/$$F ;						\
