@@ -1595,10 +1595,18 @@ _dbus_win_startup_winsock (void)
 
 int                                                                     
 _dbus_encapsulate_socket (int socket)                                   
-{          
+{    
+  int i;
+  int retval;      
+
+  // check: parameter must be a valid socket
+  if (socket == -1 || IS_HANDLE(socket)) {
+    _dbus_assert( 0 );
+    return socket;
+  }
+
   // get index of a new position in the map
-  int i = _dbus_win_allocate_fd ();                                   
-  int retval;                                                           
+  i = _dbus_win_allocate_fd ();                                   
   
    // fill new posiiton in the map: socket->index
   win_fds[i].fd = socket;                                             
@@ -1618,6 +1626,12 @@ _dbus_re_encapsulate_socket (int socket)
 {
   int i;
   int retval = -1;
+
+  // check: parameter must be a valid socket
+  if (socket == -1 || IS_HANDLE(socket)) {
+    _dbus_assert( 0 );
+    return socket;
+  }
 
   _DBUS_LOCK (win_fds);
 
@@ -1674,7 +1688,13 @@ _dbus_re_encapsulate_fd (int fd)
 {                                                      
   int i;                                               
   int retval = -1;                                     
-                                                       
+                        
+  // check: parameter must be a valid fd
+  if (fd == -1 || IS_HANDLE(fd)) {
+    _dbus_assert( 0 );
+    return fd;
+  }
+
   _DBUS_LOCK (win_fds);                              
                                                        
   _dbus_assert (win_fds != NULL);
