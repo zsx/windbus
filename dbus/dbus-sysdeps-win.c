@@ -1594,128 +1594,90 @@ _dbus_win_startup_winsock (void)
 }
 
 int                                                                     
-_dbus_encapsulate_socket (int socket)                                   
+_dbus_encapsulate_type (DBusWin32FDType type, int value)                                   
 {    
   int i;
-  int retval;      
+  int handle = -1;      
 
-  // check: parameter must be a valid socket
-  if (socket == -1 || IS_HANDLE(socket)) {
+  // check: parameter must be a valid value
+  if (value == -1 || IS_HANDLE(value)) {
     _dbus_assert( 0 );
-    return socket;
+    return value;
   }
 
   // get index of a new position in the map
   i = _dbus_win_allocate_fd ();                                   
   
-   // fill new posiiton in the map: socket->index
-  win_fds[i].fd = socket;                                             
+   // fill new posiiton in the map: value->index
+  win_fds[i].fd = value;                                             
   win_fds[i].type = DBUS_WIN_FD_SOCKET;                             
                               
   // create handle from the index: index->handle
-  retval = TO_HANDLE (i);                                               
+  handle = TO_HANDLE (i);                                               
                                                                         
-  _dbus_verbose ("encapsulated socket %d:%d:%d\n", retval, i, socket);  
+  _dbus_verbose ("encapsulated value %d:%d:%d\n", handle, i, value);  
          
-  // return handle
-  return retval;                                                        
-}                                                                       
+  return handle;
+}
+
+int                                                                     
+_dbus_encapsulate_socket (int socket)                                   
+{                                                                       
+  return _dbus_encapsulate_type (DBUS_WIN_FD_SOCKET, socket);
+}
+
+int                                                                     
+_dbus_encapsulate_fd (int fd)                                   
+{                                                                       
+  return _dbus_encapsulate_type (DBUS_WIN_FD_C_LIB, fd);
+}
 
 int                 
-_dbus_re_encapsulate_socket (int socket)
+_dbus_re_encapsulate_type (DBusWin32FDType type, int value)
 {
   int i;
-  int retval = -1;
+  int handle = -1;
 
-  // check: parameter must be a valid socket
-  if (socket == -1 || IS_HANDLE(socket)) {
+  // check: parameter must be a valid value
+  if (value == -1 || IS_HANDLE(value)) {
     _dbus_assert( 0 );
-    return socket;
+    return value;
   }
 
   _DBUS_LOCK (win_fds);
 
   _dbus_assert (win_fds != NULL);
-  _dbus_assert (!IS_HANDLE(socket));
 
-  // search for the socket in the map
-  // find the index of the socket: socket->index
+  // search for the value in the map
+  // find the index of the value: value->index
   for (i = 0; i < win_n_fds; i++)
-    if (win_fds[i].type == DBUS_WIN_FD_SOCKET && win_fds[i].fd == socket)
+    if (win_fds[i].type == type && win_fds[i].fd == value)
       {
         // create handle from the index: index->handle
-        retval = TO_HANDLE (i);
+        handle = TO_HANDLE (i);
         break;
       }
   
   _DBUS_UNLOCK (win_fds);
 
-  _dbus_assert(retval != -1);
-  // return handle
-  return retval;
+  _dbus_assert(handle != -1);
+  
+  return handle;
 }
 
-
-int
-_dbus_encapsulate_fd (int fd)
-{
-  int i, retval;
-
-  // check: parameter must be a valid fd
-  if (fd == -1 || IS_HANDLE(fd)) {
-    _dbus_assert( 0 );
-    return fd;
-  }
-
-  // get index of a new position in the map
-  i = _dbus_win_allocate_fd ();
-
-  // fill new posiiton in the map: fd->index
-  win_fds[i].fd = fd;
-  win_fds[i].type = DBUS_WIN_FD_C_LIB;
-
-  // create handle from the index: index->handle
-  retval = TO_HANDLE (i);
-
-  _dbus_verbose ("encapsulated C file descriptor dfd=%x i=%d fd=%d\n", retval, i, fd);
-
-  // return handle
-  return retval;
+int                 
+_dbus_re_encapsulate_socket (int socket)
+{     
+  return _dbus_re_encapsulate_type (DBUS_WIN_FD_SOCKET, socket);
 }
 
-int                                                    
-_dbus_re_encapsulate_fd (int fd)                       
-{                                                      
-  int i;                                               
-  int retval = -1;                                     
-                        
-  // check: parameter must be a valid fd
-  if (fd == -1 || IS_HANDLE(fd)) {
-    _dbus_assert( 0 );
-    return fd;
-  }
+int                 
+_dbus_re_encapsulate_fd (int fd)
+{     
+  return _dbus_re_encapsulate_type (DBUS_WIN_FD_C_LIB, fd);
+}
 
-  _DBUS_LOCK (win_fds);                              
-                                                       
-  _dbus_assert (win_fds != NULL);
-  _dbus_assert (!IS_HANDLE(fd));
-             
-  // search for the fd in the map
-  // find the index of fd: fd->index
-  for (i = 0; i < win_n_fds; i++)
-    if (win_fds[i].type == DBUS_WIN_FD_C_LIB && win_fds[i].fd == fd)
-      {          
-        // create handle from the index: index->handle
-        retval = TO_HANDLE (i);                               
-        break;                                                
-      }                                                
-                                                       
-  _DBUS_UNLOCK (win_fds);                            
-               
-  _dbus_assert(retval != -1);
-  // return handle
-  return retval;                                       
-}                                                      
+                                              
 
 // decapsulate works for all handle
 // because it does not check
