@@ -71,7 +71,9 @@
 
 #include "dbus-sysdeps-win.h"
 
+#ifdef _DBUS_WIN_USE_RANDOMIZER
 static int  win_encap_randomizer;
+#endif
 static DBusHashTable *sid_atom_cache = NULL;
 
 
@@ -131,11 +133,13 @@ _dbus_win_allocate_fd (void)
       for (i = 0; i < win_n_fds; i++)
         win_fds[i].type = DBUS_WIN_FD_UNUSED;
 
+#ifdef _DBUS_WIN_USE_RANDOMIZER
       _dbus_string_init (&random);
       _dbus_generate_random_bytes (&random, sizeof (int));
       memmove (&win_encap_randomizer, _dbus_string_get_const_data (&random), sizeof (int));
       win_encap_randomizer &= 0xFF;
       _dbus_string_free (&random);
+#endif
     }
 
   for (i = 0; i < win_n_fds && win_fds[i].type != DBUS_WIN_FD_UNUSED; i++)
