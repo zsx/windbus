@@ -72,16 +72,19 @@
 #include "dbus-sysdeps-win.h"
 
 
-int win_n_fds = 0;
-DBusWin32FD *win_fds = NULL;
+static int win_n_fds;
+static DBusWin32FD *win_fds;
 static
 void _dbus_win_deallocate_fd (int fd);
 
-// FIXME don't use FROM_HANDLE directly,
+
+// FIXME: don't use FROM_HANDLE directly,
 // use _handle_to functions
-#define TO_HANDLE(n)   ((n)+0x10000000)
+#ifndef DBUS_WIN_FIXME
+#define FROM_HANDLE(n) 1==DBUS_WIN_FIXME__FROM_HANDLE
+#else
 #define FROM_HANDLE(n) ((n)-0x10000000)
-#define IS_HANDLE(n)   ((n)&0x10000000)
+#endif
 
 static int  win_encap_randomizer;
 static DBusHashTable *sid_atom_cache = NULL;
@@ -1545,6 +1548,9 @@ _dbus_win_startup_winsock (void)
 
  ************************************************************************/
 
+static DBusWin32FD *win_fds = NULL;
+static int win_n_fds = 0; // is this the size? rename to win_fds_size? #
+
 #if 0
 #define TO_HANDLE(n)   ((n)^win32_encap_randomizer)
 #define FROM_HANDLE(n) ((n)^win32_encap_randomizer)
@@ -1554,6 +1560,8 @@ _dbus_win_startup_winsock (void)
 #define IS_HANDLE(n)   ((n)&0x10000000)
 #endif
 
+// do we need this? 
+// doesn't the compiler optimize within one file?
 #define _dbus_decapsulate_quick(i) win_fds[FROM_HANDLE (i)].fd
 
 static
@@ -1647,6 +1655,7 @@ _dbus_create_handle_from_value (DBusWin32FDType type, int value)
   return handle;
 }
 
+static
 int                 
 _dbus_value_to_handle (DBusWin32FDType type, int value)
 {
@@ -1687,6 +1696,7 @@ _dbus_value_to_handle (DBusWin32FDType type, int value)
   return handle;
 }
 
+
 int                 
 _dbus_socket_to_handle (int socket)
 {     
@@ -1700,6 +1710,7 @@ _dbus_fd_to_handle (int fd)
 }
 
                                               
+static
 int
 _dbus_handle_to_value (DBusWin32FDType type, int handle)
 {
@@ -1740,9 +1751,13 @@ _dbus_handle_to_fd (int handle)
 }
 
 #undef TO_HANDLE
-// FIXME use the handle anf not the index
-//#undef FROM_HANDLE
 #undef IS_HANDLE
+// FIXME: don't use FROM_HANDLE directly,
+// use _handle_to functions
+#ifndef DBUS_WIN_FIXME
+#undef FROM_HANDLE
+#define FROM_HANDLE(n) 1==DBUS_WIN_FIXME__FROM_HANDLE
+#endif
 
 
 
