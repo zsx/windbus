@@ -71,21 +71,6 @@
 
 #include "dbus-sysdeps-win.h"
 
-
-static int win_n_fds;
-static DBusWin32FD *win_fds;
-static
-void _dbus_win_deallocate_fd (int fd);
-
-
-// FIXME: don't use FROM_HANDLE directly,
-// use _handle_to functions
-#ifndef DBUS_WIN_FIXME
-#define FROM_HANDLE(n) 1==DBUS_WIN_FIXME__FROM_HANDLE
-#else
-#define FROM_HANDLE(n) ((n)-0x10000000)
-#endif
-
 static int  win_encap_randomizer;
 static DBusHashTable *sid_atom_cache = NULL;
 
