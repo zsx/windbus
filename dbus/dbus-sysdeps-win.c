@@ -31,43 +31,13 @@
 #include "dbus-hash.h"
 #include "dbus-sockets-win.h"
 #include "dbus-string.h"
-#include <sys/types.h>
+
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <locale.h>
-#include <sys/stat.h>
-
-#ifdef HAVE_TIME_H
-#include <time.h>
-#endif
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif
-#ifdef HAVE_SYS_WAIT_H
-#include <sys/wait.h>
-#endif
-#ifdef HAVE_WRITEV
-#include <sys/uio.h>
-#endif
-#ifdef HAVE_POLL
-#include <sys/poll.h>
-#endif
-#ifdef HAVE_BACKTRACE
-#include <execinfo.h>
-#endif
-#ifdef HAVE_GETPEERUCRED
-#include <ucred.h>
-#endif
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
-#ifndef HAVE_SOCKLEN_T
-#define socklen_t int
-#endif
 
 #include "dbus-sysdeps-win.h"
 
@@ -1861,9 +1831,6 @@ _dbus_poll_win (DBusPollFD *fds,
             int         n_fds,
             int         timeout_milliseconds)
 {
-#ifdef HAVE_POLL
-#else /* ! HAVE_POLL */
-
 #ifdef DBUS_WIN
   char msg[200], *msgp;
 #endif
@@ -2002,7 +1969,6 @@ _dbus_poll_win (DBusPollFD *fds,
 #endif
     }
   return ready;
-#endif /* ! HAVE_POLL */
 }
 
 
