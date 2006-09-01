@@ -1725,20 +1725,21 @@ Index: dbus/dbus-sysdeps.h
 ===================================================================
 --- dbus/dbus-sysdeps.h	(revision 227)
 +++ dbus/dbus-sysdeps.h	(working copy)
-@@ -101,6 +101,19 @@
+@@ -101,6 +101,20 @@
  #define DBUS_UID_FORMAT "%lu"
  #define DBUS_GID_FORMAT "%lu"
  
-+#ifdef DBUS_WIN
 +int _dbus_socket_to_handle (int socket);
 +int _dbus_handle_to_socket (int handle);
-+int _dbus_fd_to_handle  (int fd);
-+int _dbus_handle_to_fd  (int handle);
-+#else
-+#define _dbus_socket_to_handle(socket) (socket)
-+#define _dbus_handle_to_socket(handle) (handle)
-+#define _dbus_fd_to_handle(fd)      (fd)
-+#define _dbus_handle_to_fd(handle)  (handle)
++int _dbus_fd_to_handle     (int fd);
++int _dbus_handle_to_fd     (int handle);
++
++#ifndef DBUS_WIN
++// move to dbus-sysdeps-unix.c
++int _dbus_socket_to_handle (int socket){ return socket; }
++int _dbus_handle_to_socket (int handle){ return handle; }
++int _dbus_fd_to_handle     (int fd)    { return fd; }
++int _dbus_handle_to_fd     (int handle){ return handle; }
 +#endif
 +
 +
