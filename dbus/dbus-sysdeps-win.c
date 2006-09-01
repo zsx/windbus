@@ -550,7 +550,7 @@ _dbus_read_win (int               fd,
 
   _DBUS_LOCK (win_fds);
 
-  fd = UNRANDOMIZE (fd);
+  fd = FROM_HANDLE (fd);
 
   _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
@@ -629,7 +629,7 @@ _dbus_write_win (int               fd,
 
   _DBUS_LOCK (win_fds);
 
-  fd = UNRANDOMIZE (fd);
+  fd = FROM_HANDLE (fd);
 
   _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
@@ -689,7 +689,7 @@ _dbus_close_win (int        fd,
   
   _DBUS_LOCK (win_fds);
 
-  fd = UNRANDOMIZE (fd);
+  fd = FROM_HANDLE (fd);
 
   _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
@@ -756,7 +756,7 @@ _dbus_fd_set_close_on_exec_win (int fd)
     return;
   _DBUS_LOCK (win_fds);
 
-  fd2 = UNRANDOMIZE (fd);
+  fd2 = FROM_HANDLE (fd);
   _dbus_verbose("fd %d %d %d\n",fd,fd2,win_n_fds);
   _dbus_assert (fd2 >= 0 && fd2 < win_n_fds);
   _dbus_assert (win_fds != NULL);
@@ -777,7 +777,7 @@ _dbus_set_fd_nonblocking_win (int             fd,
   
   _DBUS_LOCK (win_fds);
 
-  fd = UNRANDOMIZE (fd);
+  fd = FROM_HANDLE (fd);
 
   _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
@@ -829,7 +829,7 @@ _dbus_write_two_win (int               fd,
 
   _DBUS_LOCK (win_fds);
 
-  fd = UNRANDOMIZE (fd);
+  fd = FROM_HANDLE (fd);
 
   _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
@@ -974,7 +974,7 @@ _dbus_listen_unix_socket_win (const char     *path,
   if (listen_fd == -1)
     return -1;
 
-  sock = win_fds[UNRANDOMIZE (listen_fd)].fd;
+  sock = win_fds[FROM_HANDLE (listen_fd)].fd;
 
   addr_len = sizeof (sa);
   if (getsockname (sock, &sa, &addr_len) == SOCKET_ERROR)
@@ -1000,7 +1000,7 @@ _dbus_listen_unix_socket_win (const char     *path,
       return -1;
     }
 
-  win_fds[UNRANDOMIZE (listen_fd)].port_file_fd = filefd;
+  win_fds[FROM_HANDLE (listen_fd)].port_file_fd = filefd;
 
   /* Use strdup() to avoid memory leak in dbus-test */
   path = strdup (path);
@@ -1011,7 +1011,7 @@ _dbus_listen_unix_socket_win (const char     *path,
       return -1;
     }
 
-  _dbus_string_init_const (&win_fds[UNRANDOMIZE (listen_fd)].port_file, path);
+  _dbus_string_init_const (&win_fds[FROM_HANDLE (listen_fd)].port_file, path);
 
   if (!_dbus_string_init (&portstr))
     {
@@ -1541,7 +1541,7 @@ void
 _dbus_win_deallocate_fd (int fd)
 {
   _DBUS_LOCK (win_fds);
-  win_fds[UNRANDOMIZE (fd)].type = DBUS_WIN_FD_UNUSED;
+  win_fds[FROM_HANDLE (fd)].type = DBUS_WIN_FD_UNUSED;
   _DBUS_UNLOCK (win_fds);
 }
 
@@ -1595,7 +1595,7 @@ _dbus_encapsulate_socket (int socket)
   win_fds[i].type = DBUS_WIN_FD_SOCKET;                             
                               
   // create handle from the index: index->handle
-  retval = RANDOMIZE (i);                                               
+  retval = TO_HANDLE (i);                                               
                                                                         
   _dbus_verbose ("encapsulated socket %d:%d:%d\n", retval, i, socket);  
          
@@ -1620,7 +1620,7 @@ _dbus_re_encapsulate_socket (int socket)
     if (win_fds[i].type == DBUS_WIN_FD_SOCKET && win_fds[i].fd == socket)
       {
         // create handle from the index: index->handle
-        retval = RANDOMIZE (i);
+        retval = TO_HANDLE (i);
         break;
       }
   
@@ -1651,7 +1651,7 @@ _dbus_encapsulate_fd (int fd)
   win_fds[i].type = DBUS_WIN_FD_C_LIB;
 
   // create handle from the index: index->handle
-  retval = RANDOMIZE (i);
+  retval = TO_HANDLE (i);
 
   _dbus_verbose ("encapsulated C file descriptor dfd=%x i=%d fd=%d\n", retval, i, fd);
 
@@ -1676,7 +1676,7 @@ _dbus_re_encapsulate_fd (int fd)
     if (win_fds[i].type == DBUS_WIN_FD_C_LIB && win_fds[i].fd == fd)
       {          
         // create handle from the index: index->handle
-        retval = RANDOMIZE (i);                               
+        retval = TO_HANDLE (i);                               
         break;                                                
       }                                                
                                                        
@@ -1703,7 +1703,7 @@ _dbus_decapsulate (int fd)
   }
 
   // map from handle to index: handle->index
-  i = UNRANDOMIZE (fd);
+  i = FROM_HANDLE (fd);
 
   _dbus_assert (win_fds != NULL);
   _dbus_assert (i >= 0 && i < win_n_fds);
@@ -2272,7 +2272,7 @@ _dbus_poll_win (DBusPollFD *fds,
       static dbus_bool_t warned = FALSE;
       DBusPollFD *fdp = &fds[i];
       int sock;
-      int fd = UNRANDOMIZE (fdp->fd);
+      int fd = FROM_HANDLE (fdp->fd);
 
       _dbus_assert (fd >= 0 && fd < win_n_fds);
 
@@ -2303,7 +2303,7 @@ _dbus_poll_win (DBusPollFD *fds,
       int sock = _dbus_decapsulate_quick (fdp->fd);
 
 #ifdef DBUS_WIN
-      if (win_fds[UNRANDOMIZE (fdp->fd)].type != DBUS_WIN_FD_SOCKET)
+      if (win_fds[FROM_HANDLE (fdp->fd)].type != DBUS_WIN_FD_SOCKET)
         continue;
 #endif
 
