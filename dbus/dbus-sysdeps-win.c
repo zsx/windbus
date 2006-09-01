@@ -293,10 +293,13 @@ _dbus_handle_to_fd (int handle)
 
 #undef TO_HANDLE
 #undef IS_HANDLE
+#undef FROM_HANDLE
+
+#ifdef DBUS_WIN_FIXME
+#define FROM_HANDLE(n) ((n)-0x10000000)
+#else
 // FIXME: don't use FROM_HANDLE directly,
 // use _handle_to functions
-#ifndef DBUS_WIN_FIXME
-#undef FROM_HANDLE
 #define FROM_HANDLE(n) 1==DBUS_WIN_FIXME__FROM_HANDLE
 #endif
 
