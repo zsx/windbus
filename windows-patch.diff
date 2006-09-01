@@ -103,35 +103,6 @@ Index: bus/activation.c
                                            child_setup, activation, 
                                            error))
      {
-Index: bus/test-main.c
-===================================================================
---- bus/test-main.c	(revision 227)
-+++ bus/test-main.c	(working copy)
-@@ -123,16 +123,23 @@
-     die ("signals");
-   test_post_hook ();
- 
-+#ifdef DBUS_WIN
-   test_pre_hook ();
-   printf ("%s: Running SHA1 connection test\n", argv[0]);
-   if (!bus_dispatch_sha1_test (&test_data_dir))
-     die ("sha1");
-   test_post_hook ();
--
-+#else
-+  printf ("%s: Running SHA1 connection test - skipped\n", argv[0]);
-+#endif
-+#ifndef DBUS_WIN
-   test_pre_hook ();
-   printf ("%s: Running message dispatch test\n", argv[0]);
-   if (!bus_dispatch_test (&test_data_dir)) 
-     die ("dispatch");
-+#else
-+  printf ("%s: Running message dispatch test - skipped\n",argv[0]);
-+#endif
-   test_post_hook ();
- 
-   test_pre_hook ();
 Index: bus/desktop-file.c
 ===================================================================
 --- bus/desktop-file.c	(revision 227)
@@ -1807,3 +1778,20 @@ Index: tools/dbus-send.c
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
+Index: bus/dispatch.c
+===================================================================
+--- bus/dispatch.c	(revision 247)
++++ bus/dispatch.c	(working copy)
+@@ -4061,9 +4061,11 @@
+       _dbus_warn ("Messages were left over after setting up initial SHA-1 connection\n");
+       _dbus_assert_not_reached ("initial connection setup failed");
+     }
+-  
++
++#ifndef DBUS_WIN_FIXME  
+   check1_try_iterations (context, "create_and_hello_sha1",
+                          check_hello_connection);
++#endif
+ 
+   kill_client_connection_unchecked (foo);
+ 
