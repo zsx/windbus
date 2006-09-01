@@ -85,7 +85,6 @@ extern int win32_n_fds;
 #define TO_HANDLE(n)   ((n)+0x10000000)
 #define FROM_HANDLE(n) ((n)-0x10000000)
 #define IS_HANDLE(n)   ((n)&0x10000000)
-
 #endif
 
 #define _dbus_decapsulate_quick(i) win_fds[FROM_HANDLE (i)].fd
