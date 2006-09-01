@@ -78,6 +78,16 @@ DBusWin32FD *win_fds = NULL;
 static int  win_encap_randomizer;
 static DBusHashTable *sid_atom_cache = NULL;
 
+#if 0
+#define TO_HANDLE(n)   ((n)^win32_encap_randomizer)
+#define FROM_HANDLE(n) ((n)^win32_encap_randomizer)
+#else
+#define TO_HANDLE(n)   ((n)+0x10000000)
+#define FROM_HANDLE(n) ((n)-0x10000000)
+#define IS_HANDLE(n)   ((n)&0x10000000)
+#endif
+
+#define _dbus_decapsulate_quick(i) win_fds[FROM_HANDLE (i)].fd
 
 
 _DBUS_DEFINE_GLOBAL_LOCK (win_fds);

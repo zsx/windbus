@@ -78,17 +78,6 @@ extern DBusWin32FD *win_fds;
 extern int win32_n_fds;
 
 
-#if 0
-#define TO_HANDLE(n)   ((n)^win32_encap_randomizer)
-#define FROM_HANDLE(n) ((n)^win32_encap_randomizer)
-#else
-#define TO_HANDLE(n)   ((n)+0x10000000)
-#define FROM_HANDLE(n) ((n)-0x10000000)
-#define IS_HANDLE(n)   ((n)&0x10000000)
-#endif
-
-#define _dbus_decapsulate_quick(i) win_fds[FROM_HANDLE (i)].fd
-
 extern const char*
 _dbus_strerror_win (int error_number);
 int  _dbus_win_allocate_fd     (void);
