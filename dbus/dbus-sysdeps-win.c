@@ -1696,22 +1696,15 @@ _dbus_decapsulate_type (DBusWin32FDType type, int handle)
   _dbus_assert (win_fds != NULL);
   _dbus_assert (i >= 0 && i < win_n_fds);
 
-  // onyl check for type when type != DBUS_WIN_FD_UNUSED
-  if (type != DBUS_WIN_FD_UNUSED) {
-    _dbus_assert (win_fds[i].type == type);
-  }
+  // check for correct type
+  _dbus_assert (win_fds[i].type == type);
+
   // get value from index: index->value
   value = win_fds[i].fd;
   
   _dbus_verbose ("deencapsulated C value fd=%d i=%d dfd=%x\n", value, i, handle);
 
   return value;
-}
-
-int
-_dbus_decapsulate (int handle)
-{
-  return _dbus_decapsulate_type (DBUS_WIN_FD_UNUSED, handle);
 }
 
 int
