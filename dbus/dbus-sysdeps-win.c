@@ -1678,13 +1678,8 @@ _dbus_re_encapsulate_fd (int fd)
 }
 
                                               
-
-// decapsulate works for all handle
-// because it does not check
-// win_fds[i].type 
-// TODO: for each type a decapsulate
 int
-_dbus_decapsulate (int handle)
+_dbus_decapsulate_type (DBusWin32FDType type, int handle)
 {
   int i;
   int value;
@@ -1701,13 +1696,34 @@ _dbus_decapsulate (int handle)
   _dbus_assert (win_fds != NULL);
   _dbus_assert (i >= 0 && i < win_n_fds);
 
-  // get fd from index: index->fd
+  // onyl check for type when type != DBUS_WIN_FD_UNUSED
+  if (type != DBUS_WIN_FD_UNUSED) {
+    _dbus_assert (win_fds[i].type == type);
+  }
+  // get value from index: index->value
   value = win_fds[i].fd;
   
-  _dbus_verbose ("deencapsulated C file descriptor fd=%d i=%d dfd=%x\n", value, i, handle);
+  _dbus_verbose ("deencapsulated C value fd=%d i=%d dfd=%x\n", value, i, handle);
 
-  // return fd
   return value;
+}
+
+int
+_dbus_decapsulate (int handle)
+{
+  return _dbus_decapsulate_type (DBUS_WIN_FD_UNUSED, handle);
+}
+
+int
+_dbus_decapsulate_socket (DBusWin32FDType type, int handle)
+{
+  return _dbus_decapsulate_type (DBUS_WIN_FD_SOCKET, handle);
+}
+
+int
+_dbus_decapsulate_fd (DBusWin32FDType type, int handle)
+{
+  return _dbus_decapsulate_type (DBUS_WIN_FD_C_LIB, handle);
 }
 
 dbus_bool_t
