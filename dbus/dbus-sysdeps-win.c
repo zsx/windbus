@@ -1596,6 +1596,12 @@ _dbus_win_startup_winsock (void)
 }
 
 
+/************************************************************************
+ 
+ handle <-> fd/socket functions
+
+ ************************************************************************/
+
 static
 int                                                                     
 _dbus_create_handle_from_value (DBusWin32FDType type, int value)                                   
@@ -1721,69 +1727,41 @@ _dbus_handle_to_fd (int handle)
 }
 
 
-dbus_bool_t
-_dbus_win_account_to_sid (const wchar_t *waccount,
-			    void      	 **ppsid,
-			    DBusError 	  *error)
+
+
+
+/************************************************************************
+ 
+ UTF / string code
+
+ ************************************************************************/
+
+/**
+ * Measure the message length without terminating nul 
+ */
+int _dbus_printf_string_upper_bound (const char *format,
+                         va_list args) 
 {
-  dbus_bool_t retval = FALSE;
-  DWORD sid_length, wdomain_length;
-  SID_NAME_USE use;
-  wchar_t *wdomain;
-		     
-  *ppsid = NULL;
-
-  sid_length = 0;
-  wdomain_length = 0;
-  if (!LookupAccountNameW (NULL, waccount, NULL, &sid_length,
-			   NULL, &wdomain_length, &use) &&
-      GetLastError () != ERROR_INSUFFICIENT_BUFFER)
+  /* MSVCRT's vsnprintf semantics are a bit different */
+  /* The C library source in the Platform SDK indicates that this
+   * would work, but alas, it doesn't. At least not on Windows
+   * 2000. Presumably those sources correspond to the C library on
+   * some newer or even future Windows version.
+   *
+    len = _vsnprintf (NULL, _DBUS_INT_MAX, format, args);
+   */
+  char p[1024];
+  int len;
+  len = vsnprintf (p, sizeof(p)-1, format, args);
+  if (len == -1) // try again
     {
-      _dbus_win_set_error_from_win_error (error, GetLastError ());
-      return FALSE;
+      char *p;
+      p = malloc (strlen(format)*3);
+      len = vsnprintf (p, sizeof(p)-1, format, args);
+      free(p);
     }
-
-  *ppsid = dbus_malloc (sid_length);
-  if (!*ppsid)
-    {
-      _DBUS_SET_OOM (error);
-      return FALSE;
-    }
-
-  wdomain = dbus_new (wchar_t, wdomain_length);
-  if (!wdomain)
-    {
-      _DBUS_SET_OOM (error);
-      goto out1;
-    }
-
-  if (!LookupAccountNameW (NULL, waccount, (PSID) *ppsid, &sid_length,
-			   wdomain, &wdomain_length, &use))
-    {
-      _dbus_win_set_error_from_win_error (error, GetLastError ());
-      goto out2;
-    }
-
-  if (!IsValidSid ((PSID) *ppsid))
-    {
-      dbus_set_error_const (error, DBUS_ERROR_FAILED, "Invalid SID");
-      goto out2;
-    }
-
-  retval = TRUE;
-
- out2:
-  dbus_free (wdomain);
- out1:
-  if (!retval)
-    {
-      dbus_free (*ppsid);
-      *ppsid = NULL;
-    }
-
-  return retval;
+  return len;
 }
-
 
 
 /**
@@ -1875,6 +1853,17 @@ _dbus_win_utf16_to_utf8 (const wchar_t *str,
   return retval;
 }
 
+
+
+
+
+/************************************************************************
+ 
+ error handling
+
+ ************************************************************************/
+
+
 /**
  * Assigns an error name and message corresponding to a Win32 error
  * code to a DBusError. Does nothing if error is #NULL.
@@ -1918,6 +1907,79 @@ _dbus_win_warn_win_error (const char *message,
   _dbus_win_set_error_from_win_error (&error, code);
   _dbus_warn ("%s: %s\n", message, error.message);
   dbus_error_free (&error);
+}
+
+
+
+
+
+/************************************************************************
+ 
+ uid ... <-> win sid functions
+
+ ************************************************************************/
+
+dbus_bool_t
+_dbus_win_account_to_sid (const wchar_t *waccount,
+			    void      	 **ppsid,
+			    DBusError 	  *error)
+{
+  dbus_bool_t retval = FALSE;
+  DWORD sid_length, wdomain_length;
+  SID_NAME_USE use;
+  wchar_t *wdomain;
+		     
+  *ppsid = NULL;
+
+  sid_length = 0;
+  wdomain_length = 0;
+  if (!LookupAccountNameW (NULL, waccount, NULL, &sid_length,
+			   NULL, &wdomain_length, &use) &&
+      GetLastError () != ERROR_INSUFFICIENT_BUFFER)
+    {
+      _dbus_win_set_error_from_win_error (error, GetLastError ());
+      return FALSE;
+    }
+
+  *ppsid = dbus_malloc (sid_length);
+  if (!*ppsid)
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  wdomain = dbus_new (wchar_t, wdomain_length);
+  if (!wdomain)
+    {
+      _DBUS_SET_OOM (error);
+      goto out1;
+    }
+
+  if (!LookupAccountNameW (NULL, waccount, (PSID) *ppsid, &sid_length,
+			   wdomain, &wdomain_length, &use))
+    {
+      _dbus_win_set_error_from_win_error (error, GetLastError ());
+      goto out2;
+    }
+
+  if (!IsValidSid ((PSID) *ppsid))
+    {
+      dbus_set_error_const (error, DBUS_ERROR_FAILED, "Invalid SID");
+      goto out2;
+    }
+
+  retval = TRUE;
+
+ out2:
+  dbus_free (wdomain);
+ out1:
+  if (!retval)
+    {
+      dbus_free (*ppsid);
+      *ppsid = NULL;
+    }
+
+  return retval;
 }
 
 static void
@@ -2079,6 +2141,13 @@ _dbus_getgid_win (void)
 
   return retval;
 }
+
+
+/************************************************************************
+ 
+ pipes
+
+ ************************************************************************/
 
 
 dbus_bool_t
@@ -2391,29 +2460,3 @@ _dbus_poll_win (DBusPollFD *fds,
 #endif /* ! HAVE_POLL */
 }
 
-/**
- * Measure the message length without terminating nul 
- */
-int _dbus_printf_string_upper_bound (const char *format,
-                         va_list args) 
-{
-  /* MSVCRT's vsnprintf semantics are a bit different */
-  /* The C library source in the Platform SDK indicates that this
-   * would work, but alas, it doesn't. At least not on Windows
-   * 2000. Presumably those sources correspond to the C library on
-   * some newer or even future Windows version.
-   *
-    len = _vsnprintf (NULL, _DBUS_INT_MAX, format, args);
-   */
-  char p[1024];
-  int len;
-  len = vsnprintf (p, sizeof(p)-1, format, args);
-  if (len == -1) // try again
-    {
-      char *p;
-      p = malloc (strlen(format)*3);
-      len = vsnprintf (p, sizeof(p)-1, format, args);
-      free(p);
-    }
-  return len;
-}
