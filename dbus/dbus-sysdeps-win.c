@@ -1684,29 +1684,30 @@ _dbus_re_encapsulate_fd (int fd)
 // win_fds[i].type 
 // TODO: for each type a decapsulate
 int
-_dbus_decapsulate (int fd)
+_dbus_decapsulate (int handle)
 {
-  int i, retval;
+  int i;
+  int value;
 
   // check: parameter must be a valid handle
-  if (fd == -1 || !IS_HANDLE(fd)) {
+  if (handle == -1 || !IS_HANDLE(handle)) {
     _dbus_assert( 0 );
-    return fd;
+    return handle;
   }
 
   // map from handle to index: handle->index
-  i = FROM_HANDLE (fd);
+  i = FROM_HANDLE (handle);
 
   _dbus_assert (win_fds != NULL);
   _dbus_assert (i >= 0 && i < win_n_fds);
 
   // get fd from index: index->fd
-  retval = win_fds[i].fd;
+  value = win_fds[i].fd;
   
-  _dbus_verbose ("deencapsulated C file descriptor fd=%d i=%d dfd=%x\n", retval, i, fd);
+  _dbus_verbose ("deencapsulated C file descriptor fd=%d i=%d dfd=%x\n", value, i, handle);
 
   // return fd
-  return retval;
+  return value;
 }
 
 dbus_bool_t
