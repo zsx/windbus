@@ -1296,7 +1296,7 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
   ret = NetUserGetInfo (NULL, wname, 1, (LPBYTE *) &user_info); 
   if (ret == NERR_Success )
 	  if(user_info->usri1_home_dir != NULL &&
-         user_info->usri1_home_dir != 0xfeeefeee &&  /* freed memory http://www.gamedev.net/community/forums/topic.asp?topic_id=158402 */
+         user_info->usri1_home_dir != (LPWSTR)0xfeeefeee &&  /* freed memory http://www.gamedev.net/community/forums/topic.asp?topic_id=158402 */
          user_info->usri1_home_dir[0] != '\0')
         {
           info->homedir = _dbus_win_utf16_to_utf8 (user_info->usri1_home_dir, error);
@@ -1305,13 +1305,15 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
 	    }
 	  else
         {
-			_dbus_warn("NetUserGetInfo() failed: now valid  user_info\n");
+          _dbus_warn("NetUserGetInfo() failed: no valid user_info\n");
           /* Not set, so use something random. */
           info->homedir = _dbus_strdup ("\\");
          }
   else
     {
-      _dbus_warn("NetUserGetInfo() failed with errorcode %d '%s', %s\n",ret,_dbus_lm_strerror(ret),_dbus_win_utf16_to_utf8(dc,error));
+      char *dc_string = _dbus_win_utf16_to_utf8(dc,error);
+      _dbus_warn("NetUserGetInfo() failed with errorcode %d '%s', %s\n",ret,_dbus_lm_strerror(ret),dc_string);
+      dbus_free(dc_string);
       /* Not set, so use something random. */
       info->homedir = _dbus_strdup ("\\");
     }
