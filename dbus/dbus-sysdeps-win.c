@@ -1610,7 +1610,7 @@ _dbus_encapsulate_type (DBusWin32FDType type, int value)
   
    // fill new posiiton in the map: value->index
   win_fds[i].fd = value;                                             
-  win_fds[i].type = DBUS_WIN_FD_SOCKET;                             
+  win_fds[i].type = type;
                               
   // create handle from the index: index->handle
   handle = TO_HANDLE (i);                                               
