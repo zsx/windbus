@@ -80,8 +80,7 @@ extern int win32_n_fds;
 
 extern const char*
 _dbus_strerror_win (int error_number);
-int  _dbus_win_allocate_fd     (void);
-void _dbus_win_deallocate_fd   (int  fd);
+
 void _dbus_win_startup_winsock (void);
 void _dbus_win_warn_win_error  (const char *message,
                                 int         code);
