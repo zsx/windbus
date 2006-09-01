@@ -1610,11 +1610,9 @@ _dbus_create_handle_from_value (DBusWin32FDType type, int value)
   int handle = -1;      
 
   // check: parameter must be a valid value
-  if (value == -1 || IS_HANDLE(value)) {
-    _dbus_assert( 0 );
-    return value;
-  }
-
+  _dbus_assert(value != -1);
+  _dbus_assert(!IS_HANDLE(value));
+ 
   // get index of a new position in the map
   i = _dbus_win_allocate_fd ();                                   
   
@@ -1625,7 +1623,7 @@ _dbus_create_handle_from_value (DBusWin32FDType type, int value)
   // create handle from the index: index->handle
   handle = TO_HANDLE (i);                                               
                                                                         
-  _dbus_verbose ("encapsulated value %d:%d:%d\n", handle, i, value);  
+  _dbus_verbose ("_dbus_create_handle_from_value, value: %d, handle: %d\n", value, handle);  
          
   return handle;
 }
@@ -1637,10 +1635,8 @@ _dbus_value_to_handle (DBusWin32FDType type, int value)
   int handle = -1;
 
   // check: parameter must be a valid value
-  if (value == -1 || IS_HANDLE(value)) {
-    _dbus_assert( 0 );
-    return value;
-  }
+  _dbus_assert(value != -1);
+  _dbus_assert(!IS_HANDLE(value));
 
   _DBUS_LOCK (win_fds);
 
@@ -1692,10 +1688,8 @@ _dbus_handle_to_value (DBusWin32FDType type, int handle)
   int value;
 
   // check: parameter must be a valid handle
-  if (handle == -1 || !IS_HANDLE(handle)) {
-    _dbus_assert( 0 );
-    return handle;
-  }
+  _dbus_assert(handle != -1);
+  _dbus_assert(IS_HANDLE(handle));
 
   // map from handle to index: handle->index
   i = FROM_HANDLE (handle);
