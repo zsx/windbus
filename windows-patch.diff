@@ -1725,22 +1725,14 @@ Index: dbus/dbus-sysdeps.h
 ===================================================================
 --- dbus/dbus-sysdeps.h	(revision 227)
 +++ dbus/dbus-sysdeps.h	(working copy)
-@@ -101,6 +101,20 @@
+@@ -101,6 +101,12 @@
  #define DBUS_UID_FORMAT "%lu"
  #define DBUS_GID_FORMAT "%lu"
  
-+int _dbus_socket_to_handle (int socket);
 +int _dbus_handle_to_socket (int handle);
-+int _dbus_fd_to_handle     (int fd);
 +int _dbus_handle_to_fd     (int handle);
-+
-+#ifndef DBUS_WIN
-+// move to dbus-sysdeps-unix.c
-+int _dbus_socket_to_handle (int socket){ return socket; }
-+int _dbus_handle_to_socket (int handle){ return handle; }
-+int _dbus_fd_to_handle     (int fd)    { return fd; }
-+int _dbus_handle_to_fd     (int handle){ return handle; }
-+#endif
++int _dbus_socket_to_handle (int socket);
++int _dbus_fd_to_handle     (int fd);
 +
 +
  /**
@@ -1779,6 +1771,18 @@ Index: dbus/dbus-string-util.c
    return TRUE;
  }
  
+Index: dbus/Makefile.am
+===================================================================
+--- dbus/Makefile.am	(revision 227)
++++ dbus/Makefile.am	(working copy)
+@@ -104,6 +104,7 @@
+ 	dbus-string.h				\
+ 	dbus-string-private.h			\
+ 	dbus-sysdeps.c				\
++	dbus-sysdeps-unix.c		    \
+ 	dbus-sysdeps.h				\
+ 	dbus-userdb.c				\
+ 	dbus-userdb.h
 Index: tools/dbus-monitor.c
 ===================================================================
 --- tools/dbus-monitor.c	(revision 227)
