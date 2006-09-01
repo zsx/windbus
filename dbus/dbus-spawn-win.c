@@ -484,7 +484,7 @@ babysitter (void *parameter)
 #endif
 
   PING();
-  send (_dbus_decapsulate_socket (sitter->socket_to_main), " ", 1, 0);
+  send (_dbus_handle_to_socket (sitter->socket_to_main), " ", 1, 0);
 
   _dbus_babysitter_unref (sitter);
 

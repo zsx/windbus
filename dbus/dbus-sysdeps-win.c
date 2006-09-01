@@ -1594,7 +1594,7 @@ _dbus_win_startup_winsock (void)
 }
 
 int                                                                     
-_dbus_encapsulate_type (DBusWin32FDType type, int value)                                   
+_dbus_create_handle_from_value (DBusWin32FDType type, int value)                                   
 {    
   int i;
   int handle = -1;      
@@ -1621,19 +1621,19 @@ _dbus_encapsulate_type (DBusWin32FDType type, int value)
 }
 
 int                                                                     
-_dbus_encapsulate_socket (int socket)                                   
+_dbus_create_handle_from_socket (int socket)                                   
 {                                                                       
-  return _dbus_encapsulate_type (DBUS_WIN_FD_SOCKET, socket);
+  return _dbus_create_handle_from_value (DBUS_WIN_FD_SOCKET, socket);
 }
 
 int                                                                     
-_dbus_encapsulate_fd (int fd)                                   
+_dbus_create_handle_from_fd (int fd)                                   
 {                                                                       
-  return _dbus_encapsulate_type (DBUS_WIN_FD_C_LIB, fd);
+  return _dbus_create_handle_from_value (DBUS_WIN_FD_C_LIB, fd);
 }
 
 int                 
-_dbus_re_encapsulate_type (DBusWin32FDType type, int value)
+_dbus_value_to_handle (DBusWin32FDType type, int value)
 {
   int i;
   int handle = -1;
@@ -1666,20 +1666,20 @@ _dbus_re_encapsulate_type (DBusWin32FDType type, int value)
 }
 
 int                 
-_dbus_re_encapsulate_socket (int socket)
+_dbus_socket_to_handle (int socket)
 {     
-  return _dbus_re_encapsulate_type (DBUS_WIN_FD_SOCKET, socket);
+  return _dbus_value_to_handle (DBUS_WIN_FD_SOCKET, socket);
 }
 
 int                 
-_dbus_re_encapsulate_fd (int fd)
+_dbus_fd_to_handle (int fd)
 {     
-  return _dbus_re_encapsulate_type (DBUS_WIN_FD_C_LIB, fd);
+  return _dbus_value_to_handle (DBUS_WIN_FD_C_LIB, fd);
 }
 
                                               
 int
-_dbus_decapsulate_type (DBusWin32FDType type, int handle)
+_dbus_handle_to_value (DBusWin32FDType type, int handle)
 {
   int i;
   int value;
@@ -1708,16 +1708,17 @@ _dbus_decapsulate_type (DBusWin32FDType type, int handle)
 }
 
 int
-_dbus_decapsulate_socket (int handle)
+_dbus_handle_to_socket (int handle)
 {
-  return _dbus_decapsulate_type (DBUS_WIN_FD_SOCKET, handle);
+  return _dbus_handle_to_value (DBUS_WIN_FD_SOCKET, handle);
 }
 
 int
-_dbus_decapsulate_fd (int handle)
+_dbus_handle_to_fd (int handle)
 {
-  return _dbus_decapsulate_type (DBUS_WIN_FD_C_LIB, handle);
+  return _dbus_handle_to_value (DBUS_WIN_FD_C_LIB, handle);
 }
+
 
 dbus_bool_t
 _dbus_win_account_to_sid (const wchar_t *waccount,
@@ -2216,8 +2217,8 @@ _dbus_full_duplex_pipe_win (int        *fd1,
     }
       
   
-  *fd1 = _dbus_encapsulate_socket (socket1);
-  *fd2 = _dbus_encapsulate_socket (socket2);
+  *fd1 = _dbus_create_handle_from_socket (socket1);
+  *fd2 = _dbus_create_handle_from_socket (socket2);
 
   _dbus_verbose ("full-duplex pipe %d:%d <-> %d:%d\n",
                  *fd1, socket1, *fd2, socket2);
