@@ -1081,6 +1081,8 @@ _dbus_connect_named_pipe (const char     *path,
 
 #endif
 #endif
+
+static
 int
 _dbus_win_allocate_fd (void)
 {
@@ -1593,6 +1595,8 @@ _dbus_win_startup_winsock (void)
   beenhere = TRUE;
 }
 
+
+static
 int                                                                     
 _dbus_create_handle_from_value (DBusWin32FDType type, int value)                                   
 {    
@@ -1620,18 +1624,6 @@ _dbus_create_handle_from_value (DBusWin32FDType type, int value)
   return handle;
 }
 
-int                                                                     
-_dbus_create_handle_from_socket (int socket)                                   
-{                                                                       
-  return _dbus_create_handle_from_value (DBUS_WIN_FD_SOCKET, socket);
-}
-
-int                                                                     
-_dbus_create_handle_from_fd (int fd)                                   
-{                                                                       
-  return _dbus_create_handle_from_value (DBUS_WIN_FD_C_LIB, fd);
-}
-
 int                 
 _dbus_value_to_handle (DBusWin32FDType type, int value)
 {
@@ -1646,19 +1638,28 @@ _dbus_value_to_handle (DBusWin32FDType type, int value)
 
   _DBUS_LOCK (win_fds);
 
-  _dbus_assert (win_fds != NULL);
-
-  // search for the value in the map
-  // find the index of the value: value->index
-  for (i = 0; i < win_n_fds; i++)
-    if (win_fds[i].type == type && win_fds[i].fd == value)
-      {
-        // create handle from the index: index->handle
-        handle = TO_HANDLE (i);
-        break;
-      }
+  // at the first call there is no win_fds
+  // will be constructed  _dbus_create_handle_from_value
+  // because handle = -1
+  if (win_fds != NULL)
+  {
+    // search for the value in the map
+    // find the index of the value: value->index
+    for (i = 0; i < win_n_fds; i++)
+      if (win_fds[i].type == type && win_fds[i].fd == value)
+        {
+          // create handle from the index: index->handle
+          handle = TO_HANDLE (i);
+          break;
+        }
   
-  _DBUS_UNLOCK (win_fds);
+    _DBUS_UNLOCK (win_fds);
+  }
+
+  if (handle == -1)
+    {
+      handle = _dbus_create_handle_from_value(type, value);
+    }
 
   _dbus_assert(handle != -1);
   
@@ -2217,8 +2218,8 @@ _dbus_full_duplex_pipe_win (int        *fd1,
     }
       
   
-  *fd1 = _dbus_create_handle_from_socket (socket1);
-  *fd2 = _dbus_create_handle_from_socket (socket2);
+  *fd1 = _dbus_socket_to_handle (socket1);
+  *fd2 = _dbus_socket_to_handle (socket2);
 
   _dbus_verbose ("full-duplex pipe %d:%d <-> %d:%d\n",
                  *fd1, socket1, *fd2, socket2);
