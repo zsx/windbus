@@ -71,23 +71,20 @@
 
 #include "dbus-sysdeps-win.h"
 
+
 int win_n_fds = 0;
 DBusWin32FD *win_fds = NULL;
+static
+void _dbus_win_deallocate_fd (int fd);
 
-
-static int  win_encap_randomizer;
-static DBusHashTable *sid_atom_cache = NULL;
-
-#if 0
-#define TO_HANDLE(n)   ((n)^win32_encap_randomizer)
-#define FROM_HANDLE(n) ((n)^win32_encap_randomizer)
-#else
+// FIXME don't use FROM_HANDLE directly,
+// use _handle_to functions
 #define TO_HANDLE(n)   ((n)+0x10000000)
 #define FROM_HANDLE(n) ((n)-0x10000000)
 #define IS_HANDLE(n)   ((n)&0x10000000)
-#endif
 
-#define _dbus_decapsulate_quick(i) win_fds[FROM_HANDLE (i)].fd
+static int  win_encap_randomizer;
+static DBusHashTable *sid_atom_cache = NULL;
 
 
 _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
@@ -1494,13 +1491,6 @@ fill_win_user_info_from_uid (dbus_uid_t    uid,
 
 
 
-void
-_dbus_win_deallocate_fd (int fd)
-{
-  _DBUS_LOCK (win_fds);
-  win_fds[FROM_HANDLE (fd)].type = DBUS_WIN_FD_UNUSED;
-  _DBUS_UNLOCK (win_fds);
-}
 
 void
 _dbus_win_startup_winsock (void)
@@ -1552,6 +1542,26 @@ _dbus_win_startup_winsock (void)
  handle <-> fd/socket functions
 
  ************************************************************************/
+
+#if 0
+#define TO_HANDLE(n)   ((n)^win32_encap_randomizer)
+#define FROM_HANDLE(n) ((n)^win32_encap_randomizer)
+#else
+#define TO_HANDLE(n)   ((n)+0x10000000)
+#define FROM_HANDLE(n) ((n)-0x10000000)
+#define IS_HANDLE(n)   ((n)&0x10000000)
+#endif
+
+#define _dbus_decapsulate_quick(i) win_fds[FROM_HANDLE (i)].fd
+
+static
+void
+_dbus_win_deallocate_fd (int fd)
+{
+  _DBUS_LOCK (win_fds);
+  win_fds[FROM_HANDLE (fd)].type = DBUS_WIN_FD_UNUSED;
+  _DBUS_UNLOCK (win_fds);
+}
 
 static
 int
@@ -1727,7 +1737,10 @@ _dbus_handle_to_fd (int handle)
   return _dbus_handle_to_value (DBUS_WIN_FD_C_LIB, handle);
 }
 
-
+#undef TO_HANDLE
+// FIXME use the handle anf not the index
+//#undef FROM_HANDLE
+#undef IS_HANDLE
 
 
 
