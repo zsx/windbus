@@ -1082,61 +1082,6 @@ _dbus_connect_named_pipe (const char     *path,
 #endif
 #endif
 
-static
-int
-_dbus_win_allocate_fd (void)
-{
-  int i;
-
-  _DBUS_LOCK (win_fds);
-
-  if (win_fds == NULL)
-    {
-      DBusString random;
-
-      win_n_fds = 16;
-      /* Use malloc to avoid memory leak failure in dbus-test */
-      win_fds = malloc (win_n_fds * sizeof (*win_fds));
-
-      _dbus_assert (win_fds != NULL);
-
-      for (i = 0; i < win_n_fds; i++)
-        win_fds[i].type = DBUS_WIN_FD_UNUSED;
-
-      _dbus_string_init (&random);
-      _dbus_generate_random_bytes (&random, sizeof (int));
-      memmove (&win_encap_randomizer, _dbus_string_get_const_data (&random), sizeof (int));
-      win_encap_randomizer &= 0xFF;
-      _dbus_string_free (&random);
-    }
-
-  for (i = 0; i < win_n_fds && win_fds[i].type != DBUS_WIN_FD_UNUSED; i++)
-    ;
-
-  if (i == win_n_fds)
-    {
-      int oldn = win_n_fds;
-      int j;
-
-      win_n_fds += 16;
-      win_fds = realloc (win_fds, win_n_fds * sizeof (*win_fds));
-
-      _dbus_assert (win_fds != NULL);
-
-      for (j = oldn; j < win_n_fds; j++)
-        win_fds[i].type = DBUS_WIN_FD_UNUSED;
-    }
-
-  win_fds[i].type = DBUS_WIN_FD_BEING_OPENED;
-  win_fds[i].fd = -1;
-  win_fds[i].port_file_fd = -1;
-  win_fds[i].close_on_exec = FALSE;
-  win_fds[i].non_blocking = FALSE;
-
-  _DBUS_UNLOCK (win_fds);
-
-  return i;
-}
 
 dbus_bool_t
 _dbus_account_to_win_sid (const wchar_t  *waccount,
@@ -1596,11 +1541,73 @@ _dbus_win_startup_winsock (void)
 }
 
 
+
+
+
+
+
+
 /************************************************************************
  
  handle <-> fd/socket functions
 
  ************************************************************************/
+
+static
+int
+_dbus_win_allocate_fd (void)
+{
+  int i;
+
+  _DBUS_LOCK (win_fds);
+
+  if (win_fds == NULL)
+    {
+      DBusString random;
+
+      win_n_fds = 16;
+      /* Use malloc to avoid memory leak failure in dbus-test */
+      win_fds = malloc (win_n_fds * sizeof (*win_fds));
+
+      _dbus_assert (win_fds != NULL);
+
+      for (i = 0; i < win_n_fds; i++)
+        win_fds[i].type = DBUS_WIN_FD_UNUSED;
+
+      _dbus_string_init (&random);
+      _dbus_generate_random_bytes (&random, sizeof (int));
+      memmove (&win_encap_randomizer, _dbus_string_get_const_data (&random), sizeof (int));
+      win_encap_randomizer &= 0xFF;
+      _dbus_string_free (&random);
+    }
+
+  for (i = 0; i < win_n_fds && win_fds[i].type != DBUS_WIN_FD_UNUSED; i++)
+    ;
+
+  if (i == win_n_fds)
+    {
+      int oldn = win_n_fds;
+      int j;
+
+      win_n_fds += 16;
+      win_fds = realloc (win_fds, win_n_fds * sizeof (*win_fds));
+
+      _dbus_assert (win_fds != NULL);
+
+      for (j = oldn; j < win_n_fds; j++)
+        win_fds[i].type = DBUS_WIN_FD_UNUSED;
+    }
+
+  win_fds[i].type = DBUS_WIN_FD_BEING_OPENED;
+  win_fds[i].fd = -1;
+  win_fds[i].port_file_fd = -1;
+  win_fds[i].close_on_exec = FALSE;
+  win_fds[i].non_blocking = FALSE;
+
+  _DBUS_UNLOCK (win_fds);
+
+  return i;
+}
 
 static
 int                                                                     
