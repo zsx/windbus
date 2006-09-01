@@ -94,6 +94,238 @@ _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
 
+/************************************************************************
+ 
+ handle <-> fd/socket functions
+
+ ************************************************************************/
+
+static DBusWin32FD *win_fds = NULL;
+static int win_n_fds = 0; // is this the size? rename to win_fds_size? #
+
+#if 0
+#define TO_HANDLE(n)   ((n)^win32_encap_randomizer)
+#define FROM_HANDLE(n) ((n)^win32_encap_randomizer)
+#else
+#define TO_HANDLE(n)   ((n)+0x10000000)
+#define FROM_HANDLE(n) ((n)-0x10000000)
+#define IS_HANDLE(n)   ((n)&0x10000000)
+#endif
+
+// do we need this? 
+// doesn't the compiler optimize within one file?
+#define _dbus_decapsulate_quick(i) win_fds[FROM_HANDLE (i)].fd
+
+static
+void
+_dbus_win_deallocate_fd (int fd)
+{
+  _DBUS_LOCK (win_fds);
+  win_fds[FROM_HANDLE (fd)].type = DBUS_WIN_FD_UNUSED;
+  _DBUS_UNLOCK (win_fds);
+}
+
+static
+int
+_dbus_win_allocate_fd (void)
+{
+  int i;
+
+  _DBUS_LOCK (win_fds);
+
+  if (win_fds == NULL)
+    {
+      DBusString random;
+
+      win_n_fds = 16;
+      /* Use malloc to avoid memory leak failure in dbus-test */
+      win_fds = malloc (win_n_fds * sizeof (*win_fds));
+
+      _dbus_assert (win_fds != NULL);
+
+      for (i = 0; i < win_n_fds; i++)
+        win_fds[i].type = DBUS_WIN_FD_UNUSED;
+
+      _dbus_string_init (&random);
+      _dbus_generate_random_bytes (&random, sizeof (int));
+      memmove (&win_encap_randomizer, _dbus_string_get_const_data (&random), sizeof (int));
+      win_encap_randomizer &= 0xFF;
+      _dbus_string_free (&random);
+    }
+
+  for (i = 0; i < win_n_fds && win_fds[i].type != DBUS_WIN_FD_UNUSED; i++)
+    ;
+
+  if (i == win_n_fds)
+    {
+      int oldn = win_n_fds;
+      int j;
+
+      win_n_fds += 16;
+      win_fds = realloc (win_fds, win_n_fds * sizeof (*win_fds));
+
+      _dbus_assert (win_fds != NULL);
+
+      for (j = oldn; j < win_n_fds; j++)
+        win_fds[i].type = DBUS_WIN_FD_UNUSED;
+    }
+
+  win_fds[i].type = DBUS_WIN_FD_BEING_OPENED;
+  win_fds[i].fd = -1;
+  win_fds[i].port_file_fd = -1;
+  win_fds[i].close_on_exec = FALSE;
+  win_fds[i].non_blocking = FALSE;
+
+  _DBUS_UNLOCK (win_fds);
+
+  return i;
+}
+
+static
+int                                                                     
+_dbus_create_handle_from_value (DBusWin32FDType type, int value)                                   
+{    
+  int i;
+  int handle = -1;      
+
+  // check: parameter must be a valid value
+  _dbus_assert(value != -1);
+  _dbus_assert(!IS_HANDLE(value));
+ 
+  // get index of a new position in the map
+  i = _dbus_win_allocate_fd ();                                   
+  
+   // fill new posiiton in the map: value->index
+  win_fds[i].fd = value;                                             
+  win_fds[i].type = type;
+                              
+  // create handle from the index: index->handle
+  handle = TO_HANDLE (i);                                               
+                                                                        
+  _dbus_verbose ("_dbus_create_handle_from_value, value: %d, handle: %d\n", value, handle);  
+         
+  return handle;
+}
+
+static
+int                 
+_dbus_value_to_handle (DBusWin32FDType type, int value)
+{
+  int i;
+  int handle = -1;
+
+  // check: parameter must be a valid value
+  _dbus_assert(value != -1);
+  _dbus_assert(!IS_HANDLE(value));
+
+  _DBUS_LOCK (win_fds);
+
+  // at the first call there is no win_fds
+  // will be constructed  _dbus_create_handle_from_value
+  // because handle = -1
+  if (win_fds != NULL)
+  {
+    // search for the value in the map
+    // find the index of the value: value->index
+    for (i = 0; i < win_n_fds; i++)
+      if (win_fds[i].type == type && win_fds[i].fd == value)
+        {
+          // create handle from the index: index->handle
+          handle = TO_HANDLE (i);
+          break;
+        }
+  
+    _DBUS_UNLOCK (win_fds);
+  }
+
+  if (handle == -1)
+    {
+      handle = _dbus_create_handle_from_value(type, value);
+    }
+
+  _dbus_assert(handle != -1);
+  
+  return handle;
+}
+
+
+int                 
+_dbus_socket_to_handle (int socket)
+{     
+  return _dbus_value_to_handle (DBUS_WIN_FD_SOCKET, socket);
+}
+
+int                 
+_dbus_fd_to_handle (int fd)
+{     
+  return _dbus_value_to_handle (DBUS_WIN_FD_C_LIB, fd);
+}
+
+                                              
+static
+int
+_dbus_handle_to_value (DBusWin32FDType type, int handle)
+{
+  int i;
+  int value;
+
+  // check: parameter must be a valid handle
+  _dbus_assert(handle != -1);
+  _dbus_assert(IS_HANDLE(handle));
+
+  // map from handle to index: handle->index
+  i = FROM_HANDLE (handle);
+
+  _dbus_assert (win_fds != NULL);
+  _dbus_assert (i >= 0 && i < win_n_fds);
+
+  // check for correct type
+  _dbus_assert (win_fds[i].type == type);
+
+  // get value from index: index->value
+  value = win_fds[i].fd;
+  
+  _dbus_verbose ("deencapsulated C value fd=%d i=%d dfd=%x\n", value, i, handle);
+
+  return value;
+}
+
+int
+_dbus_handle_to_socket (int handle)
+{
+  return _dbus_handle_to_value (DBUS_WIN_FD_SOCKET, handle);
+}
+
+int
+_dbus_handle_to_fd (int handle)
+{
+  return _dbus_handle_to_value (DBUS_WIN_FD_C_LIB, handle);
+}
+
+#undef TO_HANDLE
+#undef IS_HANDLE
+// FIXME: don't use FROM_HANDLE directly,
+// use _handle_to functions
+#ifndef DBUS_WIN_FIXME
+#undef FROM_HANDLE
+#define FROM_HANDLE(n) 1==DBUS_WIN_FIXME__FROM_HANDLE
+#endif
+
+
+
+
+
+
+/************************************************************************
+  
+  ????????????????????
+
+ ************************************************************************/
+
+
+
+
+
 int
 _dbus_read_win (int               fd,
             DBusString       *buffer,
@@ -1103,224 +1335,6 @@ _dbus_win_startup_winsock (void)
 
 
 
-
-
-/************************************************************************
- 
- handle <-> fd/socket functions
-
- ************************************************************************/
-
-static DBusWin32FD *win_fds = NULL;
-static int win_n_fds = 0; // is this the size? rename to win_fds_size? #
-
-#if 0
-#define TO_HANDLE(n)   ((n)^win32_encap_randomizer)
-#define FROM_HANDLE(n) ((n)^win32_encap_randomizer)
-#else
-#define TO_HANDLE(n)   ((n)+0x10000000)
-#define FROM_HANDLE(n) ((n)-0x10000000)
-#define IS_HANDLE(n)   ((n)&0x10000000)
-#endif
-
-// do we need this? 
-// doesn't the compiler optimize within one file?
-#define _dbus_decapsulate_quick(i) win_fds[FROM_HANDLE (i)].fd
-
-static
-void
-_dbus_win_deallocate_fd (int fd)
-{
-  _DBUS_LOCK (win_fds);
-  win_fds[FROM_HANDLE (fd)].type = DBUS_WIN_FD_UNUSED;
-  _DBUS_UNLOCK (win_fds);
-}
-
-static
-int
-_dbus_win_allocate_fd (void)
-{
-  int i;
-
-  _DBUS_LOCK (win_fds);
-
-  if (win_fds == NULL)
-    {
-      DBusString random;
-
-      win_n_fds = 16;
-      /* Use malloc to avoid memory leak failure in dbus-test */
-      win_fds = malloc (win_n_fds * sizeof (*win_fds));
-
-      _dbus_assert (win_fds != NULL);
-
-      for (i = 0; i < win_n_fds; i++)
-        win_fds[i].type = DBUS_WIN_FD_UNUSED;
-
-      _dbus_string_init (&random);
-      _dbus_generate_random_bytes (&random, sizeof (int));
-      memmove (&win_encap_randomizer, _dbus_string_get_const_data (&random), sizeof (int));
-      win_encap_randomizer &= 0xFF;
-      _dbus_string_free (&random);
-    }
-
-  for (i = 0; i < win_n_fds && win_fds[i].type != DBUS_WIN_FD_UNUSED; i++)
-    ;
-
-  if (i == win_n_fds)
-    {
-      int oldn = win_n_fds;
-      int j;
-
-      win_n_fds += 16;
-      win_fds = realloc (win_fds, win_n_fds * sizeof (*win_fds));
-
-      _dbus_assert (win_fds != NULL);
-
-      for (j = oldn; j < win_n_fds; j++)
-        win_fds[i].type = DBUS_WIN_FD_UNUSED;
-    }
-
-  win_fds[i].type = DBUS_WIN_FD_BEING_OPENED;
-  win_fds[i].fd = -1;
-  win_fds[i].port_file_fd = -1;
-  win_fds[i].close_on_exec = FALSE;
-  win_fds[i].non_blocking = FALSE;
-
-  _DBUS_UNLOCK (win_fds);
-
-  return i;
-}
-
-static
-int                                                                     
-_dbus_create_handle_from_value (DBusWin32FDType type, int value)                                   
-{    
-  int i;
-  int handle = -1;      
-
-  // check: parameter must be a valid value
-  _dbus_assert(value != -1);
-  _dbus_assert(!IS_HANDLE(value));
- 
-  // get index of a new position in the map
-  i = _dbus_win_allocate_fd ();                                   
-  
-   // fill new posiiton in the map: value->index
-  win_fds[i].fd = value;                                             
-  win_fds[i].type = type;
-                              
-  // create handle from the index: index->handle
-  handle = TO_HANDLE (i);                                               
-                                                                        
-  _dbus_verbose ("_dbus_create_handle_from_value, value: %d, handle: %d\n", value, handle);  
-         
-  return handle;
-}
-
-static
-int                 
-_dbus_value_to_handle (DBusWin32FDType type, int value)
-{
-  int i;
-  int handle = -1;
-
-  // check: parameter must be a valid value
-  _dbus_assert(value != -1);
-  _dbus_assert(!IS_HANDLE(value));
-
-  _DBUS_LOCK (win_fds);
-
-  // at the first call there is no win_fds
-  // will be constructed  _dbus_create_handle_from_value
-  // because handle = -1
-  if (win_fds != NULL)
-  {
-    // search for the value in the map
-    // find the index of the value: value->index
-    for (i = 0; i < win_n_fds; i++)
-      if (win_fds[i].type == type && win_fds[i].fd == value)
-        {
-          // create handle from the index: index->handle
-          handle = TO_HANDLE (i);
-          break;
-        }
-  
-    _DBUS_UNLOCK (win_fds);
-  }
-
-  if (handle == -1)
-    {
-      handle = _dbus_create_handle_from_value(type, value);
-    }
-
-  _dbus_assert(handle != -1);
-  
-  return handle;
-}
-
-
-int                 
-_dbus_socket_to_handle (int socket)
-{     
-  return _dbus_value_to_handle (DBUS_WIN_FD_SOCKET, socket);
-}
-
-int                 
-_dbus_fd_to_handle (int fd)
-{     
-  return _dbus_value_to_handle (DBUS_WIN_FD_C_LIB, fd);
-}
-
-                                              
-static
-int
-_dbus_handle_to_value (DBusWin32FDType type, int handle)
-{
-  int i;
-  int value;
-
-  // check: parameter must be a valid handle
-  _dbus_assert(handle != -1);
-  _dbus_assert(IS_HANDLE(handle));
-
-  // map from handle to index: handle->index
-  i = FROM_HANDLE (handle);
-
-  _dbus_assert (win_fds != NULL);
-  _dbus_assert (i >= 0 && i < win_n_fds);
-
-  // check for correct type
-  _dbus_assert (win_fds[i].type == type);
-
-  // get value from index: index->value
-  value = win_fds[i].fd;
-  
-  _dbus_verbose ("deencapsulated C value fd=%d i=%d dfd=%x\n", value, i, handle);
-
-  return value;
-}
-
-int
-_dbus_handle_to_socket (int handle)
-{
-  return _dbus_handle_to_value (DBUS_WIN_FD_SOCKET, handle);
-}
-
-int
-_dbus_handle_to_fd (int handle)
-{
-  return _dbus_handle_to_value (DBUS_WIN_FD_C_LIB, handle);
-}
-
-#undef TO_HANDLE
-#undef IS_HANDLE
-// FIXME: don't use FROM_HANDLE directly,
-// use _handle_to functions
-#ifndef DBUS_WIN_FIXME
-#undef FROM_HANDLE
-#define FROM_HANDLE(n) 1==DBUS_WIN_FIXME__FROM_HANDLE
-#endif
 
 
 
