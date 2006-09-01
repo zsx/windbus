@@ -1708,13 +1708,13 @@ _dbus_decapsulate_type (DBusWin32FDType type, int handle)
 }
 
 int
-_dbus_decapsulate_socket (DBusWin32FDType type, int handle)
+_dbus_decapsulate_socket (int handle)
 {
   return _dbus_decapsulate_type (DBUS_WIN_FD_SOCKET, handle);
 }
 
 int
-_dbus_decapsulate_fd (DBusWin32FDType type, int handle)
+_dbus_decapsulate_fd (int handle)
 {
   return _dbus_decapsulate_type (DBUS_WIN_FD_C_LIB, handle);
 }
