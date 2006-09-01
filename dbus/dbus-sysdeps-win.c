@@ -1112,7 +1112,7 @@ _dbus_win_allocate_fd (void)
       _dbus_assert (win_fds != NULL);
 
       for (j = oldn; j < win_n_fds; j++)
-	win_fds[i].type = DBUS_WIN_FD_UNUSED;
+        win_fds[i].type = DBUS_WIN_FD_UNUSED;
     }
 
   win_fds[i].type = DBUS_WIN_FD_BEING_OPENED;
@@ -1612,6 +1612,7 @@ _dbus_re_encapsulate_socket (int socket)
   _DBUS_LOCK (win_fds);
 
   _dbus_assert (win_fds != NULL);
+  _dbus_assert (!IS_HANDLE(socket));
 
   // search for the socket in the map
   // find the index of the socket: socket->index
@@ -1625,6 +1626,7 @@ _dbus_re_encapsulate_socket (int socket)
   
   _DBUS_UNLOCK (win_fds);
 
+  _dbus_assert(retval != -1);
   // return handle
   return retval;
 }
@@ -1665,20 +1667,22 @@ _dbus_re_encapsulate_fd (int fd)
                                                        
   _DBUS_LOCK (win_fds);                              
                                                        
-  _dbus_assert (win_fds != NULL);                    
+  _dbus_assert (win_fds != NULL);
+  _dbus_assert (!IS_HANDLE(fd));
              
   // search for the fd in the map
   // find the index of fd: fd->index
-  for (i = 0; i < win_n_fds; i++)                    
-    if (win_fds[i].type == DBUS_WIN_FD_C_LIB && win_fds[i].fd == fd)                                
+  for (i = 0; i < win_n_fds; i++)
+    if (win_fds[i].type == DBUS_WIN_FD_C_LIB && win_fds[i].fd == fd)
       {          
-		// create handle from the index: index->handle
+        // create handle from the index: index->handle
         retval = RANDOMIZE (i);                               
         break;                                                
       }                                                
                                                        
   _DBUS_UNLOCK (win_fds);                            
                
+  _dbus_assert(retval != -1);
   // return handle
   return retval;                                       
 }                                                      
@@ -1690,7 +1694,7 @@ _dbus_re_encapsulate_fd (int fd)
 int
 _dbus_decapsulate (int fd)
 {
-  int i, retval; 
+  int i, retval;
 
   // check: parameter must be a valid handle
   if (fd == -1 || !IS_HANDLE(fd)) {
@@ -2266,8 +2270,9 @@ _dbus_poll_win (DBusPollFD *fds,
   for (i = 0; i < n_fds; i++)
     {
       static dbus_bool_t warned = FALSE;
-      DBusPollFD *f = fds+i;
-      int fd = UNRANDOMIZE (_dbus_re_encapsulate_socket (f->fd));
+      DBusPollFD *fdp = &fds[i];
+      int sock;
+      int fd = UNRANDOMIZE (fdp->fd);
 
       _dbus_assert (fd >= 0 && fd < win_n_fds);
 
@@ -2277,14 +2282,15 @@ _dbus_poll_win (DBusPollFD *fds,
         _dbus_warn ("Can poll only sockets on Win32");
         warned = TRUE;
       }
+      sock = _dbus_decapsulate_quick (fdp->fd);
 
-      if (f->events & _DBUS_POLLIN)
-        msgp += sprintf (msgp, "R:%d ", _dbus_decapsulate_quick (f->fd));
+      if (fdp->events & _DBUS_POLLIN)
+        msgp += sprintf (msgp, "R:%d ", sock);
 
-      if (f->events & _DBUS_POLLOUT)
-        msgp += sprintf (msgp, "W:%d ", _dbus_decapsulate_quick (f->fd));
+      if (fdp->events & _DBUS_POLLOUT)
+        msgp += sprintf (msgp, "W:%d ", sock);
 
-      msgp += sprintf (msgp, "E:%d ", _dbus_decapsulate_quick (f->fd));
+      msgp += sprintf (msgp, "E:%d ", sock);
     }
 
   msgp += sprintf (msgp, "\n");
@@ -2294,6 +2300,7 @@ _dbus_poll_win (DBusPollFD *fds,
   for (i = 0; i < n_fds; i++)
     {
       DBusPollFD *fdp = &fds[i];
+      int sock = _dbus_decapsulate_quick (fdp->fd);
 
 #ifdef DBUS_WIN
       if (win_fds[UNRANDOMIZE (fdp->fd)].type != DBUS_WIN_FD_SOCKET)
@@ -2301,14 +2308,14 @@ _dbus_poll_win (DBusPollFD *fds,
 #endif
 
       if (fdp->events & _DBUS_POLLIN)
-        FD_SET (_dbus_decapsulate_quick (fdp->fd), &read_set);
+        FD_SET (sock, &read_set);
 
       if (fdp->events & _DBUS_POLLOUT)
-        FD_SET (_dbus_decapsulate_quick (fdp->fd), &write_set);
+        FD_SET (sock, &write_set);
 
-      FD_SET (_dbus_decapsulate_quick (fdp->fd), &err_set);
+      FD_SET (sock, &err_set);
 
-      max_fd = MAX (max_fd, _dbus_decapsulate_quick (fdp->fd));
+      max_fd = MAX (max_fd, sock);
     }
     
 #ifdef DBUS_WIN
@@ -2340,36 +2347,38 @@ _dbus_poll_win (DBusPollFD *fds,
       _DBUS_LOCK (win_fds);
       for (i = 0; i < n_fds; i++)
         {
-	      DBusPollFD *f = fds+i;
+          DBusPollFD *fdp = &fds[i];
+          int sock = _dbus_decapsulate_quick (fdp->fd);
 
-	      if (FD_ISSET (_dbus_decapsulate_quick (f->fd), &read_set))
-	        msgp += sprintf (msgp, "R:%d ", _dbus_decapsulate_quick (f->fd));
+          if (FD_ISSET (sock, &read_set))
+            msgp += sprintf (msgp, "R:%d ", sock);
 
-	      if (FD_ISSET (_dbus_decapsulate_quick (f->fd), &write_set))
-	        msgp += sprintf (msgp, "W:%d ", _dbus_decapsulate_quick (f->fd));
+          if (FD_ISSET (sock, &write_set))
+            msgp += sprintf (msgp, "W:%d ", sock);
 
-	      if (FD_ISSET (_dbus_decapsulate_quick (f->fd), &err_set))
-	        msgp += sprintf (msgp, "E:%d ", _dbus_decapsulate_quick (f->fd));
-	    }
+          if (FD_ISSET (sock, &err_set))
+            msgp += sprintf (msgp, "E:%d ", sock);
+        }
       msgp += sprintf (msgp, "\n");
       _dbus_verbose ("%s",msg);
 #endif
 
-    for (i = 0; i < n_fds; i++)
-	{
-	  DBusPollFD *fdp = &fds[i];
+      for (i = 0; i < n_fds; i++)
+      {
+        DBusPollFD *fdp = &fds[i];
+        int sock = _dbus_decapsulate_quick (fdp->fd);
 
-	  fdp->revents = 0;
+        fdp->revents = 0;
 
-	  if (FD_ISSET (_dbus_decapsulate_quick (fdp->fd), &read_set))
-	    fdp->revents |= _DBUS_POLLIN;
+        if (FD_ISSET (sock, &read_set))
+          fdp->revents |= _DBUS_POLLIN;
 
-	  if (FD_ISSET (_dbus_decapsulate_quick (fdp->fd), &write_set))
-	    fdp->revents |= _DBUS_POLLOUT;
+        if (FD_ISSET (sock, &write_set))
+          fdp->revents |= _DBUS_POLLOUT;
 
-	  if (FD_ISSET (_dbus_decapsulate_quick (fdp->fd), &err_set))
-	    fdp->revents |= _DBUS_POLLERR;
-	}
+        if (FD_ISSET (sock, &err_set))
+          fdp->revents |= _DBUS_POLLERR;
+      }
 #ifdef DBUS_WIN
       _DBUS_UNLOCK (win_fds);
 #endif
