@@ -690,19 +690,6 @@ Index: dbus/dbus-transport-unix.c
  
  
  /**
-Index: dbus/dbus-mainloop.c
-===================================================================
---- dbus/dbus-mainloop.c	(Revision 206)
-+++ dbus/dbus-mainloop.c	(Arbeitskopie)
-@@ -609,7 +609,7 @@
-                   
-               flags = dbus_watch_get_flags (wcb->watch);
-                   
--              fds[n_fds].fd = dbus_watch_get_fd (wcb->watch);
-+              fds[n_fds].fd = _dbus_re_encapsulate_socket(dbus_watch_get_fd (wcb->watch));
-               fds[n_fds].revents = 0;
-               fds[n_fds].events = 0;
-               if (flags & DBUS_WATCH_READABLE)
 Index: dbus/dbus-sysdeps.c
 ===================================================================
 --- dbus/dbus-sysdeps.c	(Revision 206)
