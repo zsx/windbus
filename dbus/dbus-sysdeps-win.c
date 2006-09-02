@@ -2481,6 +2481,7 @@ Original CVS version of dbus-sysdeps.c
  * 
  * Copyright (C) 2002, 2003  Red Hat, Inc.
  * Copyright (C) 2003 CodeFactory AB
+ * Copyright (C) 2005 Novell, Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -2509,22 +2510,30 @@ Original CVS version of dbus-sysdeps.c
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
-#include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
+
+#ifdef DBUS_WIN
+#include "dbus-sysdeps-win.h"
+#include "dbus-hash.h"
+#include "dbus-sockets-win.h"
+#else
+#include <unistd.h>
 #include <sys/socket.h>
 #include <dirent.h>
 #include <sys/un.h>
 #include <pwd.h>
-#include <time.h>
-#include <locale.h>
 #include <sys/time.h>
-#include <sys/stat.h>
 #include <sys/wait.h>
 #include <netinet/in.h>
 #include <netdb.h>
 #include <grp.h>
+#endif
+
+#include <time.h>
+#include <locale.h>
+#include <sys/stat.h>
 
 #ifdef HAVE_WRITEV
 #include <sys/uio.h>
@@ -2550,11 +2559,19 @@ Original CVS version of dbus-sysdeps.c
 _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
+#ifndef DBUS_WIN
+#define _dbus_decapsulate_quick(i)       (i)
+#define DBUS_SOCKET_IS_INVALID(s)        ((s) < 0)
+#define DBUS_SOCKET_API_RETURNS_ERROR(n) ((n) < 0)
+#define DBUS_SOCKET_SET_ERRNO()          /* empty */
+#define DBUS_CLOSE_SOCKET(s)             close(s)
+#endif
+
 /**
  * @addtogroup DBusInternalsUtils
  * @{
  */
-#ifndef DBUS_DISABLE_ASSERT
+#if !defined(DBUS_DISABLE_ASSERT) && !defined(DBUS_WIN)
 /**
  * Aborts the program with SIGABRT (dumping core).
  */
@@ -2566,6 +2583,10 @@ _dbus_abort (void)
   s = _dbus_getenv ("DBUS_PRINT_BACKTRACE");
   if (s && *s)
     _dbus_print_backtrace ();
+#endif
+#if defined (DBUS_WIN) && defined (__GNUC__)
+  if (IsDebuggerPresent ())
+    __asm__ __volatile__ ("int $03");
 #endif
   abort ();
   _exit (1); /* in case someone manages to ignore SIGABRT */
@@ -2604,11 +2625,18 @@ _dbus_setenv (const char *varname,
        * will get upset about.
        */
       
+#ifdef DBUS_WIN
+      putenv_value = malloc (len + 2);
+#else
       putenv_value = malloc (len + 1);
+#endif
       if (putenv_value == NULL)
         return FALSE;
 
       strcpy (putenv_value, varname);
+#ifdef DBUS_WIN
+      strcat (putenv_value, "=");
+#endif
       
       return (putenv (putenv_value) == 0);
 #endif
@@ -2675,6 +2703,9 @@ _dbus_read (int               fd,
             DBusString       *buffer,
             int               count)
 {
+#ifdef DBUS_WIN
+  return _dbus_read_win (fd, buffer, count);
+#else
   int bytes_read;
   int start;
   char *data;
@@ -2718,6 +2749,7 @@ _dbus_read (int               fd,
       
       return bytes_read;
     }
+#endif
 }
 
 /**
@@ -2736,6 +2768,9 @@ _dbus_write (int               fd,
              int               start,
              int               len)
 {
+#ifdef DBUS_WIN
+  return _dbus_write_win (fd, buffer, start, len);
+#else
   const char *data;
   int bytes_written;
   
@@ -2754,6 +2789,7 @@ _dbus_write (int               fd,
 #endif
   
   return bytes_written;
+#endif
 }
 
 /**
@@ -2791,6 +2827,10 @@ _dbus_write_two (int               fd,
   _dbus_assert (len1 >= 0);
   _dbus_assert (len2 >= 0);
   
+#ifdef DBUS_WIN
+  return _dbus_write_two_win(fd, buffer1, start1, len1, buffer2, start2, len2);
+#else
+
 #ifdef HAVE_WRITEV
   {
     struct iovec vectors[2];
@@ -2842,6 +2882,8 @@ _dbus_write_two (int               fd,
       return ret1;
   }
 #endif /* !HAVE_WRITEV */   
+
+#endif
 }
 
 #define _DBUS_MAX_SUN_PATH_LENGTH 99
@@ -2864,6 +2906,10 @@ _dbus_write_two (int               fd,
  * given path.  The connection fd is returned, and is set up as
  * nonblocking.
  * 
+ * On Windows there are no UNIX domain sockets. Instead, connects to a
+ * localhost-bound TCP socket, whose port number is stored in a file
+ * at the given path.
+ * 
  * Uses abstract sockets instead of filesystem-linked sockets if
  * requested (it's possible only on Linux; see "man 7 unix" on Linux).
  * On non-Linux abstract socket usage always fails.
@@ -2878,6 +2924,10 @@ _dbus_connect_unix_socket (const char     *path,
                            dbus_bool_t     abstract,
                            DBusError      *error)
 {
+#ifdef DBUS_WIN
+  return _dbus_connect_unix_socket_win(path, abstract, error);
+#else
+
   int fd;
   size_t path_len;
   struct sockaddr_un addr;  
@@ -2963,6 +3013,7 @@ _dbus_connect_unix_socket (const char     *path,
     }
 
   return fd;
+#endif
 }
 
 /**
@@ -2985,6 +3036,10 @@ _dbus_listen_unix_socket (const char     *path,
                           dbus_bool_t     abstract,
                           DBusError      *error)
 {
+#ifdef DBUS_WIN
+  return _dbus_listen_unix_socket_win(path, abstract,error);
+#else
+
   int listen_fd;
   struct sockaddr_un addr;
   size_t path_len;
@@ -3098,6 +3153,7 @@ _dbus_listen_unix_socket (const char     *path,
                 path);
   
   return listen_fd;
+#endif
 }
 
 /**
@@ -3105,7 +3161,7 @@ _dbus_listen_unix_socket (const char     *path,
  * and port. The connection fd is returned, and is set up as
  * nonblocking.
  *
- * @param host the host name to connect to
+ * @param host the host name to connect to, NULL for loopback
  * @param port the prot to connect to
  * @param error return location for error code
  * @returns connection file descriptor or -1 on error
@@ -3119,13 +3175,21 @@ _dbus_connect_tcp_socket (const char     *host,
   struct sockaddr_in addr;
   struct hostent *he;
   struct in_addr *haddr;
+#ifdef DBUS_WIN
+  struct in_addr ina;
+#endif
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
+#ifdef DBUS_WIN
+  _dbus_win_startup_winsock ();
+#endif
+
   fd = socket (AF_INET, SOCK_STREAM, 0);
   
-  if (fd < 0)
+  if (DBUS_SOCKET_IS_INVALID (fd))
     {
+      DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
                       "Failed to create socket: %s",
@@ -3135,16 +3199,23 @@ _dbus_connect_tcp_socket (const char     *host,
     }
 
   if (host == NULL)
+    {
     host = "localhost";
+#ifdef DBUS_WIN
+      ina.s_addr = htonl (INADDR_LOOPBACK);
+      haddr = &ina;
+#endif
+    }
 
   he = gethostbyname (host);
   if (he == NULL) 
     {
+      DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
                       "Failed to lookup hostname: %s",
                       host);
-      close (fd);
+      DBUS_CLOSE_SOCKET (fd);
       return -1;
     }
   
@@ -3155,22 +3226,26 @@ _dbus_connect_tcp_socket (const char     *host,
   addr.sin_family = AF_INET;
   addr.sin_port = htons (port);
   
-  if (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
+  if (DBUS_SOCKET_API_RETURNS_ERROR
+     (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0))
     {      
+      DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error,
                        _dbus_error_from_errno (errno),
                       "Failed to connect to socket %s:%d %s",
                       host, port, _dbus_strerror (errno));
 
-      close (fd);
+      DBUS_CLOSE_SOCKET (fd);
       fd = -1;
       
       return -1;
     }
 
+  fd = _dbus_socket_to_handle (fd);
+
   if (!_dbus_set_fd_nonblocking (fd, error))
     {
-      close (fd);
+      _dbus_close (fd, NULL);
       fd = -1;
 
       return -1;
@@ -3180,12 +3255,12 @@ _dbus_connect_tcp_socket (const char     *host,
 }
 
 /**
- * Creates a socket and binds it to the given path,
+ * Creates a socket and binds it to the given port,
  * then listens on the socket. The socket is
  * set to be nonblocking. 
  *
- * @param host the host name to listen on
- * @param port the prot to listen on
+ * @param host the interface to listen on, NULL for loopback, empty for any
+ * @param port the port to listen on
  * @param error return location for errors
  * @returns the listening file descriptor or -1 on error
  */
@@ -3198,31 +3273,58 @@ _dbus_listen_tcp_socket (const char     *host,
   struct sockaddr_in addr;
   struct hostent *he;
   struct in_addr *haddr;
+#ifdef DBUS_WIN
+  struct in_addr ina;
+#endif
+
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
+#ifdef DBUS_WIN
+  _dbus_win_startup_winsock ();
+#endif
+
   listen_fd = socket (AF_INET, SOCK_STREAM, 0);
   
-  if (listen_fd < 0)
+  if (DBUS_SOCKET_IS_INVALID (listen_fd))
     {
+      DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to create socket \"%s:%d\": %s",
                       host, port, _dbus_strerror (errno));
       return -1;
     }
-
+#ifdef DBUS_WIN
+  if (host == NULL)
+    {
+      host = "localhost";
+      ina.s_addr = htonl (INADDR_LOOPBACK);
+      haddr = &ina;
+    }
+  else if (!host[0])
+    {
+      ina.s_addr = htonl (INADDR_ANY);
+      haddr = &ina;
+    }
+  else
+    {
+#endif
   he = gethostbyname (host);
   if (he == NULL) 
     {
+      DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
                       "Failed to lookup hostname: %s",
                       host);
-      close (listen_fd);
+      DBUS_CLOSE_SOCKET (listen_fd);
       return -1;
     }
   
   haddr = ((struct in_addr *) (he->h_addr_list)[0]);
+#ifdef DBUS_WIN
+  }
+#endif
 
   _DBUS_ZERO (addr);
   memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
@@ -3231,25 +3333,29 @@ _dbus_listen_tcp_socket (const char     *host,
 
   if (bind (listen_fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
     {
+      DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s:%d\": %s",
                       host, port, _dbus_strerror (errno));
-      close (listen_fd);
+      DBUS_CLOSE_SOCKET (listen_fd);
       return -1;
     }
 
-  if (listen (listen_fd, 30 /* backlog */) < 0)
+  if (DBUS_SOCKET_API_RETURNS_ERROR (listen (listen_fd, 30 /* backlog */)))
     {
+      DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),  
                       "Failed to listen on socket \"%s:%d\": %s",
                       host, port, _dbus_strerror (errno));
-      close (listen_fd);
+      DBUS_CLOSE_SOCKET (listen_fd);
       return -1;
     }
 
+  listen_fd = _dbus_socket_to_handle (listen_fd);
+
   if (!_dbus_set_fd_nonblocking (listen_fd, error))
     {
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
   
@@ -3260,6 +3366,33 @@ static dbus_bool_t
 write_credentials_byte (int             server_fd,
                         DBusError      *error)
 {
+#ifdef DBUS_WIN
+  /* FIXME: for the session bus credentials shouldn't matter (?), but
+   * for the system bus they are presumably essential. A rough outline
+   * of a way to implement the credential transfer would be this:
+   *
+   * client waits to *read* a byte.
+   *
+   * server creates a named pipe with a random name, sends a byte
+   * contining its length, and its name.
+   *
+   * client reads the name, connects to it (using Win32 API).
+   *
+   * server waits for connection to the named pipe, then calls
+   * ImpersonateNamedPipeClient(), notes its now-current credentials,
+   * calls RevertToSelf(), closes its handles to the named pipe, and
+   * is done. (Maybe there is some other way to get the SID of a named
+   * pipe client without having to use impersonation?)
+   *
+   * client closes its handles and is done.
+   *
+   */
+
+  return TRUE;
+
+#else
+
+
   int bytes_written;
   char buf[1] = { '\0' };
 #if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
@@ -3319,6 +3452,8 @@ write_credentials_byte (int             server_fd,
       _dbus_verbose ("wrote credentials byte\n");
       return TRUE;
     }
+
+#endif
 }
 
 /**
@@ -3344,6 +3479,8 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
                                      DBusCredentials *credentials,
                                      DBusError       *error)
 {
+#ifndef DBUS_WIN
+
   struct msghdr msg;
   struct iovec iov;
   char buf;
@@ -3483,6 +3620,15 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
 		 credentials->gid);
     
   return TRUE;
+
+#else
+
+  /* FIXME bogus testing credentials */
+  _dbus_credentials_from_current_process (credentials);
+
+  return TRUE;
+
+#endif
 }
 
 /**
@@ -3530,16 +3676,23 @@ _dbus_accept  (int listen_fd)
 
   addrlen = sizeof (addr);
   
+#ifndef DBUS_WIN
  retry:
+#endif
   client_fd = accept (listen_fd, &addr, &addrlen);
   
-  if (client_fd < 0)
+  if (DBUS_SOCKET_IS_INVALID (client_fd))
     {
+      DBUS_SOCKET_SET_ERRNO ();
+#ifndef DBUS_WIN
       if (errno == EINTR)
         goto retry;
+#else
+      client_fd = -1;
+#endif
     }
   
-  return client_fd;
+  return _dbus_socket_to_handle (client_fd);
 }
 
 /** @} */
@@ -3719,6 +3872,7 @@ _dbus_check_dir_is_private_to_user (DBusString *dir, DBusError *error)
 	
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
     
+#ifndef DBUS_WIN    
   directory = _dbus_string_get_const_data (dir);
 	
   if (stat (directory, &sb) < 0)
@@ -3736,7 +3890,7 @@ _dbus_check_dir_is_private_to_user (DBusString *dir, DBusError *error)
                      "%s directory is not private to the user", directory);
       return FALSE;
     }
-    
+#endif    
   return TRUE;
 }
 
@@ -3820,6 +3974,10 @@ static double
 ascii_strtod (const char *nptr,
 	      char      **endptr)
 {
+  /* FIXME: The Win32 C library's strtod() doesn't handle hex.
+   * Presumably many Unixes don't either.
+   */
+
   char *fail_pos;
   double val;
   struct lconv *locale_data;
@@ -3988,6 +4146,9 @@ _dbus_string_parse_double (const DBusString *str,
  * @addtogroup DBusInternalsUtils
  * @{
  */
+
+#ifndef DBUS_WIN
+
 static dbus_bool_t
 fill_user_info_from_passwd (struct passwd *p,
                             DBusUserInfo  *info,
@@ -4010,6 +4171,7 @@ fill_user_info_from_passwd (struct passwd *p,
 
   return TRUE;
 }
+#endif
 
 static dbus_bool_t
 fill_user_info (DBusUserInfo       *info,
@@ -4035,6 +4197,7 @@ fill_user_info (DBusUserInfo       *info,
   else
     username_c = NULL;
 
+#ifndef DBUS_WIN
   /* For now assuming that the getpwnam() and getpwuid() flavors
    * are always symmetrical, if not we have to add more configure
    * checks
@@ -4185,7 +4348,35 @@ fill_user_info (DBusUserInfo       *info,
  failed:
   _DBUS_ASSERT_ERROR_IS_SET (error);
   return FALSE;
+
+#else  /* DBUS_WIN */
+
+  if (uid != DBUS_UID_UNSET)
+    {
+      if (!fill_win_user_info_from_uid (uid, info, error)) {
+      	_dbus_verbose("%s after fill_win_user_info_from_uid\n",__FUNCTION__);
+      return FALSE;
+    }
+    }
+  else
+    {
+      wchar_t *wname = _dbus_win_utf8_to_utf16 (username_c, error);
+      
+      if (!wname)
+	return FALSE;
+      
+    if (!fill_win_user_info_from_name (wname, info, error))
+	  {
+	    dbus_free (wname);
+	    return FALSE;
+	  }
+    dbus_free (wname);
+    }
+
+  return TRUE;
+#endif  /* DBUS_WIN */
 }
+
 
 /**
  * Gets user info for the given username.
@@ -4234,7 +4425,7 @@ _dbus_user_info_free (DBusUserInfo *info)
   dbus_free (info->homedir);
 }
 
-/**
+ /**
  * Frees the members of info (but not info itself).
  *
  * @param info the group info
@@ -4267,6 +4458,7 @@ _dbus_credentials_clear (DBusCredentials *credentials)
 void
 _dbus_credentials_from_current_process (DBusCredentials *credentials)
 {
+#ifndef DBUS_WIN
   /* The POSIX spec certainly doesn't promise this, but
    * we need these assertions to fail as soon as we're wrong about
    * it so we can do the porting fixups
@@ -4274,10 +4466,11 @@ _dbus_credentials_from_current_process (DBusCredentials *credentials)
   _dbus_assert (sizeof (pid_t) <= sizeof (credentials->pid));
   _dbus_assert (sizeof (uid_t) <= sizeof (credentials->uid));
   _dbus_assert (sizeof (gid_t) <= sizeof (credentials->gid));
+#endif
   
-  credentials->pid = getpid ();
-  credentials->uid = getuid ();
-  credentials->gid = getgid ();
+  credentials->pid = _dbus_getpid ();
+  credentials->uid = _dbus_getuid ();
+  credentials->gid = _dbus_getgid ();
 }
 
 /**
@@ -4311,7 +4504,11 @@ _dbus_credentials_match (const DBusCredentials *expected_credentials,
 unsigned long
 _dbus_getpid (void)
 {
+#ifndef DBUS_WIN
   return getpid ();
+#else
+  return GetCurrentProcessId ();
+#endif
 }
 
 /** Gets our UID
@@ -4320,7 +4517,11 @@ _dbus_getpid (void)
 dbus_uid_t
 _dbus_getuid (void)
 {
+#ifdef DBUS_WIN
+  return _dbus_getuid_win ();
+#else
   return getuid ();
+#endif
 }
 
 #ifdef DBUS_BUILD_TESTS
@@ -4330,7 +4531,11 @@ _dbus_getuid (void)
 dbus_gid_t
 _dbus_getgid (void)
 {
+#ifdef DBUS_WIN
+  return _dbus_getgid_win ();
+#else
   return getgid ();
+#endif 
 }
 #endif
 
@@ -4412,6 +4617,9 @@ _dbus_poll (DBusPollFD *fds,
             int         n_fds,
             int         timeout_milliseconds)
 {
+#ifdef DBUS_WIN
+	return _dbus_poll_win (fds, n_fds, timeout_milliseconds);
+#else
 #ifdef HAVE_POLL
   /* This big thing is a constant expression and should get optimized
    * out of existence. So it's more robust than a configure check at
@@ -4497,7 +4705,9 @@ _dbus_poll (DBusPollFD *fds,
 
   return ready;
 #endif
+#endif /* DBUS_WIN */
 }
+
 
 /** nanoseconds in a second */
 #define NANOSECONDS_PER_SECOND       1000000000
@@ -4517,6 +4727,7 @@ _dbus_poll (DBusPollFD *fds,
 void
 _dbus_sleep_milliseconds (int milliseconds)
 {
+#ifndef DBUS_WIN
 #ifdef HAVE_NANOSLEEP
   struct timespec req;
   struct timespec rem;
@@ -4533,18 +4744,22 @@ _dbus_sleep_milliseconds (int milliseconds)
 #else /* ! HAVE_USLEEP */
   sleep (MAX (milliseconds / 1000, 1));
 #endif
+#else  /* DBUS_WIN */
+  Sleep (milliseconds);
+#endif /* !DBUS_WIN */
 }
 
 /**
  * Get current time, as in gettimeofday().
  *
  * @param tv_sec return location for number of seconds
- * @param tv_usec return location for number of microseconds (thousandths)
+ * @param tv_usec return location for number of microseconds
  */
 void
 _dbus_get_current_time (long *tv_sec,
                         long *tv_usec)
 {
+#ifndef DBUS_WIN
   struct timeval t;
 
   gettimeofday (&t, NULL);
@@ -4553,6 +4768,24 @@ _dbus_get_current_time (long *tv_sec,
     *tv_sec = t.tv_sec;
   if (tv_usec)
     *tv_usec = t.tv_usec;
+#else
+  FILETIME ft;
+  dbus_uint64_t *time64 = (dbus_uint64_t *) &ft;
+
+  GetSystemTimeAsFileTime (&ft);
+
+  /* Convert from 100s of nanoseconds since 1601-01-01
+   * to Unix epoch. Yes, this is Y2038 unsafe.
+   */
+  *time64 -= DBUS_INT64_CONSTANT (116444736000000000);
+  *time64 /= 10;
+
+  if (tv_sec)
+    *tv_sec = *time64 / 1000000;
+
+  if (tv_usec)
+    *tv_usec = *time64 % 1000000;
+#endif
 }
 
 /**
@@ -4580,7 +4813,7 @@ _dbus_file_get_contents (DBusString       *str,
   
   filename_c = _dbus_string_get_const_data (filename);
   
-  /* O_BINARY useful on Cygwin */
+  /* O_BINARY useful on Cygwin and Win32 */
   fd = open (filename_c, O_RDONLY | O_BINARY);
   if (fd < 0)
     {
@@ -4620,10 +4853,11 @@ _dbus_file_get_contents (DBusString       *str,
   if (sb.st_size > 0 && S_ISREG (sb.st_mode))
     {
       int bytes_read;
+      const int encapsulated_fd = _dbus_fd_to_handle (fd);
 
       while (total < (int) sb.st_size)
         {
-          bytes_read = _dbus_read (fd, str,
+          bytes_read = _dbus_read (encapsulated_fd, str,
                                    sb.st_size - total);
           if (bytes_read <= 0)
             {
@@ -4635,7 +4869,7 @@ _dbus_file_get_contents (DBusString       *str,
               _dbus_verbose ("read() failed: %s",
                              _dbus_strerror (errno));
               
-              close (fd);
+              _dbus_close (encapsulated_fd, NULL);
               _dbus_string_set_length (str, orig_len);
               return FALSE;
             }
@@ -4643,7 +4877,7 @@ _dbus_file_get_contents (DBusString       *str,
             total += bytes_read;
         }
 
-      close (fd);
+      _dbus_close (encapsulated_fd, NULL);
       return TRUE;
     }
   else if (sb.st_size != 0)
@@ -4732,6 +4966,8 @@ _dbus_string_save_to_file (const DBusString *str,
       goto out;
     }
 
+  fd = _dbus_fd_to_handle (fd);
+
   need_unlink = TRUE;
   
   total = 0;
@@ -4756,7 +4992,7 @@ _dbus_string_save_to_file (const DBusString *str,
       total += bytes_written;
     }
 
-  if (close (fd) < 0)
+  if (_dbus_close (fd, NULL) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not close file %s: %s",
@@ -4767,7 +5003,11 @@ _dbus_string_save_to_file (const DBusString *str,
 
   fd = -1;
   
-  if (rename (tmp_filename_c, filename_c) < 0)
+  if (
+#ifdef DBUS_WIN
+      (unlink (filename_c) == -1 && errno != ENOENT) ||
+#endif
+      rename (tmp_filename_c, filename_c) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not rename %s to %s: %s",
@@ -4787,7 +5027,7 @@ _dbus_string_save_to_file (const DBusString *str,
    */
 
   if (fd >= 0)
-    close (fd);
+    _dbus_close (fd, NULL);
         
   if (need_unlink && unlink (tmp_filename_c) < 0)
     _dbus_verbose ("Failed to unlink temp file %s: %s\n",
@@ -4925,6 +5165,7 @@ _dbus_concat_dir_and_file (DBusString       *dir,
       _dbus_string_get_length (next_component) == 0)
     return TRUE;
   
+#ifndef DBUS_WIN
   dir_ends_in_slash = '/' == _dbus_string_get_byte (dir,
                                                     _dbus_string_get_length (dir) - 1);
 
@@ -4939,6 +5180,25 @@ _dbus_concat_dir_and_file (DBusString       *dir,
       if (!_dbus_string_append_byte (dir, '/'))
         return FALSE;
     }
+#else
+  dir_ends_in_slash =
+    ('/' == _dbus_string_get_byte (dir, _dbus_string_get_length (dir) - 1) ||
+     '\\' == _dbus_string_get_byte (dir, _dbus_string_get_length (dir) - 1));
+
+  file_starts_with_slash =
+     ('/' == _dbus_string_get_byte (next_component, 0) ||
+      '\\' == _dbus_string_get_byte (next_component, 0));
+
+  if (dir_ends_in_slash && file_starts_with_slash)
+    {
+      _dbus_string_shorten (dir, 1);
+    }
+  else if (!(dir_ends_in_slash || file_starts_with_slash))
+    {
+      if (!_dbus_string_append_byte (dir, '\\'))
+        return FALSE;
+    }
+#endif
 
   return _dbus_string_copy (next_component, 0, dir,
                             _dbus_string_get_length (dir));
@@ -5046,14 +5306,18 @@ _dbus_generate_random_bytes (DBusString *str,
   old_len = _dbus_string_get_length (str);
   fd = -1;
 
+#ifndef DBUS_WIN
   /* note, urandom on linux will fall back to pseudorandom */
   fd = open ("/dev/urandom", O_RDONLY);
+#endif
+
   if (fd < 0)
     return pseudorandom_generate_random_bytes (str, n_bytes);
 
+#ifndef DBUS_WIN
   if (_dbus_read (fd, str, n_bytes) != n_bytes)
     {
-      close (fd);
+      _dbus_close (fd, NULL);
       _dbus_string_set_length (str, old_len);
       return pseudorandom_generate_random_bytes (str, n_bytes);
     }
@@ -5064,6 +5328,10 @@ _dbus_generate_random_bytes (DBusString *str,
   close (fd);
   
   return TRUE;
+#else
+  _dbus_assert_not_reached ("_dbus_generate_random_bytes fails");
+  return FALSE;
+#endif
 }
 
 /**
@@ -5113,6 +5381,7 @@ _dbus_generate_random_ascii (DBusString *str,
 const char*
 _dbus_strerror (int error_number)
 {
+#ifndef DBUS_WIN
   const char *msg;
   
   msg = strerror (error_number);
@@ -5120,6 +5389,9 @@ _dbus_strerror (int error_number)
     msg = "unknown";
 
   return msg;
+#else
+  return _dbus_strerror_win(error_number);
+#endif
 }
 
 /**
@@ -5128,7 +5400,9 @@ _dbus_strerror (int error_number)
 void
 _dbus_disable_sigpipe (void)
 {
+#ifndef DBUS_WIN
   signal (SIGPIPE, SIG_IGN);
+#endif
 }
 
 /**
@@ -5141,6 +5415,9 @@ _dbus_disable_sigpipe (void)
 void
 _dbus_fd_set_close_on_exec (int fd)
 {
+#ifdef DBUS_WIN
+  _dbus_fd_set_close_on_exec_win(fd);
+#else
   int val;
   
   val = fcntl (fd, F_GETFD, 0);
@@ -5151,15 +5428,16 @@ _dbus_fd_set_close_on_exec (int fd)
   val |= FD_CLOEXEC;
   
   fcntl (fd, F_SETFD, val);
+#endif
 }
 
 /**
- * Converts a UNIX errno into a #DBusError name.
+ * Converts a UNIX errno or a Winsock error code into a #DBusError name.
  *
  * @todo should cover more errnos, specifically those
  * from open().
  * 
- * @param error_number the errno.
+ * @param error_number the errno or Winsock error code.
  * @returns an error name
  */
 const char*
@@ -5273,6 +5551,10 @@ dbus_bool_t
 _dbus_close (int        fd,
              DBusError *error)
 {
+#ifdef DBUS_WIN
+  return _dbus_close_win (fd, error);
+#else
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
  again:
@@ -5287,6 +5569,7 @@ _dbus_close (int        fd,
     }
 
   return TRUE;
+#endif
 }
 
 /**
@@ -5300,6 +5583,9 @@ dbus_bool_t
 _dbus_set_fd_nonblocking (int             fd,
                           DBusError      *error)
 {
+#ifdef DBUS_WIN
+  return _dbus_set_fd_nonblocking_win(fd, error);
+#else
   int val;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -5327,6 +5613,7 @@ _dbus_set_fd_nonblocking (int             fd,
     }
 
   return TRUE;
+#endif
 }
 
 #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
@@ -5374,8 +5661,8 @@ dbus_bool_t
 _dbus_parse_uid (const DBusString      *uid_str,
                  dbus_uid_t            *uid)
 {
+  dbus_uid_t val;
   int end;
-  long val;
   
   if (_dbus_string_get_length (uid_str) == 0)
     {
@@ -5385,8 +5672,7 @@ _dbus_parse_uid (const DBusString      *uid_str,
 
   val = -1;
   end = 0;
-  if (!_dbus_string_parse_int (uid_str, 0, &val,
-                               &end))
+  if (!_dbus_string_parse_int (uid_str, 0, &val, &end))
     {
       _dbus_verbose ("could not parse string as a UID\n");
       return FALSE;
@@ -5456,6 +5742,9 @@ _dbus_full_duplex_pipe (int        *fd1,
                  *fd1, *fd2);
   
   return TRUE;  
+
+#elif defined (DBUS_WIN)
+  return _dbus_full_duplex_pipe_win (fd1, fd2, blocking, error);
 #else
   _dbus_warn ("_dbus_full_duplex_pipe() not implemented on this OS\n");
   dbus_set_error (error, DBUS_ERROR_FAILED,
@@ -5464,7 +5753,7 @@ _dbus_full_duplex_pipe (int        *fd1,
 #endif
 }
 
-
+#ifndef DBUS_WIN
 /**
  * Measure the length of the given format string and arguments,
  * not including the terminating nul.
@@ -5480,6 +5769,7 @@ _dbus_printf_string_upper_bound (const char *format,
   char c;
   return vsnprintf (&c, 1, format, args);
 }
+#endif
 
 /**
  * Gets the temporary files directory by inspecting the environment variables 
