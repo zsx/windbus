@@ -24,8 +24,52 @@
  *
  */
 
-
+#include "dbus-internals.h"
 #include "dbus-sysdeps.h"
+#include "dbus-threads.h"
+#include "dbus-protocol.h"
+#include "dbus-string.h"
+#include <sys/types.h>
+#include <stdlib.h>
+#include <string.h>
+#include <signal.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/socket.h>
+#include <dirent.h>
+#include <sys/un.h>
+#include <pwd.h>
+#include <time.h>
+#include <locale.h>
+#include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/wait.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <grp.h>
+
+#ifdef HAVE_WRITEV
+#include <sys/uio.h>
+#endif
+#ifdef HAVE_POLL
+#include <sys/poll.h>
+#endif
+#ifdef HAVE_BACKTRACE
+#include <execinfo.h>
+#endif
+#ifdef HAVE_GETPEERUCRED
+#include <ucred.h>
+#endif
+
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+
+#ifndef HAVE_SOCKLEN_T
+#define socklen_t int
+#endif
 
 
 int _dbus_socket_to_handle (int socket){ return socket; }
@@ -34,73 +78,7 @@ int _dbus_fd_to_handle     (int fd)    { return fd; }
 int _dbus_handle_to_fd     (int handle){ return handle; }
 
 
-Index: dbus-sysdeps.c
-===================================================================
---- dbus-sysdeps.c	(revision 250)
-+++ dbus-sysdeps.c	(working copy)
-@@ -3,6 +3,7 @@
-  * 
-  * Copyright (C) 2002, 2003  Red Hat, Inc.
-  * Copyright (C) 2003 CodeFactory AB
-+ * Copyright (C) 2005 Novell, Inc.
-  *
-  * Licensed under the Academic Free License version 2.1
-  * 
-@@ -28,73 +29,32 @@
- #include "dbus-protocol.h"
- #include "dbus-string.h"
- #include <sys/types.h>
-+#include <sys/stat.h>
- #include <stdlib.h>
- #include <string.h>
- #include <signal.h>
--#include <unistd.h>
- #include <stdio.h>
- #include <errno.h>
- #include <fcntl.h>
--#include <sys/socket.h>
-+#include <time.h>
-+#include <locale.h>
-+
-+
-+#ifdef DBUS_WIN
-+#include <io.h>
-+#define S_ISREG(mode) (((mode) & S_IFMT) == S_IFREG)
-+#else
-+#include <unistd.h>
- #include <dirent.h>
- #include <sys/un.h>
- #include <pwd.h>
--#include <time.h>
--#include <locale.h>
--#include <sys/time.h>
--#include <sys/stat.h>
--#include <sys/wait.h>
- #include <netinet/in.h>
- #include <netdb.h>
- #include <grp.h>
--
--#ifdef HAVE_WRITEV
--#include <sys/uio.h>
- #endif
--#ifdef HAVE_POLL
--#include <sys/poll.h>
--#endif
--#ifdef HAVE_BACKTRACE
--#include <execinfo.h>
--#endif
--#ifdef HAVE_GETPEERUCRED
--#include <ucred.h>
--#endif
- 
--#ifndef O_BINARY
--#define O_BINARY 0
--#endif
- 
--#ifndef HAVE_SOCKLEN_T
--#define socklen_t int
--#endif
--
+
 -_DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 -_DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 -
