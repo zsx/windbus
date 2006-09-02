@@ -2593,97 +2593,16 @@ _dbus_abort (void)
 }
 #endif
 
-/**
- * Wrapper for setenv(). If the value is #NULL, unsets
- * the environment variable.
- *
- * @todo if someone can verify it's safe, we could avoid the
- * memleak when doing an unset.
- *
- * @param varname name of environment variable
- * @param value value of environment variable
- * @returns #TRUE on success.
- */
-dbus_bool_t
-_dbus_setenv (const char *varname,
-              const char *value)
+int _dbus_mkdir (const char *path, 
+	             mode_t mode)
 {
-  _dbus_assert (varname != NULL);
-  
-  if (value == NULL)
-    {
-#ifdef HAVE_UNSETENV
-      unsetenv (varname);
-      return TRUE;
-#else
-      char *putenv_value;
-      size_t len;
-
-      len = strlen (varname);
-
-      /* Use system malloc to avoid memleaks that dbus_malloc
-       * will get upset about.
-       */
-      
 #ifdef DBUS_WIN
-      putenv_value = malloc (len + 2);
+  return _mkdir(path);
 #else
-      putenv_value = malloc (len + 1);
+  return mkdir(path, mode);
 #endif
-      if (putenv_value == NULL)
-        return FALSE;
-
-      strcpy (putenv_value, varname);
-#ifdef DBUS_WIN
-      strcat (putenv_value, "=");
-#endif
-      
-      return (putenv (putenv_value) == 0);
-#endif
-    }
-  else
-    {
-#ifdef HAVE_SETENV
-      return (setenv (varname, value, TRUE) == 0);
-#else
-      char *putenv_value;
-      size_t len;
-      size_t varname_len;
-      size_t value_len;
-
-      varname_len = strlen (varname);
-      value_len = strlen (value);
-      
-      len = varname_len + value_len + 1 /* '=' */ ;
-
-      /* Use system malloc to avoid memleaks that dbus_malloc
-       * will get upset about.
-       */
-      
-      putenv_value = malloc (len + 1);
-      if (putenv_value == NULL)
-        return FALSE;
-
-      strcpy (putenv_value, varname);
-      strcpy (putenv_value + varname_len, "=");
-      strcpy (putenv_value + varname_len + 1, value);
-      
-      return (putenv (putenv_value) == 0);
-#endif
-    }
 }
 
-/**
- * Wrapper for getenv().
- *
- * @param varname name of environment variable
- * @returns value of environment variable or #NULL if unset
- */
-const char*
-_dbus_getenv (const char *varname)
-{  
-  return getenv (varname);
-}
 
 /**
  * Thin wrapper around the read() system call that appends
@@ -3156,6 +3075,7 @@ _dbus_listen_unix_socket (const char     *path,
 #endif
 }
 
+
 /**
  * Creates a socket and connects to a socket at the given host 
  * and port. The connection fd is returned, and is set up as
@@ -3362,7 +3282,44 @@ _dbus_listen_tcp_socket (const char     *host,
   return listen_fd;
 }
 
-static dbus_bool_t
+/**
+ * Accepts a connection on a listening socket.
+ * Handles EINTR for you.
+ *
+ * @param listen_fd the listen file descriptor
+ * @returns the connection fd of the client, or -1 on error
+ */
+int
+_dbus_accept  (int listen_fd)
+{
+  int client_fd;
+  struct sockaddr addr;
+  socklen_t addrlen;
+
+  addrlen = sizeof (addr);
+  
+#ifndef DBUS_WIN
+ retry:
+#endif
+  client_fd = accept (listen_fd, &addr, &addrlen);
+  
+  if (DBUS_SOCKET_IS_INVALID (client_fd))
+    {
+      DBUS_SOCKET_SET_ERRNO ();
+#ifndef DBUS_WIN
+      if (errno == EINTR)
+        goto retry;
+#else
+      client_fd = -1;
+#endif
+    }
+  
+  return _dbus_socket_to_handle (client_fd);
+}
+
+
+
+dbus_bool_t
 write_credentials_byte (int             server_fd,
                         DBusError      *error)
 {
@@ -3632,231 +3589,6 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
 }
 
 /**
- * Sends a single nul byte with our UNIX credentials as ancillary
- * data.  Returns #TRUE if the data was successfully written.  On
- * systems that don't support sending credentials, just writes a byte,
- * doesn't send any credentials.  On some systems, such as Linux,
- * reading/writing the byte isn't actually required, but we do it
- * anyway just to avoid multiple codepaths.
- *
- * Fails if no byte can be written, so you must select() first.
- *
- * The point of the byte is that on some systems we have to
- * use sendmsg()/recvmsg() to transmit credentials.
- *
- * @param server_fd file descriptor for connection to server
- * @param error return location for error code
- * @returns #TRUE if the byte was sent
- */
-dbus_bool_t
-_dbus_send_credentials_unix_socket  (int              server_fd,
-                                     DBusError       *error)
-{
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  if (write_credentials_byte (server_fd, error))
-    return TRUE;
-  else
-    return FALSE;
-}
-
-/**
- * Accepts a connection on a listening socket.
- * Handles EINTR for you.
- *
- * @param listen_fd the listen file descriptor
- * @returns the connection fd of the client, or -1 on error
- */
-int
-_dbus_accept  (int listen_fd)
-{
-  int client_fd;
-  struct sockaddr addr;
-  socklen_t addrlen;
-
-  addrlen = sizeof (addr);
-  
-#ifndef DBUS_WIN
- retry:
-#endif
-  client_fd = accept (listen_fd, &addr, &addrlen);
-  
-  if (DBUS_SOCKET_IS_INVALID (client_fd))
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-#ifndef DBUS_WIN
-      if (errno == EINTR)
-        goto retry;
-#else
-      client_fd = -1;
-#endif
-    }
-  
-  return _dbus_socket_to_handle (client_fd);
-}
-
-/** @} */
-
-/**
- * @addtogroup DBusString
- *
- * @{
- */
-/**
- * Appends an integer to a DBusString.
- * 
- * @param str the string
- * @param value the integer value
- * @returns #FALSE if not enough memory or other failure.
- */
-dbus_bool_t
-_dbus_string_append_int (DBusString *str,
-                         long        value)
-{
-  /* this calculation is from comp.lang.c faq */
-#define MAX_LONG_LEN ((sizeof (long) * 8 + 2) / 3 + 1)  /* +1 for '-' */
-  int orig_len;
-  int i;
-  char *buf;
-  
-  orig_len = _dbus_string_get_length (str);
-
-  if (!_dbus_string_lengthen (str, MAX_LONG_LEN))
-    return FALSE;
-
-  buf = _dbus_string_get_data_len (str, orig_len, MAX_LONG_LEN);
-
-  snprintf (buf, MAX_LONG_LEN, "%ld", value);
-
-  i = 0;
-  while (*buf)
-    {
-      ++buf;
-      ++i;
-    }
-  
-  _dbus_string_shorten (str, MAX_LONG_LEN - i);
-  
-  return TRUE;
-}
-
-/**
- * Appends an unsigned integer to a DBusString.
- * 
- * @param str the string
- * @param value the integer value
- * @returns #FALSE if not enough memory or other failure.
- */
-dbus_bool_t
-_dbus_string_append_uint (DBusString    *str,
-                          unsigned long  value)
-{
-  /* this is wrong, but definitely on the high side. */
-#define MAX_ULONG_LEN (MAX_LONG_LEN * 2)
-  int orig_len;
-  int i;
-  char *buf;
-  
-  orig_len = _dbus_string_get_length (str);
-
-  if (!_dbus_string_lengthen (str, MAX_ULONG_LEN))
-    return FALSE;
-
-  buf = _dbus_string_get_data_len (str, orig_len, MAX_ULONG_LEN);
-
-  snprintf (buf, MAX_ULONG_LEN, "%lu", value);
-
-  i = 0;
-  while (*buf)
-    {
-      ++buf;
-      ++i;
-    }
-  
-  _dbus_string_shorten (str, MAX_ULONG_LEN - i);
-  
-  return TRUE;
-}
-
-#ifdef DBUS_BUILD_TESTS
-/**
- * Appends a double to a DBusString.
- * 
- * @param str the string
- * @param value the floating point value
- * @returns #FALSE if not enough memory or other failure.
- */
-dbus_bool_t
-_dbus_string_append_double (DBusString *str,
-                            double      value)
-{
-#define MAX_DOUBLE_LEN 64 /* this is completely made up :-/ */
-  int orig_len;
-  char *buf;
-  int i;
-  
-  orig_len = _dbus_string_get_length (str);
-
-  if (!_dbus_string_lengthen (str, MAX_DOUBLE_LEN))
-    return FALSE;
-
-  buf = _dbus_string_get_data_len (str, orig_len, MAX_DOUBLE_LEN);
-
-  snprintf (buf, MAX_LONG_LEN, "%g", value);
-
-  i = 0;
-  while (*buf)
-    {
-      ++buf;
-      ++i;
-    }
-  
-  _dbus_string_shorten (str, MAX_DOUBLE_LEN - i);
-  
-  return TRUE;
-}
-#endif /* DBUS_BUILD_TESTS */
-
-/**
- * Parses an integer contained in a DBusString. Either return parameter
- * may be #NULL if you aren't interested in it. The integer is parsed
- * and stored in value_return. Return parameters are not initialized
- * if the function returns #FALSE.
- *
- * @param str the string
- * @param start the byte index of the start of the integer
- * @param value_return return location of the integer value or #NULL
- * @param end_return return location of the end of the integer, or #NULL
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_string_parse_int (const DBusString *str,
-                        int               start,
-                        long             *value_return,
-                        int              *end_return)
-{
-  long v;
-  const char *p;
-  char *end;
-
-  p = _dbus_string_get_const_data_len (str, start,
-                                       _dbus_string_get_length (str) - start);
-
-  end = NULL;
-  errno = 0;
-  v = strtol (p, &end, 0);
-  if (end == NULL || end == p || errno != 0)
-    return FALSE;
-
-  if (value_return)
-    *value_return = v;
-  if (end_return)
-    *end_return = start + (end - p);
-
-  return TRUE;
-}
-
-/**
 * Checks to make sure the given directory is 
 * private to the user 
 *
@@ -3894,253 +3626,7 @@ _dbus_check_dir_is_private_to_user (DBusString *dir, DBusError *error)
   return TRUE;
 }
 
-/**
- * Parses an unsigned integer contained in a DBusString. Either return
- * parameter may be #NULL if you aren't interested in it. The integer
- * is parsed and stored in value_return. Return parameters are not
- * initialized if the function returns #FALSE.
- *
- * @param str the string
- * @param start the byte index of the start of the integer
- * @param value_return return location of the integer value or #NULL
- * @param end_return return location of the end of the integer, or #NULL
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_string_parse_uint (const DBusString *str,
-                         int               start,
-                         unsigned long    *value_return,
-                         int              *end_return)
-{
-  unsigned long v;
-  const char *p;
-  char *end;
 
-  p = _dbus_string_get_const_data_len (str, start,
-                                       _dbus_string_get_length (str) - start);
-
-  end = NULL;
-  errno = 0;
-  v = strtoul (p, &end, 0);
-  if (end == NULL || end == p || errno != 0)
-    return FALSE;
-
-  if (value_return)
-    *value_return = v;
-  if (end_return)
-    *end_return = start + (end - p);
-
-  return TRUE;
-}
-
-#ifdef DBUS_BUILD_TESTS
-static dbus_bool_t
-ascii_isspace (char c)
-{
-  return (c == ' ' ||
-	  c == '\f' ||
-	  c == '\n' ||
-	  c == '\r' ||
-	  c == '\t' ||
-	  c == '\v');
-}
-#endif /* DBUS_BUILD_TESTS */
-
-#ifdef DBUS_BUILD_TESTS
-static dbus_bool_t
-ascii_isdigit (char c)
-{
-  return c >= '0' && c <= '9';
-}
-#endif /* DBUS_BUILD_TESTS */
-
-#ifdef DBUS_BUILD_TESTS
-static dbus_bool_t
-ascii_isxdigit (char c)
-{
-  return (ascii_isdigit (c) ||
-	  (c >= 'a' && c <= 'f') ||
-	  (c >= 'A' && c <= 'F'));
-}
-#endif /* DBUS_BUILD_TESTS */
-
-#ifdef DBUS_BUILD_TESTS
-/* Calls strtod in a locale-independent fashion, by looking at
- * the locale data and patching the decimal comma to a point.
- *
- * Relicensed from glib.
- */
-static double
-ascii_strtod (const char *nptr,
-	      char      **endptr)
-{
-  /* FIXME: The Win32 C library's strtod() doesn't handle hex.
-   * Presumably many Unixes don't either.
-   */
-
-  char *fail_pos;
-  double val;
-  struct lconv *locale_data;
-  const char *decimal_point;
-  int decimal_point_len;
-  const char *p, *decimal_point_pos;
-  const char *end = NULL; /* Silence gcc */
-
-  fail_pos = NULL;
-
-  locale_data = localeconv ();
-  decimal_point = locale_data->decimal_point;
-  decimal_point_len = strlen (decimal_point);
-
-  _dbus_assert (decimal_point_len != 0);
-  
-  decimal_point_pos = NULL;
-  if (decimal_point[0] != '.' ||
-      decimal_point[1] != 0)
-    {
-      p = nptr;
-      /* Skip leading space */
-      while (ascii_isspace (*p))
-	p++;
-      
-      /* Skip leading optional sign */
-      if (*p == '+' || *p == '-')
-	p++;
-      
-      if (p[0] == '0' &&
-	  (p[1] == 'x' || p[1] == 'X'))
-	{
-	  p += 2;
-	  /* HEX - find the (optional) decimal point */
-	  
-	  while (ascii_isxdigit (*p))
-	    p++;
-	  
-	  if (*p == '.')
-	    {
-	      decimal_point_pos = p++;
-	      
-	      while (ascii_isxdigit (*p))
-		p++;
-	      
-	      if (*p == 'p' || *p == 'P')
-		p++;
-	      if (*p == '+' || *p == '-')
-		p++;
-	      while (ascii_isdigit (*p))
-		p++;
-	      end = p;
-	    }
-	}
-      else
-	{
-	  while (ascii_isdigit (*p))
-	    p++;
-	  
-	  if (*p == '.')
-	    {
-	      decimal_point_pos = p++;
-	      
-	      while (ascii_isdigit (*p))
-		p++;
-	      
-	      if (*p == 'e' || *p == 'E')
-		p++;
-	      if (*p == '+' || *p == '-')
-		p++;
-	      while (ascii_isdigit (*p))
-		p++;
-	      end = p;
-	    }
-	}
-      /* For the other cases, we need not convert the decimal point */
-    }
-
-  /* Set errno to zero, so that we can distinguish zero results
-     and underflows */
-  errno = 0;
-  
-  if (decimal_point_pos)
-    {
-      char *copy, *c;
-
-      /* We need to convert the '.' to the locale specific decimal point */
-      copy = dbus_malloc (end - nptr + 1 + decimal_point_len);
-      
-      c = copy;
-      memcpy (c, nptr, decimal_point_pos - nptr);
-      c += decimal_point_pos - nptr;
-      memcpy (c, decimal_point, decimal_point_len);
-      c += decimal_point_len;
-      memcpy (c, decimal_point_pos + 1, end - (decimal_point_pos + 1));
-      c += end - (decimal_point_pos + 1);
-      *c = 0;
-
-      val = strtod (copy, &fail_pos);
-
-      if (fail_pos)
-	{
-	  if (fail_pos > decimal_point_pos)
-	    fail_pos = (char *)nptr + (fail_pos - copy) - (decimal_point_len - 1);
-	  else
-	    fail_pos = (char *)nptr + (fail_pos - copy);
-	}
-      
-      dbus_free (copy);
-	  
-    }
-  else
-    val = strtod (nptr, &fail_pos);
-
-  if (endptr)
-    *endptr = fail_pos;
-  
-  return val;
-}
-#endif /* DBUS_BUILD_TESTS */
-
-#ifdef DBUS_BUILD_TESTS
-/**
- * Parses a floating point number contained in a DBusString. Either
- * return parameter may be #NULL if you aren't interested in it. The
- * integer is parsed and stored in value_return. Return parameters are
- * not initialized if the function returns #FALSE.
- *
- * @param str the string
- * @param start the byte index of the start of the float
- * @param value_return return location of the float value or #NULL
- * @param end_return return location of the end of the float, or #NULL
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_string_parse_double (const DBusString *str,
-                           int               start,
-                           double           *value_return,
-                           int              *end_return)
-{
-  double v;
-  const char *p;
-  char *end;
-
-  p = _dbus_string_get_const_data_len (str, start,
-                                       _dbus_string_get_length (str) - start);
-
-  end = NULL;
-  errno = 0;
-  v = ascii_strtod (p, &end);
-  if (end == NULL || end == p || errno != 0)
-    return FALSE;
-
-  if (value_return)
-    *value_return = v;
-  if (end_return)
-    *end_return = start + (end - p);
-
-  return TRUE;
-}
-#endif /* DBUS_BUILD_TESTS */
-
-/** @} */ /* DBusString group */
 
 /**
  * @addtogroup DBusInternalsUtils
@@ -4173,8 +3659,10 @@ fill_user_info_from_passwd (struct passwd *p,
 }
 #endif
 
-static dbus_bool_t
-fill_user_info (DBusUserInfo       *info,
+
+
+dbus_bool_t
+_dbus_fill_user_info (DBusUserInfo       *info,
                 dbus_uid_t          uid,
                 const DBusString   *username,
                 DBusError          *error)
@@ -4379,123 +3867,67 @@ fill_user_info (DBusUserInfo       *info,
 
 
 /**
- * Gets user info for the given username.
+ * Appends the given filename to the given directory.
  *
- * @param info user info object to initialize
- * @param username the username
- * @param error error return
+ * @todo it might be cute to collapse multiple '/' such as "foo//"
+ * concat "//bar"
+ *
+ * @param dir the directory name
+ * @param next_component the filename
  * @returns #TRUE on success
  */
 dbus_bool_t
-_dbus_user_info_fill (DBusUserInfo     *info,
-                      const DBusString *username,
-                      DBusError        *error)
+_dbus_concat_dir_and_file (DBusString       *dir,
+                           const DBusString *next_component)
 {
-  return fill_user_info (info, DBUS_UID_UNSET,
-                         username, error);
-}
+  dbus_bool_t dir_ends_in_slash;
+  dbus_bool_t file_starts_with_slash;
 
-/**
- * Gets user info for the given user ID.
- *
- * @param info user info object to initialize
- * @param uid the user ID
- * @param error error return
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_user_info_fill_uid (DBusUserInfo *info,
-                          dbus_uid_t    uid,
-                          DBusError    *error)
-{
-  return fill_user_info (info, uid,
-                         NULL, error);
-}
-
-/**
- * Frees the members of info
- * (but not info itself)
- * @param info the user info struct
- */
-void
-_dbus_user_info_free (DBusUserInfo *info)
-{
-  dbus_free (info->group_ids);
-  dbus_free (info->username);
-  dbus_free (info->homedir);
-}
-
- /**
- * Frees the members of info (but not info itself).
- *
- * @param info the group info
- */
-void
-_dbus_group_info_free (DBusGroupInfo    *info)
-{
-  dbus_free (info->groupname);
-}
-
-/**
- * Sets fields in DBusCredentials to DBUS_PID_UNSET,
- * DBUS_UID_UNSET, DBUS_GID_UNSET.
- *
- * @param credentials the credentials object to fill in
- */
-void
-_dbus_credentials_clear (DBusCredentials *credentials)
-{
-  credentials->pid = DBUS_PID_UNSET;
-  credentials->uid = DBUS_UID_UNSET;
-  credentials->gid = DBUS_GID_UNSET;
-}
-
-/**
- * Gets the credentials of the current process.
- *
- * @param credentials credentials to fill in.
- */
-void
-_dbus_credentials_from_current_process (DBusCredentials *credentials)
-{
-#ifndef DBUS_WIN
-  /* The POSIX spec certainly doesn't promise this, but
-   * we need these assertions to fail as soon as we're wrong about
-   * it so we can do the porting fixups
-   */
-  _dbus_assert (sizeof (pid_t) <= sizeof (credentials->pid));
-  _dbus_assert (sizeof (uid_t) <= sizeof (credentials->uid));
-  _dbus_assert (sizeof (gid_t) <= sizeof (credentials->gid));
-#endif
+  if (_dbus_string_get_length (dir) == 0 ||
+      _dbus_string_get_length (next_component) == 0)
+    return TRUE;
   
-  credentials->pid = _dbus_getpid ();
-  credentials->uid = _dbus_getuid ();
-  credentials->gid = _dbus_getgid ();
+#ifndef DBUS_WIN
+  dir_ends_in_slash = '/' == _dbus_string_get_byte (dir,
+                                                    _dbus_string_get_length (dir) - 1);
+
+  file_starts_with_slash = '/' == _dbus_string_get_byte (next_component, 0);
+
+  if (dir_ends_in_slash && file_starts_with_slash)
+    {
+      _dbus_string_shorten (dir, 1);
+    }
+  else if (!(dir_ends_in_slash || file_starts_with_slash))
+    {
+      if (!_dbus_string_append_byte (dir, '/'))
+        return FALSE;
+    }
+#else
+  dir_ends_in_slash =
+    ('/' == _dbus_string_get_byte (dir, _dbus_string_get_length (dir) - 1) ||
+     '\\' == _dbus_string_get_byte (dir, _dbus_string_get_length (dir) - 1));
+
+  file_starts_with_slash =
+     ('/' == _dbus_string_get_byte (next_component, 0) ||
+      '\\' == _dbus_string_get_byte (next_component, 0));
+
+  if (dir_ends_in_slash && file_starts_with_slash)
+    {
+      _dbus_string_shorten (dir, 1);
+    }
+  else if (!(dir_ends_in_slash || file_starts_with_slash))
+    {
+      if (!_dbus_string_append_byte (dir, '\\'))
+        return FALSE;
+    }
+#endif
+
+  return _dbus_string_copy (next_component, 0, dir,
+                            _dbus_string_get_length (dir));
 }
 
-/**
- * Checks whether the provided_credentials are allowed to log in
- * as the expected_credentials.
- *
- * @param expected_credentials credentials we're trying to log in as
- * @param provided_credentials credentials we have
- * @returns #TRUE if we can log in
- */
-dbus_bool_t
-_dbus_credentials_match (const DBusCredentials *expected_credentials,
-                         const DBusCredentials *provided_credentials)
-{
-  if (provided_credentials->uid == DBUS_UID_UNSET)
-    return FALSE;
-  else if (expected_credentials->uid == DBUS_UID_UNSET)
-    return FALSE;
-  else if (provided_credentials->uid == 0)
-    return TRUE;
-  else if (provided_credentials->uid == expected_credentials->uid)
-    return TRUE;
-  else
-    return FALSE;
-}
+
+
 
 /**
  * Gets our process ID
@@ -4539,70 +3971,7 @@ _dbus_getgid (void)
 }
 #endif
 
-_DBUS_DEFINE_GLOBAL_LOCK (atomic);
 
-#ifdef DBUS_USE_ATOMIC_INT_486
-/* Taken from CVS version 1.7 of glibc's sysdeps/i386/i486/atomicity.h */
-/* Since the asm stuff here is gcc-specific we go ahead and use "inline" also */
-static inline dbus_int32_t
-atomic_exchange_and_add (DBusAtomic            *atomic,
-                         volatile dbus_int32_t  val)
-{
-  register dbus_int32_t result;
-
-  __asm__ __volatile__ ("lock; xaddl %0,%1"
-                        : "=r" (result), "=m" (atomic->value)
-			: "0" (val), "m" (atomic->value));
-  return result;
-}
-#endif
-
-/**
- * Atomically increments an integer
- *
- * @param atomic pointer to the integer to increment
- * @returns the value before incrementing
- *
- * @todo implement arch-specific faster atomic ops
- */
-dbus_int32_t
-_dbus_atomic_inc (DBusAtomic *atomic)
-{
-#ifdef DBUS_USE_ATOMIC_INT_486
-  return atomic_exchange_and_add (atomic, 1);
-#else
-  dbus_int32_t res;
-  _DBUS_LOCK (atomic);
-  res = atomic->value;
-  atomic->value += 1;
-  _DBUS_UNLOCK (atomic);
-  return res;
-#endif
-}
-
-/**
- * Atomically decrement an integer
- *
- * @param atomic pointer to the integer to decrement
- * @returns the value before decrementing
- *
- * @todo implement arch-specific faster atomic ops
- */
-dbus_int32_t
-_dbus_atomic_dec (DBusAtomic *atomic)
-{
-#ifdef DBUS_USE_ATOMIC_INT_486
-  return atomic_exchange_and_add (atomic, -1);
-#else
-  dbus_int32_t res;
-  
-  _DBUS_LOCK (atomic);
-  res = atomic->value;
-  atomic->value -= 1;
-  _DBUS_UNLOCK (atomic);
-  return res;
-#endif
-}
 
 /**
  * Wrapper for poll().
@@ -4788,611 +4157,6 @@ _dbus_get_current_time (long *tv_sec,
 #endif
 }
 
-/**
- * Appends the contents of the given file to the string,
- * returning error code. At the moment, won't open a file
- * more than a megabyte in size.
- *
- * @param str the string to append to
- * @param filename filename to load
- * @param error place to set an error
- * @returns #FALSE if error was set
- */
-dbus_bool_t
-_dbus_file_get_contents (DBusString       *str,
-                         const DBusString *filename,
-                         DBusError        *error)
-{
-  int fd;
-  struct stat sb;
-  int orig_len;
-  int total;
-  const char *filename_c;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  filename_c = _dbus_string_get_const_data (filename);
-  
-  /* O_BINARY useful on Cygwin and Win32 */
-  fd = open (filename_c, O_RDONLY | O_BINARY);
-  if (fd < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to open \"%s\": %s",
-                      filename_c,
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-
-  if (fstat (fd, &sb) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to stat \"%s\": %s",
-                      filename_c,
-                      _dbus_strerror (errno));
-
-      _dbus_verbose ("fstat() failed: %s",
-                     _dbus_strerror (errno));
-      
-      close (fd);
-      
-      return FALSE;
-    }
-
-  if (sb.st_size > _DBUS_ONE_MEGABYTE)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "File size %lu of \"%s\" is too large.",
-                      (unsigned long) sb.st_size, filename_c);
-      close (fd);
-      return FALSE;
-    }
-  
-  total = 0;
-  orig_len = _dbus_string_get_length (str);
-  if (sb.st_size > 0 && S_ISREG (sb.st_mode))
-    {
-      int bytes_read;
-      const int encapsulated_fd = _dbus_fd_to_handle (fd);
-
-      while (total < (int) sb.st_size)
-        {
-          bytes_read = _dbus_read (encapsulated_fd, str,
-                                   sb.st_size - total);
-          if (bytes_read <= 0)
-            {
-              dbus_set_error (error, _dbus_error_from_errno (errno),
-                              "Error reading \"%s\": %s",
-                              filename_c,
-                              _dbus_strerror (errno));
-
-              _dbus_verbose ("read() failed: %s",
-                             _dbus_strerror (errno));
-              
-              _dbus_close (encapsulated_fd, NULL);
-              _dbus_string_set_length (str, orig_len);
-              return FALSE;
-            }
-          else
-            total += bytes_read;
-        }
-
-      _dbus_close (encapsulated_fd, NULL);
-      return TRUE;
-    }
-  else if (sb.st_size != 0)
-    {
-      _dbus_verbose ("Can only open regular files at the moment.\n");
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "\"%s\" is not a regular file",
-                      filename_c);
-      close (fd);
-      return FALSE;
-    }
-  else
-    {
-      close (fd);
-      return TRUE;
-    }
-}
-
-/**
- * Writes a string out to a file. If the file exists,
- * it will be atomically overwritten by the new data.
- *
- * @param str the string to write out
- * @param filename the file to save string to
- * @param error error to be filled in on failure
- * @returns #FALSE on failure
- */
-dbus_bool_t
-_dbus_string_save_to_file (const DBusString *str,
-                           const DBusString *filename,
-                           DBusError        *error)
-{
-  int fd;
-  int bytes_to_write;
-  const char *filename_c;
-  DBusString tmp_filename;
-  const char *tmp_filename_c;
-  int total;
-  dbus_bool_t need_unlink;
-  dbus_bool_t retval;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  fd = -1;
-  retval = FALSE;
-  need_unlink = FALSE;
-  
-  if (!_dbus_string_init (&tmp_filename))
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return FALSE;
-    }
-
-  if (!_dbus_string_copy (filename, 0, &tmp_filename, 0))
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      _dbus_string_free (&tmp_filename);
-      return FALSE;
-    }
-  
-  if (!_dbus_string_append (&tmp_filename, "."))
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      _dbus_string_free (&tmp_filename);
-      return FALSE;
-    }
-
-#define N_TMP_FILENAME_RANDOM_BYTES 8
-  if (!_dbus_generate_random_ascii (&tmp_filename, N_TMP_FILENAME_RANDOM_BYTES))
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      _dbus_string_free (&tmp_filename);
-      return FALSE;
-    }
-    
-  filename_c = _dbus_string_get_const_data (filename);
-  tmp_filename_c = _dbus_string_get_const_data (&tmp_filename);
-
-  fd = open (tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-             0600);
-  if (fd < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not create %s: %s", tmp_filename_c,
-                      _dbus_strerror (errno));
-      goto out;
-    }
-
-  fd = _dbus_fd_to_handle (fd);
-
-  need_unlink = TRUE;
-  
-  total = 0;
-  bytes_to_write = _dbus_string_get_length (str);
-
-  while (total < bytes_to_write)
-    {
-      int bytes_written;
-
-      bytes_written = _dbus_write (fd, str, total,
-                                   bytes_to_write - total);
-
-      if (bytes_written <= 0)
-        {
-          dbus_set_error (error, _dbus_error_from_errno (errno),
-                          "Could not write to %s: %s", tmp_filename_c,
-                          _dbus_strerror (errno));
-          
-          goto out;
-        }
-
-      total += bytes_written;
-    }
-
-  if (_dbus_close (fd, NULL) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not close file %s: %s",
-                      tmp_filename_c, _dbus_strerror (errno));
-
-      goto out;
-    }
-
-  fd = -1;
-  
-  if (
-#ifdef DBUS_WIN
-      (unlink (filename_c) == -1 && errno != ENOENT) ||
-#endif
-      rename (tmp_filename_c, filename_c) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not rename %s to %s: %s",
-                      tmp_filename_c, filename_c,
-                      _dbus_strerror (errno));
-
-      goto out;
-    }
-
-  need_unlink = FALSE;
-  
-  retval = TRUE;
-  
- out:
-  /* close first, then unlink, to prevent ".nfs34234235" garbage
-   * files
-   */
-
-  if (fd >= 0)
-    _dbus_close (fd, NULL);
-        
-  if (need_unlink && unlink (tmp_filename_c) < 0)
-    _dbus_verbose ("Failed to unlink temp file %s: %s\n",
-                   tmp_filename_c, _dbus_strerror (errno));
-
-  _dbus_string_free (&tmp_filename);
-
-  if (!retval)
-    _DBUS_ASSERT_ERROR_IS_SET (error);
-  
-  return retval;
-}
-
-/** Creates the given file, failing if the file already exists.
- *
- * @param filename the filename
- * @param error error location
- * @returns #TRUE if we created the file and it didn't exist
- */
-dbus_bool_t
-_dbus_create_file_exclusively (const DBusString *filename,
-                               DBusError        *error)
-{
-  int fd;
-  const char *filename_c;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  filename_c = _dbus_string_get_const_data (filename);
-  
-  fd = open (filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-             0600);
-  if (fd < 0)
-    {
-      dbus_set_error (error,
-                      DBUS_ERROR_FAILED,
-                      "Could not create file %s: %s\n",
-                      filename_c,
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-
-  if (close (fd) < 0)
-    {
-      dbus_set_error (error,
-                      DBUS_ERROR_FAILED,
-                      "Could not close file %s: %s\n",
-                      filename_c,
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-  
-  return TRUE;
-}
-
-/**
- * Deletes the given file.
- *
- * @param filename the filename
- * @param error error location
- * 
- * @returns #TRUE if unlink() succeeded
- */
-dbus_bool_t
-_dbus_delete_file (const DBusString *filename,
-                   DBusError        *error)
-{
-  const char *filename_c;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  filename_c = _dbus_string_get_const_data (filename);
-
-  if (unlink (filename_c) < 0)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Failed to delete file %s: %s\n",
-                      filename_c, _dbus_strerror (errno));
-      return FALSE;
-    }
-  else
-    return TRUE;
-}
-
-/**
- * Creates a directory; succeeds if the directory
- * is created or already existed.
- *
- * @param filename directory filename
- * @param error initialized error object
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_create_directory (const DBusString *filename,
-                        DBusError        *error)
-{
-  const char *filename_c;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  filename_c = _dbus_string_get_const_data (filename);
-
-  if (mkdir (filename_c, 0700) < 0)
-    {
-      if (errno == EEXIST)
-        return TRUE;
-      
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Failed to create directory %s: %s\n",
-                      filename_c, _dbus_strerror (errno));
-      return FALSE;
-    }
-  else
-    return TRUE;
-}
-
-/**
- * Appends the given filename to the given directory.
- *
- * @todo it might be cute to collapse multiple '/' such as "foo//"
- * concat "//bar"
- *
- * @param dir the directory name
- * @param next_component the filename
- * @returns #TRUE on success
- */
-dbus_bool_t
-_dbus_concat_dir_and_file (DBusString       *dir,
-                           const DBusString *next_component)
-{
-  dbus_bool_t dir_ends_in_slash;
-  dbus_bool_t file_starts_with_slash;
-
-  if (_dbus_string_get_length (dir) == 0 ||
-      _dbus_string_get_length (next_component) == 0)
-    return TRUE;
-  
-#ifndef DBUS_WIN
-  dir_ends_in_slash = '/' == _dbus_string_get_byte (dir,
-                                                    _dbus_string_get_length (dir) - 1);
-
-  file_starts_with_slash = '/' == _dbus_string_get_byte (next_component, 0);
-
-  if (dir_ends_in_slash && file_starts_with_slash)
-    {
-      _dbus_string_shorten (dir, 1);
-    }
-  else if (!(dir_ends_in_slash || file_starts_with_slash))
-    {
-      if (!_dbus_string_append_byte (dir, '/'))
-        return FALSE;
-    }
-#else
-  dir_ends_in_slash =
-    ('/' == _dbus_string_get_byte (dir, _dbus_string_get_length (dir) - 1) ||
-     '\\' == _dbus_string_get_byte (dir, _dbus_string_get_length (dir) - 1));
-
-  file_starts_with_slash =
-     ('/' == _dbus_string_get_byte (next_component, 0) ||
-      '\\' == _dbus_string_get_byte (next_component, 0));
-
-  if (dir_ends_in_slash && file_starts_with_slash)
-    {
-      _dbus_string_shorten (dir, 1);
-    }
-  else if (!(dir_ends_in_slash || file_starts_with_slash))
-    {
-      if (!_dbus_string_append_byte (dir, '\\'))
-        return FALSE;
-    }
-#endif
-
-  return _dbus_string_copy (next_component, 0, dir,
-                            _dbus_string_get_length (dir));
-}
-
-static void
-pseudorandom_generate_random_bytes_buffer (char *buffer,
-                                           int   n_bytes)
-{
-  unsigned long tv_usec;
-  int i;
-  
-  /* fall back to pseudorandom */
-  _dbus_verbose ("Falling back to pseudorandom for %d bytes\n",
-                 n_bytes);
-  
-  _dbus_get_current_time (NULL, &tv_usec);
-  srand (tv_usec);
-  
-  i = 0;
-  while (i < n_bytes)
-    {
-      double r;
-      unsigned int b;
-          
-      r = rand ();
-      b = (r / (double) RAND_MAX) * 255.0;
-
-      buffer[i] = b;
-
-      ++i;
-    }
-}
-
-static dbus_bool_t
-pseudorandom_generate_random_bytes (DBusString *str,
-                                    int         n_bytes)
-{
-  int old_len;
-  char *p;
-  
-  old_len = _dbus_string_get_length (str);
-
-  if (!_dbus_string_lengthen (str, n_bytes))
-    return FALSE;
-
-  p = _dbus_string_get_data_len (str, old_len, n_bytes);
-
-  pseudorandom_generate_random_bytes_buffer (p, n_bytes);
-
-  return TRUE;
-}
-
-/**
- * Fills n_bytes of the given buffer with random bytes.
- *
- * @param buffer an allocated buffer
- * @param n_bytes the number of bytes in buffer to write to
- */
-void
-_dbus_generate_random_bytes_buffer (char *buffer,
-                                    int   n_bytes)
-{
-  DBusString str;
-
-  if (!_dbus_string_init (&str))
-    {
-      pseudorandom_generate_random_bytes_buffer (buffer, n_bytes);
-      return;
-    }
-
-  if (!_dbus_generate_random_bytes (&str, n_bytes))
-    {
-      _dbus_string_free (&str);
-      pseudorandom_generate_random_bytes_buffer (buffer, n_bytes);
-      return;
-    }
-
-  _dbus_string_copy_to_buffer (&str, buffer, n_bytes);
-
-  _dbus_string_free (&str);
-}
-
-/**
- * Generates the given number of random bytes,
- * using the best mechanism we can come up with.
- *
- * @param str the string
- * @param n_bytes the number of random bytes to append to string
- * @returns #TRUE on success, #FALSE if no memory
- */
-dbus_bool_t
-_dbus_generate_random_bytes (DBusString *str,
-                             int         n_bytes)
-{
-  int old_len;
-  int fd;
-
-  /* FALSE return means "no memory", if it could
-   * mean something else then we'd need to return
-   * a DBusError. So we always fall back to pseudorandom
-   * if the I/O fails.
-   */
-  
-  old_len = _dbus_string_get_length (str);
-  fd = -1;
-
-#ifndef DBUS_WIN
-  /* note, urandom on linux will fall back to pseudorandom */
-  fd = open ("/dev/urandom", O_RDONLY);
-#endif
-
-  if (fd < 0)
-    return pseudorandom_generate_random_bytes (str, n_bytes);
-
-#ifndef DBUS_WIN
-  if (_dbus_read (fd, str, n_bytes) != n_bytes)
-    {
-      _dbus_close (fd, NULL);
-      _dbus_string_set_length (str, old_len);
-      return pseudorandom_generate_random_bytes (str, n_bytes);
-    }
-
-  _dbus_verbose ("Read %d bytes from /dev/urandom\n",
-                 n_bytes);
-  
-  close (fd);
-  
-  return TRUE;
-#else
-  _dbus_assert_not_reached ("_dbus_generate_random_bytes fails");
-  return FALSE;
-#endif
-}
-
-/**
- * Generates the given number of random bytes, where the bytes are
- * chosen from the alphanumeric ASCII subset.
- *
- * @param str the string
- * @param n_bytes the number of random ASCII bytes to append to string
- * @returns #TRUE on success, #FALSE if no memory or other failure
- */
-dbus_bool_t
-_dbus_generate_random_ascii (DBusString *str,
-                             int         n_bytes)
-{
-  static const char letters[] =
-    "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789abcdefghijklmnopqrstuvwxyz";
-  int i;
-  int len;
-  
-  if (!_dbus_generate_random_bytes (str, n_bytes))
-    return FALSE;
-  
-  len = _dbus_string_get_length (str);
-  i = len - n_bytes;
-  while (i < len)
-    {
-      _dbus_string_set_byte (str, i,
-                             letters[_dbus_string_get_byte (str, i) %
-                                     (sizeof (letters) - 1)]);
-
-      ++i;
-    }
-
-  _dbus_assert (_dbus_string_validate_ascii (str, len - n_bytes,
-                                             n_bytes));
-
-  return TRUE;
-}
-
-/**
- * A wrapper around strerror() because some platforms
- * may be lame and not have strerror().
- *
- * @param error_number errno.
- * @returns error description.
- */
-const char*
-_dbus_strerror (int error_number)
-{
-#ifndef DBUS_WIN
-  const char *msg;
-  
-  msg = strerror (error_number);
-  if (msg == NULL)
-    msg = "unknown";
-
-  return msg;
-#else
-  return _dbus_strerror_win(error_number);
-#endif
-}
 
 /**
  * signal (SIGPIPE, SIG_IGN);
@@ -5431,114 +4195,6 @@ _dbus_fd_set_close_on_exec (int fd)
 #endif
 }
 
-/**
- * Converts a UNIX errno or a Winsock error code into a #DBusError name.
- *
- * @todo should cover more errnos, specifically those
- * from open().
- * 
- * @param error_number the errno or Winsock error code.
- * @returns an error name
- */
-const char*
-_dbus_error_from_errno (int error_number)
-{
-  switch (error_number)
-    {
-    case 0:
-      return DBUS_ERROR_FAILED;
-      
-#ifdef EPROTONOSUPPORT
-    case EPROTONOSUPPORT:
-      return DBUS_ERROR_NOT_SUPPORTED;
-#endif
-#ifdef EAFNOSUPPORT
-    case EAFNOSUPPORT:
-      return DBUS_ERROR_NOT_SUPPORTED;
-#endif
-#ifdef ENFILE
-    case ENFILE:
-      return DBUS_ERROR_LIMITS_EXCEEDED; /* kernel out of memory */
-#endif
-#ifdef EMFILE
-    case EMFILE:
-      return DBUS_ERROR_LIMITS_EXCEEDED;
-#endif
-#ifdef EACCES
-    case EACCES:
-      return DBUS_ERROR_ACCESS_DENIED;
-#endif
-#ifdef EPERM
-    case EPERM:
-      return DBUS_ERROR_ACCESS_DENIED;
-#endif
-#ifdef ENOBUFS
-    case ENOBUFS:
-      return DBUS_ERROR_NO_MEMORY;
-#endif
-#ifdef ENOMEM
-    case ENOMEM:
-      return DBUS_ERROR_NO_MEMORY;
-#endif
-#ifdef EINVAL
-    case EINVAL:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef EBADF
-    case EBADF:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef EFAULT
-    case EFAULT:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef ENOTSOCK
-    case ENOTSOCK:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef EISCONN
-    case EISCONN:
-      return DBUS_ERROR_FAILED;
-#endif
-#ifdef ECONNREFUSED
-    case ECONNREFUSED:
-      return DBUS_ERROR_NO_SERVER;
-#endif
-#ifdef ETIMEDOUT
-    case ETIMEDOUT:
-      return DBUS_ERROR_TIMEOUT;
-#endif
-#ifdef ENETUNREACH
-    case ENETUNREACH:
-      return DBUS_ERROR_NO_NETWORK;
-#endif
-#ifdef EADDRINUSE
-    case EADDRINUSE:
-      return DBUS_ERROR_ADDRESS_IN_USE;
-#endif
-#ifdef EEXIST
-    case EEXIST:
-      return DBUS_ERROR_FILE_NOT_FOUND;
-#endif
-#ifdef ENOENT
-    case ENOENT:
-      return DBUS_ERROR_FILE_NOT_FOUND;
-#endif
-    }
-
-  return DBUS_ERROR_FAILED;
-}
-
-/**
- * Exit the process, returning the given value.
- *
- * @param code the exit code
- */
-void
-_dbus_exit (int code)
-{
-  _exit (code);
-}
 
 /**
  * Closes a file descriptor.
@@ -5616,78 +4272,9 @@ _dbus_set_fd_nonblocking (int             fd,
 #endif
 }
 
-#if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
-/**
- * On GNU libc systems, print a crude backtrace to the verbose log.
- * On other systems, print "no backtrace support"
- *
- */
-void
-_dbus_print_backtrace (void)
-{
-#if defined (HAVE_BACKTRACE) && defined (DBUS_ENABLE_VERBOSE_MODE)
-  void *bt[500];
-  int bt_size;
-  int i;
-  char **syms;
-  
-  bt_size = backtrace (bt, 500);
-
-  syms = backtrace_symbols (bt, bt_size);
-  
-  i = 0;
-  while (i < bt_size)
-    {
-      _dbus_verbose ("  %s\n", syms[i]);
-      ++i;
-    }
-
-  free (syms);
-#else
-  _dbus_verbose ("  D-Bus not compiled with backtrace support\n");
-#endif
-}
-#endif /* asserts or tests enabled */
 
 
-/**
- * Gets a UID from a UID string.
- *
- * @param uid_str the UID in string form
- * @param uid UID to fill in
- * @returns #TRUE if successfully filled in UID
- */
-dbus_bool_t
-_dbus_parse_uid (const DBusString      *uid_str,
-                 dbus_uid_t            *uid)
-{
-  dbus_uid_t val;
-  int end;
-  
-  if (_dbus_string_get_length (uid_str) == 0)
-    {
-      _dbus_verbose ("UID string was zero length\n");
-      return FALSE;
-    }
 
-  val = -1;
-  end = 0;
-  if (!_dbus_string_parse_int (uid_str, 0, &val, &end))
-    {
-      _dbus_verbose ("could not parse string as a UID\n");
-      return FALSE;
-    }
-  
-  if (end != _dbus_string_get_length (uid_str))
-    {
-      _dbus_verbose ("string contained trailing stuff after UID\n");
-      return FALSE;
-    }
-
-  *uid = val;
-
-  return TRUE;
-}
 
 /**
  * Creates a full-duplex pipe (as in socketpair()).
@@ -5772,41 +4359,26 @@ _dbus_printf_string_upper_bound (const char *format,
 #endif
 
 /**
- * Gets the temporary files directory by inspecting the environment variables 
- * TMPDIR, TMP, and TEMP in that order. If none of those are set "/tmp" is returned
+ * A wrapper around strerror() because some platforms
+ * may be lame and not have strerror().
  *
- * @returns location of temp directory
+ * @param error_number errno.
+ * @returns error description.
  */
 const char*
-_dbus_get_tmpdir(void)
+_dbus_strerror (int error_number)
 {
-  static const char* tmpdir = NULL;
-
-  if (tmpdir == NULL)
-    {
-      /* TMPDIR is what glibc uses, then
-       * glibc falls back to the P_tmpdir macro which
-       * just expands to "/tmp"
-       */
-      if (tmpdir == NULL)
-        tmpdir = getenv("TMPDIR");
-
-      /* These two env variables are probably
-       * broken, but maybe some OS uses them?
-       */
-      if (tmpdir == NULL)
-        tmpdir = getenv("TMP");
-      if (tmpdir == NULL)
-        tmpdir = getenv("TEMP");
-
-      /* And this is the sane fallback. */
-      if (tmpdir == NULL)
-        tmpdir = "/tmp";
-    }
+#ifndef DBUS_WIN
+  const char *msg;
   
-  _dbus_assert(tmpdir != NULL);
-  
-  return tmpdir;
+  msg = strerror (error_number);
+  if (msg == NULL)
+    msg = "unknown";
+
+  return msg;
+#else
+  return _dbus_strerror_win(error_number);
+#endif
 }
 
 /** @} end of sysdeps */
