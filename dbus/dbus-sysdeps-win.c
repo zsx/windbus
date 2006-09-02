@@ -92,7 +92,9 @@ _dbus_win_allocate_fd (void)
 
   if (win_fds == NULL)
     {
+#ifdef _DBUS_WIN_USE_RANDOMIZER
       DBusString random;
+#endif
 
       win_n_fds = 16;
       /* Use malloc to avoid memory leak failure in dbus-test */
