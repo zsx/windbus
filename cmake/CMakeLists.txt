@@ -28,6 +28,12 @@ include (MacroLibrary)
 
 if(MSVC)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
+    
+    SET(WARNING_AS_ERROR
+                         /we4013 # using an undefined function is an error
+       )
+	SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG} ${WARNING_AS_ERROR}")
+	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_DEBUG} ${WARNING_AS_ERROR}")
 endif(MSVC)
 
 ENABLE_TESTING()
