@@ -108,6 +108,7 @@
 #define snprintf _snprintf
 #define strtoll _strtoi64
 #define strtoull _strtoui64
+typedef int mode_t;
 #endif
 
 #ifdef interface
