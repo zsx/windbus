@@ -90,6 +90,34 @@ Index: test/test-sleep-forever.c
  
  int
  main (int argc, char **argv)
+Index: cmake/ConfigureChecks.cmake
+===================================================================
+--- cmake/ConfigureChecks.cmake	(revision 264)
++++ cmake/ConfigureChecks.cmake	(working copy)
+@@ -11,7 +11,9 @@
+ check_include_file(sys/wait.h   HAVE_SYS_WAIT_H)# dbus-sysdeps-win.c
+ check_include_file(time.h       HAVE_TIME_H)    # dbus-sysdeps-win.c
+ check_include_file(unistd.h     HAVE_UNISTD_H)  # dbus-sysdeps-util-win.c
++check_include_file(stdio.h      HAVE_STDIO_H)   # dbus-sysdeps.h
+ 
++
+ check_symbol_exists(backtrace    "execinfo.h"       HAVE_BACKTRACE)          #  dbus-sysdeps.c, dbus-sysdeps-win.c
+ check_symbol_exists(getgrouplist "grp.h"            HAVE_GETGROUPLIST)       #  dbus-sysdeps.c
+ check_symbol_exists(getpeerucred "ucred.h"          HAVE_GETPEERUCRED)       #  dbus-sysdeps.c, dbus-sysdeps-win.c
+Index: cmake/config.h.cmake
+===================================================================
+--- cmake/config.h.cmake	(revision 264)
++++ cmake/config.h.cmake	(working copy)
+@@ -61,6 +61,9 @@
+ /* Define to 1 if you have unistd.h */
+ #cmakedefine   HAVE_UNISTD_H 1
+ 
++/* Define to 1 if you have stdio.h */
++#cmakedefine   HAVE_STDIO_H 1
++
+ // symbols
+ /* Define to 1 if you have backtrace */
+ #cmakedefine   HAVE_BACKTRACE 1
 Index: bus/dispatch.c
 ===================================================================
 --- bus/dispatch.c	(revision 264)
@@ -2618,7 +2646,7 @@ Index: dbus/dbus-sysdeps.h
 ===================================================================
 --- dbus/dbus-sysdeps.h	(revision 264)
 +++ dbus/dbus-sysdeps.h	(working copy)
-@@ -39,6 +39,10 @@
+@@ -39,6 +39,14 @@
  
  #include <stdarg.h>
  
@@ -2626,10 +2654,14 @@ Index: dbus/dbus-sysdeps.h
 +#include <sys/types.h>
 +#endif
 +
++#ifdef HAVE_STDIO_H
++#include <stdio.h>
++#endif
++
  DBUS_BEGIN_DECLS
  
  /* The idea of this file is to encapsulate everywhere that we're
-@@ -89,6 +93,9 @@
+@@ -89,6 +97,9 @@
                       int               start2,
                       int               len2);
  
@@ -2639,7 +2671,7 @@ Index: dbus/dbus-sysdeps.h
  typedef unsigned long dbus_pid_t;
  typedef unsigned long dbus_uid_t;
  typedef unsigned long dbus_gid_t;
-@@ -101,6 +108,12 @@
+@@ -101,6 +112,12 @@
  #define DBUS_UID_FORMAT "%lu"
  #define DBUS_GID_FORMAT "%lu"
  
@@ -2652,7 +2684,7 @@ Index: dbus/dbus-sysdeps.h
  /**
   * Struct representing socket credentials
   */
-@@ -136,8 +149,8 @@
+@@ -136,8 +153,8 @@
  void        _dbus_credentials_from_current_process (DBusCredentials       *credentials);
  dbus_bool_t _dbus_credentials_match                (const DBusCredentials *expected_credentials,
                                                      const DBusCredentials *provided_credentials);
@@ -2662,7 +2694,7 @@ Index: dbus/dbus-sysdeps.h
  typedef struct DBusUserInfo  DBusUserInfo;
  typedef struct DBusGroupInfo DBusGroupInfo;
  
-@@ -169,6 +182,11 @@
+@@ -169,6 +186,11 @@
  dbus_bool_t _dbus_user_info_fill_uid (DBusUserInfo     *info,
                                        dbus_uid_t        uid,
                                        DBusError        *error);
