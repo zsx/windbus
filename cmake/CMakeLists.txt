@@ -5,8 +5,6 @@ project(${PACKAGE})
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/modules")
 
-# do config checks
-INCLUDE(ConfigureChecks.cmake)
 
 #enable building of shared library
 SET(BUILD_SHARED_LIBS ON)
@@ -19,6 +17,9 @@ endif (WIN32)
 find_package(LibXML2)
 find_package(LibExpat)
 find_package(X11)
+
+# do config checks
+INCLUDE(ConfigureChecks.cmake)
 
 # @TODO: how to remove last dir from ${CMAKE_SOURCE_DIR} ? 
 SET(DBUS_SOURCE_DIR ${CMAKE_SOURCE_DIR}/..)
