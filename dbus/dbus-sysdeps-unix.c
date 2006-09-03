@@ -100,6 +100,13 @@ _dbus_abort (void)
   _exit (1); /* in case someone manages to ignore SIGABRT */
 }
 #endif
+
+int _dbus_mkdir (const char *path, 
+	             mode_t mode)
+{
+  return mkdir(path, mode);
+}
+
  
 /**
  * Thin wrapper around the read() system call that appends
@@ -700,8 +707,8 @@ _dbus_listen_tcp_socket (const char     *host,
   return listen_fd;
 }
 
-static dbus_bool_t
- write_credentials_byte (int             server_fd,
+dbus_bool_t
+write_credentials_byte (int             server_fd,
                         DBusError      *error)
 {
   int bytes_written;
@@ -930,13 +937,6 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
   return TRUE;
 }
 
-/**
-  * Sends a single nul byte with our UNIX credentials as ancillary
-  * data.  Returns #TRUE if the data was successfully written.  On
-  * systems that don't support sending credentials, just writes a byte,
-@@ -1036,34 +175,7 @@
-     return FALSE;
- }
  
 /**
  * Accepts a connection on a listening socket.
@@ -966,13 +966,8 @@ _dbus_accept  (int listen_fd)
   return client_fd;
 }
 
- /** @} */
- 
- /**
-@@ -1225,42 +337,6 @@
-   return TRUE;
- }
- 
+
+
 /**
 * Checks to make sure the given directory is 
 * private to the user 
@@ -1037,8 +1032,8 @@ fill_user_info_from_passwd (struct passwd *p,
   return TRUE;
 }
 
-static dbus_bool_t
-fill_user_info (DBusUserInfo       *info,
+dbus_bool_t
+_dbus_fill_user_info (DBusUserInfo       *info,
                 dbus_uid_t          uid,
                 const DBusString   *username,
                 DBusError          *error)
@@ -1639,7 +1634,5 @@ _dbus_printf_string_upper_bound (const char *format,
   return vsnprintf (&c, 1, format, args);
 }
 
-/**
-  * Gets the temporary files directory by inspecting the environment variables 
-  * TMPDIR, TMP, and TEMP in that order. If none of those are set "/tmp" is returned
-  *
+/** @} end of dbus-sysdeps-unix.c */
+
