@@ -78,41 +78,12 @@ extern DBusWin32FD *win_fds;
 extern int win32_n_fds;
 
 
-extern const char*
-_dbus_strerror_win (int error_number);
-
 void _dbus_win_startup_winsock (void);
 void _dbus_win_warn_win_error  (const char *message,
                                 int         code);
 extern const char* _dbus_lm_strerror  (int error_number);
 
 
-int 
-_dbus_write_two_win (int               fd,
-                     const DBusString *buffer1,
-                     int               start1,
-                     int               len1,
-                     const DBusString *buffer2,
-                     int               start2,
-                     int               len2);
-int
-_dbus_read_win (int               fd,
-                DBusString       *buffer,
-                int               count);
-int
-_dbus_write_win (int               fd,
-                 const DBusString *buffer,
-                 int               start,
-                 int               len);
-
-int
-_dbus_connect_unix_socket_win (const char     *path,
-                               dbus_bool_t     abstract,
-                               DBusError      *error);
-int
-_dbus_listen_unix_socket_win (const char     *path,
-                              dbus_bool_t     abstract,
-                              DBusError      *error);
 dbus_bool_t
 fill_win_user_info_from_uid (dbus_uid_t    uid,
                              DBusUserInfo *info,
@@ -131,11 +102,7 @@ _dbus_win32_sid_to_name_and_domain (dbus_uid_t  uid,
                                     wchar_t   **wname,
                                     wchar_t   **wdomain,
                                     DBusError  *error);
-dbus_bool_t
-_dbus_full_duplex_pipe_win (int         *fd1,
-                            int         *fd2,
-                            dbus_bool_t  blocking,
-                            DBusError   *error);
+
 
 /* Don't define DBUS_CONSOLE_DIR on Win32 */                                                                                       
                                                                                                                                   
@@ -159,24 +126,10 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
                                   wchar_t  **wdomain,
                                   DBusError *error);
 
-dbus_uid_t    _dbus_getuid_win (void);
-dbus_gid_t    _dbus_getgid_win (void);
 
 dbus_bool_t   _dbus_close (int        fd,
                            DBusError *error);
-int
-_dbus_poll_win (DBusPollFD *fds,
-                int         n_fds,
-                int         timeout_milliseconds);
-void
-_dbus_fd_set_close_on_exec_win (int fd);
 
-dbus_bool_t
-_dbus_close_win (int        fd,
-                 DBusError *error);
-dbus_bool_t
-_dbus_set_fd_nonblocking_win (int         fd,
-                              DBusError  *error);
 
 #endif
 

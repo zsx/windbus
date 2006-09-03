@@ -285,9 +285,21 @@ _dbus_handle_to_fd (int handle)
 
 
 
-
+/**
+ * Thin wrapper around the read() system call that appends
+ * the data it reads to the DBusString buffer. It appends
+ * up to the given count, and returns the same value
+ * and same errno as read(). The only exception is that
+ * _dbus_read() handles EINTR for you. _dbus_read() can
+ * return ENOMEM, even though regular UNIX read doesn't.
+ *
+ * @param fd the file descriptor to read from
+ * @param buffer the buffer to append data to
+ * @param count the amount of data to read
+ * @returns the number of bytes read or -1
+ */
 int
-_dbus_read_win (int               fd,
+_dbus_read (int               fd,
             DBusString       *buffer,
             int               count)
 {
@@ -375,11 +387,21 @@ _dbus_read_win (int               fd,
     }
 }
 
+/**
+ * Thin wrapper around the write() system call that writes a part of a
+ * DBusString and handles EINTR for you.
+ * 
+ * @param fd the file descriptor to write
+ * @param buffer the buffer to write data from
+ * @param start the first byte in the buffer to write
+ * @param len the number of bytes to try to write
+ * @returns the number of bytes written or -1 on error
+ */
 int
-_dbus_write_win (int               fd,
-                 const DBusString *buffer,
-                 int               start,
-                 int               len)
+_dbus_write (int               fd,
+             const DBusString *buffer,
+             int               start,
+             int               len)
 {
 #ifdef DBUS_WIN
   DBusWin32FDType type;
@@ -443,9 +465,15 @@ _dbus_write_win (int               fd,
 }
 
 
-
+/**
+ * Closes a file descriptor.
+ *
+ * @param fd the file descriptor
+ * @param error error object
+ * @returns #FALSE if error set
+ */
 dbus_bool_t
-_dbus_close_win (int        fd,
+_dbus_close (int        fd,
                  DBusError *error)
 {
   const int encapsulated_fd = fd;
@@ -513,8 +541,15 @@ _dbus_close_win (int        fd,
 
 }
 
+/**
+ * Sets the file descriptor to be close
+ * on exec. Should be called for all file
+ * descriptors in D-Bus code.
+ *
+ * @param fd the file descriptor
+ */
 void
-_dbus_fd_set_close_on_exec_win (int fd)
+_dbus_fd_set_close_on_exec (int fd)
 {
   int fd2;
   if (fd < 0) 
@@ -531,9 +566,16 @@ _dbus_fd_set_close_on_exec_win (int fd)
   _DBUS_UNLOCK (win_fds);
 }
 
+/**
+ * Sets a file descriptor to be nonblocking.
+ *
+ * @param fd the file descriptor.
+ * @param error address of error location.
+ * @returns #TRUE on success.
+ */
 dbus_bool_t
-_dbus_set_fd_nonblocking_win (int             fd,
-                              DBusError      *error)
+_dbus_set_fd_nonblocking (int             fd,
+                          DBusError      *error)
 {
   u_long one = 1;
   const int encapsulated_fd = fd;
@@ -575,14 +617,34 @@ _dbus_set_fd_nonblocking_win (int             fd,
 }
 
 
+/**
+ * Like _dbus_write() but will use writev() if possible
+ * to write both buffers in sequence. The return value
+ * is the number of bytes written in the first buffer,
+ * plus the number written in the second. If the first
+ * buffer is written successfully and an error occurs
+ * writing the second, the number of bytes in the first
+ * is returned (i.e. the error is ignored), on systems that
+ * don't have writev. Handles EINTR for you.
+ * The second buffer may be #NULL.
+ *
+ * @param fd the file descriptor
+ * @param buffer1 first buffer
+ * @param start1 first byte to write in first buffer
+ * @param len1 number of bytes to write from first buffer
+ * @param buffer2 second buffer, or #NULL
+ * @param start2 first byte to write in second buffer
+ * @param len2 number of bytes to write in second buffer
+ * @returns total bytes written from both buffers, or -1 on error
+ */
 int
-_dbus_write_two_win (int               fd,
-                     const DBusString *buffer1,
-                     int               start1,
-                     int               len1,
-                     const DBusString *buffer2,
-                     int               start2,
-                     int               len2)
+_dbus_write_two (int               fd,
+                 const DBusString *buffer1,
+                 int               start1,
+                 int               len1,
+                 const DBusString *buffer2,
+                 int               start2,
+                 int               len2)
 {
   DBusWin32FDType type;
   WSABUF vectors[2];
@@ -591,6 +653,12 @@ _dbus_write_two_win (int               fd,
   int rc;
   DWORD bytes_written;
   int ret1;
+
+  _dbus_assert (buffer1 != NULL);
+  _dbus_assert (start1 >= 0);
+  _dbus_assert (start2 >= 0);
+  _dbus_assert (len1 >= 0);
+  _dbus_assert (len2 >= 0);
 
   _DBUS_LOCK (win_fds);
 
@@ -654,10 +722,41 @@ _dbus_write_two_win (int               fd,
   return 0;
 }
 
+/**
+ * @def _DBUS_MAX_SUN_PATH_LENGTH
+ *
+ * Maximum length of the path to a UNIX domain socket,
+ * sockaddr_un::sun_path member. POSIX requires that all systems
+ * support at least 100 bytes here, including the nul termination.
+ * We use 99 for the max value to allow for the nul.
+ *
+ * We could probably also do sizeof (addr.sun_path)
+ * but this way we are the same on all platforms
+ * which is probably a good idea.
+ */
+
+/**
+ * Creates a socket and connects it to the UNIX domain socket at the
+ * given path.  The connection fd is returned, and is set up as
+ * nonblocking.
+ * 
+ * On Windows there are no UNIX domain sockets. Instead, connects to a
+ * localhost-bound TCP socket, whose port number is stored in a file
+ * at the given path.
+ * 
+ * Uses abstract sockets instead of filesystem-linked sockets if
+ * requested (it's possible only on Linux; see "man 7 unix" on Linux).
+ * On non-Linux abstract socket usage always fails.
+ *
+ * @param path the path to UNIX domain socket
+ * @param abstract #TRUE to use abstract namespace
+ * @param error return location for error code
+ * @returns connection file descriptor or -1 on error
+ */
 int
-_dbus_connect_unix_socket_win (const char     *path,
-                               dbus_bool_t     abstract,
-                               DBusError      *error)
+_dbus_connect_unix_socket (const char     *path,
+                           dbus_bool_t     abstract,
+                           DBusError      *error)
 {
   int fd, n, port;
   char buf[7];
@@ -709,10 +808,26 @@ _dbus_connect_unix_socket_win (const char     *path,
   return _dbus_connect_tcp_socket (NULL, port, error);
 
 }
+
+/**
+ * Creates a socket and binds it to the given path,
+ * then listens on the socket. The socket is
+ * set to be nonblocking.
+ *
+ * Uses abstract sockets instead of filesystem-linked
+ * sockets if requested (it's possible only on Linux;
+ * see "man 7 unix" on Linux).
+ * On non-Linux abstract socket usage always fails.
+ *
+ * @param path the socket name
+ * @param abstract #TRUE to use abstract namespace
+ * @param error return location for errors
+ * @returns the listening file descriptor or -1 on error
+ */
 int
-_dbus_listen_unix_socket_win (const char     *path,
-                              dbus_bool_t     abstract,
-                              DBusError      *error)
+_dbus_listen_unix_socket (const char     *path,
+                          dbus_bool_t     abstract,
+                          DBusError      *error)
 {
   int listen_fd;
   SOCKET sock;
@@ -1496,7 +1611,7 @@ _dbus_win_account_to_sid (const wchar_t *waccount,
 }
 
 static void
-_sid_atom_cache_shutdown_win (void *unused)
+_sid_atom_cache_shutdown (void *unused)
 {
  DBusHashIter iter;
  _DBUS_LOCK (sid_atom_cache);
@@ -1551,7 +1666,7 @@ _dbus_win_sid_to_uid_t (PSID psid)
   if (sid_atom_cache == NULL)
     {
       sid_atom_cache = _dbus_hash_table_new (DBUS_HASH_ULONG, NULL, NULL);
-      _dbus_register_shutdown_func (_sid_atom_cache_shutdown_win, NULL);
+      _dbus_register_shutdown_func (_sid_atom_cache_shutdown, NULL);
     }
 
   uid = atom;
@@ -1603,9 +1718,11 @@ dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
 /** @} end of sysdeps-win */
 
 
-
+/** Gets our UID
+ * @returns process UID
+ */
 dbus_uid_t
-_dbus_getuid_win (void)
+_dbus_getuid(void)
 {
   dbus_uid_t retval = DBUS_UID_UNSET;
   HANDLE process_token = NULL;
@@ -1629,8 +1746,12 @@ _dbus_getuid_win (void)
   return retval;
 }
 
+#ifdef DBUS_BUILD_TESTS
+/** Gets our GID
+ * @returns process GID
+ */
 dbus_gid_t
-_dbus_getgid_win (void)
+_dbus_getgid (void)
 {
   dbus_gid_t retval = DBUS_GID_UNSET;
   HANDLE process_token = NULL;
@@ -1654,7 +1775,7 @@ _dbus_getgid_win (void)
 
   return retval;
 }
-
+#endif //DBUS_BUILD_TESTS
 
 /************************************************************************
  
@@ -1662,12 +1783,26 @@ _dbus_getgid_win (void)
 
  ************************************************************************/
 
-
+/**
+ * Creates a full-duplex pipe (as in socketpair()).
+ * Sets both ends of the pipe nonblocking.
+ *
+ * @todo libdbus only uses this for the debug-pipe server, so in
+ * principle it could be in dbus-sysdeps-util.c, except that
+ * dbus-sysdeps-util.c isn't in libdbus when tests are enabled and the
+ * debug-pipe server is used.
+ * 
+ * @param fd1 return location for one end
+ * @param fd2 return location for the other end
+ * @param blocking #TRUE if pipe should be blocking
+ * @param error error return
+ * @returns #FALSE on failure (if error is set)
+ */
 dbus_bool_t
-_dbus_full_duplex_pipe_win (int        *fd1,
-                            int        *fd2,
-                            dbus_bool_t blocking,
-                            DBusError  *error)
+_dbus_full_duplex_pipe (int        *fd1,
+                        int        *fd2,
+                        dbus_bool_t blocking,
+                        DBusError  *error)
 {
   SOCKET temp, socket1 = -1, socket2 = -1;
   struct sockaddr_in saddr;
@@ -1824,8 +1959,16 @@ _dbus_full_duplex_pipe_win (int        *fd1,
   return FALSE;
 }
 
+/**
+ * Wrapper for poll().
+ *
+ * @param fds the file descriptors to poll
+ * @param n_fds number of descriptors in the array
+ * @param timeout_milliseconds timeout or -1 for infinite
+ * @returns numbers of fds with revents, or <0 on error
+ */
 int
-_dbus_poll_win (DBusPollFD *fds,
+_dbus_poll (DBusPollFD *fds,
             int         n_fds,
             int         timeout_milliseconds)
 {
@@ -2057,7 +2200,7 @@ _dbus_abort (void)
  * @returns error description.
  */
 const char*
-_dbus_strerror_win (int error_number)
+_dbus_strerror (int error_number)
 {
   const char *msg;
   
@@ -2597,478 +2740,6 @@ int _dbus_mkdir (const char *path,
   return _mkdir(path);
 #else
   return mkdir(path, mode);
-#endif
-}
-
-
-/**
- * Thin wrapper around the read() system call that appends
- * the data it reads to the DBusString buffer. It appends
- * up to the given count, and returns the same value
- * and same errno as read(). The only exception is that
- * _dbus_read() handles EINTR for you. _dbus_read() can
- * return ENOMEM, even though regular UNIX read doesn't.
- *
- * @param fd the file descriptor to read from
- * @param buffer the buffer to append data to
- * @param count the amount of data to read
- * @returns the number of bytes read or -1
- */
-int
-_dbus_read (int               fd,
-            DBusString       *buffer,
-            int               count)
-{
-#ifdef DBUS_WIN
-  return _dbus_read_win (fd, buffer, count);
-#else
-  int bytes_read;
-  int start;
-  char *data;
-
-  _dbus_assert (count >= 0);
-  
-  start = _dbus_string_get_length (buffer);
-
-  if (!_dbus_string_lengthen (buffer, count))
-    {
-      errno = ENOMEM;
-      return -1;
-    }
-
-  data = _dbus_string_get_data_len (buffer, start, count);
-
- again:
-  
-  bytes_read = read (fd, data, count);
-
-  if (bytes_read < 0)
-    {
-      if (errno == EINTR)
-        goto again;
-      else
-        {
-          /* put length back (note that this doesn't actually realloc anything) */
-          _dbus_string_set_length (buffer, start);
-          return -1;
-        }
-    }
-  else
-    {
-      /* put length back (doesn't actually realloc) */
-      _dbus_string_set_length (buffer, start + bytes_read);
-
-#if 0
-      if (bytes_read > 0)
-        _dbus_verbose_bytes_of_string (buffer, start, bytes_read);
-#endif
-      
-      return bytes_read;
-    }
-#endif
-}
-
-/**
- * Thin wrapper around the write() system call that writes a part of a
- * DBusString and handles EINTR for you.
- * 
- * @param fd the file descriptor to write
- * @param buffer the buffer to write data from
- * @param start the first byte in the buffer to write
- * @param len the number of bytes to try to write
- * @returns the number of bytes written or -1 on error
- */
-int
-_dbus_write (int               fd,
-             const DBusString *buffer,
-             int               start,
-             int               len)
-{
-#ifdef DBUS_WIN
-  return _dbus_write_win (fd, buffer, start, len);
-#else
-  const char *data;
-  int bytes_written;
-  
-  data = _dbus_string_get_const_data_len (buffer, start, len);
-  
- again:
-
-  bytes_written = write (fd, data, len);
-
-  if (bytes_written < 0 && errno == EINTR)
-    goto again;
-
-#if 0
-  if (bytes_written > 0)
-    _dbus_verbose_bytes_of_string (buffer, start, bytes_written);
-#endif
-  
-  return bytes_written;
-#endif
-}
-
-/**
- * Like _dbus_write() but will use writev() if possible
- * to write both buffers in sequence. The return value
- * is the number of bytes written in the first buffer,
- * plus the number written in the second. If the first
- * buffer is written successfully and an error occurs
- * writing the second, the number of bytes in the first
- * is returned (i.e. the error is ignored), on systems that
- * don't have writev. Handles EINTR for you.
- * The second buffer may be #NULL.
- *
- * @param fd the file descriptor
- * @param buffer1 first buffer
- * @param start1 first byte to write in first buffer
- * @param len1 number of bytes to write from first buffer
- * @param buffer2 second buffer, or #NULL
- * @param start2 first byte to write in second buffer
- * @param len2 number of bytes to write in second buffer
- * @returns total bytes written from both buffers, or -1 on error
- */
-int
-_dbus_write_two (int               fd,
-                 const DBusString *buffer1,
-                 int               start1,
-                 int               len1,
-                 const DBusString *buffer2,
-                 int               start2,
-                 int               len2)
-{
-  _dbus_assert (buffer1 != NULL);
-  _dbus_assert (start1 >= 0);
-  _dbus_assert (start2 >= 0);
-  _dbus_assert (len1 >= 0);
-  _dbus_assert (len2 >= 0);
-  
-#ifdef DBUS_WIN
-  return _dbus_write_two_win(fd, buffer1, start1, len1, buffer2, start2, len2);
-#else
-
-#ifdef HAVE_WRITEV
-  {
-    struct iovec vectors[2];
-    const char *data1;
-    const char *data2;
-    int bytes_written;
-
-    data1 = _dbus_string_get_const_data_len (buffer1, start1, len1);
-
-    if (buffer2 != NULL)
-      data2 = _dbus_string_get_const_data_len (buffer2, start2, len2);
-    else
-      {
-        data2 = NULL;
-        start2 = 0;
-        len2 = 0;
-      }
-   
-    vectors[0].iov_base = (char*) data1;
-    vectors[0].iov_len = len1;
-    vectors[1].iov_base = (char*) data2;
-    vectors[1].iov_len = len2;
-
-  again:
-   
-    bytes_written = writev (fd,
-                            vectors,
-                            data2 ? 2 : 1);
-
-    if (bytes_written < 0 && errno == EINTR)
-      goto again;
-   
-    return bytes_written;
-  }
-#else /* HAVE_WRITEV */
-  {
-    int ret1;
-    
-    ret1 = _dbus_write (fd, buffer1, start1, len1);
-    if (ret1 == len1 && buffer2 != NULL)
-      {
-        ret2 = _dbus_write (fd, buffer2, start2, len2);
-        if (ret2 < 0)
-          ret2 = 0; /* we can't report an error as the first write was OK */
-       
-        return ret1 + ret2;
-      }
-    else
-      return ret1;
-  }
-#endif /* !HAVE_WRITEV */   
-
-#endif
-}
-
-#define _DBUS_MAX_SUN_PATH_LENGTH 99
-
-/**
- * @def _DBUS_MAX_SUN_PATH_LENGTH
- *
- * Maximum length of the path to a UNIX domain socket,
- * sockaddr_un::sun_path member. POSIX requires that all systems
- * support at least 100 bytes here, including the nul termination.
- * We use 99 for the max value to allow for the nul.
- *
- * We could probably also do sizeof (addr.sun_path)
- * but this way we are the same on all platforms
- * which is probably a good idea.
- */
-
-/**
- * Creates a socket and connects it to the UNIX domain socket at the
- * given path.  The connection fd is returned, and is set up as
- * nonblocking.
- * 
- * On Windows there are no UNIX domain sockets. Instead, connects to a
- * localhost-bound TCP socket, whose port number is stored in a file
- * at the given path.
- * 
- * Uses abstract sockets instead of filesystem-linked sockets if
- * requested (it's possible only on Linux; see "man 7 unix" on Linux).
- * On non-Linux abstract socket usage always fails.
- *
- * @param path the path to UNIX domain socket
- * @param abstract #TRUE to use abstract namespace
- * @param error return location for error code
- * @returns connection file descriptor or -1 on error
- */
-int
-_dbus_connect_unix_socket (const char     *path,
-                           dbus_bool_t     abstract,
-                           DBusError      *error)
-{
-#ifdef DBUS_WIN
-  return _dbus_connect_unix_socket_win(path, abstract, error);
-#else
-
-  int fd;
-  size_t path_len;
-  struct sockaddr_un addr;  
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  _dbus_verbose ("connecting to unix socket %s abstract=%d\n",
-                 path, abstract);
-  
-  fd = socket (PF_UNIX, SOCK_STREAM, 0);
-  
-  if (fd < 0)
-    {
-      dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
-                      "Failed to create socket: %s",
-                      _dbus_strerror (errno)); 
-      
-      return -1;
-    }
-
-  _DBUS_ZERO (addr);
-  addr.sun_family = AF_UNIX;
-  path_len = strlen (path);
-
-  if (abstract)
-    {
-#ifdef HAVE_ABSTRACT_SOCKETS
-      addr.sun_path[0] = '\0'; /* this is what says "use abstract" */
-      path_len++; /* Account for the extra nul byte added to the start of sun_path */
-
-      if (path_len > _DBUS_MAX_SUN_PATH_LENGTH)
-        {
-          dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                      "Abstract socket name too long\n");
-          close (fd);
-          return -1;
-	}
-	
-      strncpy (&addr.sun_path[1], path, path_len);
-      /* _dbus_verbose_bytes (addr.sun_path, sizeof (addr.sun_path)); */
-#else /* HAVE_ABSTRACT_SOCKETS */
-      dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
-                      "Operating system does not support abstract socket namespace\n");
-      close (fd);
-      return -1;
-#endif /* ! HAVE_ABSTRACT_SOCKETS */
-    }
-  else
-    {
-      if (path_len > _DBUS_MAX_SUN_PATH_LENGTH)
-        {
-          dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                      "Socket name too long\n");
-          close (fd);
-          return -1;
-	}
-
-      strncpy (addr.sun_path, path, path_len);
-    }
-  
-  if (connect (fd, (struct sockaddr*) &addr, _DBUS_STRUCT_OFFSET (struct sockaddr_un, sun_path) + path_len) < 0)
-    {      
-      dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
-                      "Failed to connect to socket %s: %s",
-                      path, _dbus_strerror (errno));
-
-      close (fd);
-      fd = -1;
-      
-      return -1;
-    }
-
-  if (!_dbus_set_fd_nonblocking (fd, error))
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      
-      close (fd);
-      fd = -1;
-
-      return -1;
-    }
-
-  return fd;
-#endif
-}
-
-/**
- * Creates a socket and binds it to the given path,
- * then listens on the socket. The socket is
- * set to be nonblocking.
- *
- * Uses abstract sockets instead of filesystem-linked
- * sockets if requested (it's possible only on Linux;
- * see "man 7 unix" on Linux).
- * On non-Linux abstract socket usage always fails.
- *
- * @param path the socket name
- * @param abstract #TRUE to use abstract namespace
- * @param error return location for errors
- * @returns the listening file descriptor or -1 on error
- */
-int
-_dbus_listen_unix_socket (const char     *path,
-                          dbus_bool_t     abstract,
-                          DBusError      *error)
-{
-#ifdef DBUS_WIN
-  return _dbus_listen_unix_socket_win(path, abstract,error);
-#else
-
-  int listen_fd;
-  struct sockaddr_un addr;
-  size_t path_len;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  _dbus_verbose ("listening on unix socket %s abstract=%d\n",
-                 path, abstract);
-  
-  listen_fd = socket (PF_UNIX, SOCK_STREAM, 0);
-  
-  if (listen_fd < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to create socket \"%s\": %s",
-                      path, _dbus_strerror (errno));
-      return -1;
-    }
-
-  _DBUS_ZERO (addr);
-  addr.sun_family = AF_UNIX;
-  path_len = strlen (path);
-  
-  if (abstract)
-    {
-#ifdef HAVE_ABSTRACT_SOCKETS
-      /* remember that abstract names aren't nul-terminated so we rely
-       * on sun_path being filled in with zeroes above.
-       */
-      addr.sun_path[0] = '\0'; /* this is what says "use abstract" */
-      path_len++; /* Account for the extra nul byte added to the start of sun_path */
-
-      if (path_len > _DBUS_MAX_SUN_PATH_LENGTH)
-        {
-          dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                      "Abstract socket name too long\n");
-          close (listen_fd);
-          return -1;
-	}
-      
-      strncpy (&addr.sun_path[1], path, path_len);
-      /* _dbus_verbose_bytes (addr.sun_path, sizeof (addr.sun_path)); */
-#else /* HAVE_ABSTRACT_SOCKETS */
-      dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
-                      "Operating system does not support abstract socket namespace\n");
-      close (listen_fd);
-      return -1;
-#endif /* ! HAVE_ABSTRACT_SOCKETS */
-    }
-  else
-    {
-      /* FIXME discussed security implications of this with Nalin,
-       * and we couldn't think of where it would kick our ass, but
-       * it still seems a bit sucky. It also has non-security suckage;
-       * really we'd prefer to exit if the socket is already in use.
-       * But there doesn't seem to be a good way to do this.
-       *
-       * Just to be extra careful, I threw in the stat() - clearly
-       * the stat() can't *fix* any security issue, but it at least
-       * avoids inadvertent/accidental data loss.
-       */
-      {
-        struct stat sb;
-
-        if (stat (path, &sb) == 0 &&
-            S_ISSOCK (sb.st_mode))
-          unlink (path);
-      }
-
-      if (path_len > _DBUS_MAX_SUN_PATH_LENGTH)
-        {
-          dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
-                      "Abstract socket name too long\n");
-          close (listen_fd);
-          return -1;
-	}
-	
-      strncpy (addr.sun_path, path, path_len);
-    }
-  
-  if (bind (listen_fd, (struct sockaddr*) &addr, _DBUS_STRUCT_OFFSET (struct sockaddr_un, sun_path) + path_len) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to bind socket \"%s\": %s",
-                      path, _dbus_strerror (errno));
-      close (listen_fd);
-      return -1;
-    }
-
-  if (listen (listen_fd, 30 /* backlog */) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to listen on socket \"%s\": %s",
-                      path, _dbus_strerror (errno));
-      close (listen_fd);
-      return -1;
-    }
-
-  if (!_dbus_set_fd_nonblocking (listen_fd, error))
-    {
-      _DBUS_ASSERT_ERROR_IS_SET (error);
-      close (listen_fd);
-      return -1;
-    }
-  
-  /* Try opening up the permissions, but if we can't, just go ahead
-   * and continue, maybe it will be good enough.
-   */
-  if (!abstract && chmod (path, 0777) < 0)
-    _dbus_warn ("Could not set mode 0777 on socket %s\n",
-                path);
-  
-  return listen_fd;
 #endif
 }
 
@@ -3940,141 +3611,6 @@ _dbus_getpid (void)
 #endif
 }
 
-/** Gets our UID
- * @returns process UID
- */
-dbus_uid_t
-_dbus_getuid (void)
-{
-#ifdef DBUS_WIN
-  return _dbus_getuid_win ();
-#else
-  return getuid ();
-#endif
-}
-
-#ifdef DBUS_BUILD_TESTS
-/** Gets our GID
- * @returns process GID
- */
-dbus_gid_t
-_dbus_getgid (void)
-{
-#ifdef DBUS_WIN
-  return _dbus_getgid_win ();
-#else
-  return getgid ();
-#endif 
-}
-#endif
-
-
-
-/**
- * Wrapper for poll().
- *
- * @param fds the file descriptors to poll
- * @param n_fds number of descriptors in the array
- * @param timeout_milliseconds timeout or -1 for infinite
- * @returns numbers of fds with revents, or <0 on error
- */
-int
-_dbus_poll (DBusPollFD *fds,
-            int         n_fds,
-            int         timeout_milliseconds)
-{
-#ifdef DBUS_WIN
-	return _dbus_poll_win (fds, n_fds, timeout_milliseconds);
-#else
-#ifdef HAVE_POLL
-  /* This big thing is a constant expression and should get optimized
-   * out of existence. So it's more robust than a configure check at
-   * no cost.
-   */
-  if (_DBUS_POLLIN == POLLIN &&
-      _DBUS_POLLPRI == POLLPRI &&
-      _DBUS_POLLOUT == POLLOUT &&
-      _DBUS_POLLERR == POLLERR &&
-      _DBUS_POLLHUP == POLLHUP &&
-      _DBUS_POLLNVAL == POLLNVAL &&
-      sizeof (DBusPollFD) == sizeof (struct pollfd) &&
-      _DBUS_STRUCT_OFFSET (DBusPollFD, fd) ==
-      _DBUS_STRUCT_OFFSET (struct pollfd, fd) &&
-      _DBUS_STRUCT_OFFSET (DBusPollFD, events) ==
-      _DBUS_STRUCT_OFFSET (struct pollfd, events) &&
-      _DBUS_STRUCT_OFFSET (DBusPollFD, revents) ==
-      _DBUS_STRUCT_OFFSET (struct pollfd, revents))
-    {
-      return poll ((struct pollfd*) fds,
-                   n_fds, 
-                   timeout_milliseconds);
-    }
-  else
-    {
-      /* We have to convert the DBusPollFD to an array of
-       * struct pollfd, poll, and convert back.
-       */
-      _dbus_warn ("didn't implement poll() properly for this system yet\n");
-      return -1;
-    }
-#else /* ! HAVE_POLL */
-
-  fd_set read_set, write_set, err_set;
-  int max_fd = 0;
-  int i;
-  struct timeval tv;
-  int ready;
-  
-  FD_ZERO (&read_set);
-  FD_ZERO (&write_set);
-  FD_ZERO (&err_set);
-
-  for (i = 0; i < n_fds; i++)
-    {
-      DBusPollFD *fdp = &fds[i];
-
-      if (fdp->events & _DBUS_POLLIN)
-	FD_SET (fdp->fd, &read_set);
-
-      if (fdp->events & _DBUS_POLLOUT)
-	FD_SET (fdp->fd, &write_set);
-
-      FD_SET (fdp->fd, &err_set);
-
-      max_fd = MAX (max_fd, fdp->fd);
-    }
-    
-  tv.tv_sec = timeout_milliseconds / 1000;
-  tv.tv_usec = (timeout_milliseconds % 1000) * 1000;
-
-  ready = select (max_fd + 1, &read_set, &write_set, &err_set,
-                  timeout_milliseconds < 0 ? NULL : &tv);
-
-  if (ready > 0)
-    {
-      for (i = 0; i < n_fds; i++)
-	{
-	  DBusPollFD *fdp = &fds[i];
-
-	  fdp->revents = 0;
-
-	  if (FD_ISSET (fdp->fd, &read_set))
-	    fdp->revents |= _DBUS_POLLIN;
-
-	  if (FD_ISSET (fdp->fd, &write_set))
-	    fdp->revents |= _DBUS_POLLOUT;
-
-	  if (FD_ISSET (fdp->fd, &err_set))
-	    fdp->revents |= _DBUS_POLLERR;
-	}
-    }
-
-  return ready;
-#endif
-#endif /* DBUS_WIN */
-}
-
-
 /** nanoseconds in a second */
 #define NANOSECONDS_PER_SECOND       1000000000
 /** microseconds in a second */
@@ -4166,176 +3702,8 @@ _dbus_disable_sigpipe (void)
 #endif
 }
 
-/**
- * Sets the file descriptor to be close
- * on exec. Should be called for all file
- * descriptors in D-Bus code.
- *
- * @param fd the file descriptor
- */
-void
-_dbus_fd_set_close_on_exec (int fd)
-{
-#ifdef DBUS_WIN
-  _dbus_fd_set_close_on_exec_win(fd);
-#else
-  int val;
-  
-  val = fcntl (fd, F_GETFD, 0);
-  
-  if (val < 0)
-    return;
-
-  val |= FD_CLOEXEC;
-  
-  fcntl (fd, F_SETFD, val);
-#endif
-}
 
 
-/**
- * Closes a file descriptor.
- *
- * @param fd the file descriptor
- * @param error error object
- * @returns #FALSE if error set
- */
-dbus_bool_t
-_dbus_close (int        fd,
-             DBusError *error)
-{
-#ifdef DBUS_WIN
-  return _dbus_close_win (fd, error);
-#else
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
- again:
-  if (close (fd) < 0)
-    {
-      if (errno == EINTR)
-        goto again;
-
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not close fd %d", fd);
-      return FALSE;
-    }
-
-  return TRUE;
-#endif
-}
-
-/**
- * Sets a file descriptor to be nonblocking.
- *
- * @param fd the file descriptor.
- * @param error address of error location.
- * @returns #TRUE on success.
- */
-dbus_bool_t
-_dbus_set_fd_nonblocking (int             fd,
-                          DBusError      *error)
-{
-#ifdef DBUS_WIN
-  return _dbus_set_fd_nonblocking_win(fd, error);
-#else
-  int val;
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  val = fcntl (fd, F_GETFL, 0);
-  if (val < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to get flags from file descriptor %d: %s",
-                      fd, _dbus_strerror (errno));
-      _dbus_verbose ("Failed to get flags for fd %d: %s\n", fd,
-                     _dbus_strerror (errno));
-      return FALSE;
-    }
-
-  if (fcntl (fd, F_SETFL, val | O_NONBLOCK) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to set nonblocking flag of file descriptor %d: %s",
-                      fd, _dbus_strerror (errno));
-      _dbus_verbose ("Failed to set fd %d nonblocking: %s\n",
-                     fd, _dbus_strerror (errno));
-
-      return FALSE;
-    }
-
-  return TRUE;
-#endif
-}
-
-
-
-
-
-/**
- * Creates a full-duplex pipe (as in socketpair()).
- * Sets both ends of the pipe nonblocking.
- *
- * @todo libdbus only uses this for the debug-pipe server, so in
- * principle it could be in dbus-sysdeps-util.c, except that
- * dbus-sysdeps-util.c isn't in libdbus when tests are enabled and the
- * debug-pipe server is used.
- * 
- * @param fd1 return location for one end
- * @param fd2 return location for the other end
- * @param blocking #TRUE if pipe should be blocking
- * @param error error return
- * @returns #FALSE on failure (if error is set)
- */
-dbus_bool_t
-_dbus_full_duplex_pipe (int        *fd1,
-                        int        *fd2,
-                        dbus_bool_t blocking,
-                        DBusError  *error)
-{
-#ifdef HAVE_SOCKETPAIR
-  int fds[2];
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
-  if (socketpair (AF_UNIX, SOCK_STREAM, 0, fds) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not create full-duplex pipe");
-      return FALSE;
-    }
-
-  if (!blocking &&
-      (!_dbus_set_fd_nonblocking (fds[0], NULL) ||
-       !_dbus_set_fd_nonblocking (fds[1], NULL)))
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Could not set full-duplex pipe nonblocking");
-      
-      close (fds[0]);
-      close (fds[1]);
-      
-      return FALSE;
-    }
-  
-  *fd1 = fds[0];
-  *fd2 = fds[1];
-
-  _dbus_verbose ("full-duplex pipe %d <-> %d\n",
-                 *fd1, *fd2);
-  
-  return TRUE;  
-
-#elif defined (DBUS_WIN)
-  return _dbus_full_duplex_pipe_win (fd1, fd2, blocking, error);
-#else
-  _dbus_warn ("_dbus_full_duplex_pipe() not implemented on this OS\n");
-  dbus_set_error (error, DBUS_ERROR_FAILED,
-                  "_dbus_full_duplex_pipe() not implemented on this OS");
-  return FALSE;
-#endif
-}
 
 #ifndef DBUS_WIN
 /**
@@ -4355,29 +3723,7 @@ _dbus_printf_string_upper_bound (const char *format,
 }
 #endif
 
-/**
- * A wrapper around strerror() because some platforms
- * may be lame and not have strerror().
- *
- * @param error_number errno.
- * @returns error description.
- */
-const char*
-_dbus_strerror (int error_number)
-{
-#ifndef DBUS_WIN
-  const char *msg;
-  
-  msg = strerror (error_number);
-  if (msg == NULL)
-    msg = "unknown";
 
-  return msg;
-#else
-  return _dbus_strerror_win(error_number);
-#endif
-}
-
-/** @} end of sysdeps */
+/** @} end of sysdeps-win */
 
 /* tests in dbus-sysdeps-util.c */
