@@ -13,7 +13,7 @@ Index: test/spawn-test.c
  	       error.message);
 Index: test/name-test/test-names.c
 ===================================================================
---- test/name-test/test-names.c	(revision 227)
+--- test/name-test/test-names.c	(revision 250)
 +++ test/name-test/test-names.c	(working copy)
 @@ -1,9 +1,11 @@
  #include <stdio.h>
@@ -25,7 +25,9 @@ Index: test/name-test/test-names.c
 +#ifndef DBUS_WIN
 +#include <unistd.h>
 +#endif
-
+ 
+ #define REMOVE_CONNECTION 0
+ #define ADD_CONNECTION 1
 Index: test/test-segfault.c
 ===================================================================
 --- test/test-segfault.c	(revision 250)
@@ -2717,6 +2719,32 @@ Index: dbus/Makefile.am
  	dbus-sysdeps.h				\
  	dbus-userdb.c				\
  	dbus-userdb.h
+Index: windows-patch.diff
+===================================================================
+--- windows-patch.diff	(revision 262)
++++ windows-patch.diff	(working copy)
+@@ -11,21 +11,6 @@
+      {
+        fprintf (stderr, "Could not launch application: \"%s\"\n",
+  	       error.message);
+-Index: test/name-test/test-names.c
+-===================================================================
+---- test/name-test/test-names.c	(revision 227)
+-+++ test/name-test/test-names.c	(working copy)
+-@@ -1,9 +1,11 @@
+- #include <stdio.h>
+- #include <stdlib.h>
+--#include <unistd.h>
+- #include <string.h>
+- #include <dbus/dbus.h>
+- #include <dbus/dbus-connection-internal.h>
+-+#ifndef DBUS_WIN
+-+#include <unistd.h>
+-+#endif
+-
+ Index: test/test-segfault.c
+ ===================================================================
+ --- test/test-segfault.c	(revision 250)
 Index: tools/dbus-monitor.c
 ===================================================================
 --- tools/dbus-monitor.c	(revision 250)
