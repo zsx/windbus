@@ -2719,14 +2719,6 @@ Index: dbus/Makefile.am
  	dbus-sysdeps.h				\
  	dbus-userdb.c				\
  	dbus-userdb.h
-Index: windows-patch.diff
-===================================================================
---- windows-patch.diff	(revision 262)
-+++ windows-patch.diff	(working copy)
-@@ -11,21 +11,6 @@
-      {
-        fprintf (stderr, "Could not launch application: \"%s\"\n",
-  	       error.message);
 -Index: test/name-test/test-names.c
 -===================================================================
 ---- test/name-test/test-names.c	(revision 227)
