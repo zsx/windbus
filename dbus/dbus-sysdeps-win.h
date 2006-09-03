@@ -42,7 +42,7 @@
 #define mkdir(path, mode) _mkdir (path)
 
 #ifndef S_ISREG
-#define    S_ISREG(mode) (((mode) & S_IFMT) == S_IFREG)
+#define S_ISREG(mode) (((mode) & S_IFMT) == S_IFREG)
 #endif
 
 /* Declarations missing in mingw's headers */

@@ -47,9 +47,6 @@ static int  win_encap_randomizer;
 static DBusHashTable *sid_atom_cache = NULL;
 
 
-_DBUS_DEFINE_GLOBAL_LOCK (win_fds);
-_DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
-
 /************************************************************************
  
  handle <-> fd/socket functions
