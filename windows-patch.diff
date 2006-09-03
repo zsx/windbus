@@ -1,6 +1,6 @@
 Index: test/spawn-test.c
 ===================================================================
---- test/spawn-test.c	(revision 227)
+--- test/spawn-test.c	(revision 250)
 +++ test/spawn-test.c	(working copy)
 @@ -31,7 +31,7 @@
      argv_copy [i] = argv[i + 1];
@@ -13,7 +13,7 @@ Index: test/spawn-test.c
  	       error.message);
 Index: test/name-test/test-names.c
 ===================================================================
---- test/name-test/test-names.c	(revision 227)
+--- test/name-test/test-names.c	(revision 250)
 +++ test/name-test/test-names.c	(working copy)
 @@ -1,9 +1,11 @@
  #include <stdio.h>
@@ -30,7 +30,7 @@ Index: test/name-test/test-names.c
  #define ADD_CONNECTION 1
 Index: test/test-segfault.c
 ===================================================================
---- test/test-segfault.c	(revision 227)
+--- test/test-segfault.c	(revision 250)
 +++ test/test-segfault.c	(working copy)
 @@ -1,10 +1,27 @@
  /* This is simply a process that segfaults */
@@ -60,9 +60,22 @@ Index: test/test-segfault.c
  int
  main (int argc, char **argv)
  {
+Index: test/Makefile.am
+===================================================================
+--- test/Makefile.am	(revision 250)
++++ test/Makefile.am	(working copy)
+@@ -110,7 +110,7 @@
+ 		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
+ 	done ;											\
+ 	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
+-		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
++		FILES=`(cd $(srcdir) && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;		\
+ 	        for F in $$FILES; do								\
+ 			SRC=$(srcdir)/$$F ;							\
+ 			DEST=$(top_builddir)/test/$$F ;						\
 Index: test/test-sleep-forever.c
 ===================================================================
---- test/test-sleep-forever.c	(revision 227)
+--- test/test-sleep-forever.c	(revision 250)
 +++ test/test-sleep-forever.c	(working copy)
 @@ -1,6 +1,10 @@
  /* This is a process that just sleeps infinitely. */
@@ -75,9 +88,26 @@ Index: test/test-sleep-forever.c
  
  int
  main (int argc, char **argv)
+Index: bus/dispatch.c
+===================================================================
+--- bus/dispatch.c	(revision 250)
++++ bus/dispatch.c	(working copy)
+@@ -4061,9 +4061,11 @@
+       _dbus_warn ("Messages were left over after setting up initial SHA-1 connection\n");
+       _dbus_assert_not_reached ("initial connection setup failed");
+     }
+-  
++
++#ifndef DBUS_WIN_FIXME  
+   check1_try_iterations (context, "create_and_hello_sha1",
+                          check_hello_connection);
++#endif
+ 
+   kill_client_connection_unchecked (foo);
+ 
 Index: bus/activation.c
 ===================================================================
---- bus/activation.c	(revision 227)
+--- bus/activation.c	(revision 250)
 +++ bus/activation.c	(working copy)
 @@ -34,7 +34,6 @@
  #include <dbus/dbus-spawn.h>
@@ -105,7 +135,7 @@ Index: bus/activation.c
      {
 Index: bus/desktop-file.c
 ===================================================================
---- bus/desktop-file.c	(revision 227)
+--- bus/desktop-file.c	(revision 250)
 +++ bus/desktop-file.c	(working copy)
 @@ -360,15 +360,15 @@
  static void
@@ -189,7 +219,7 @@ Index: bus/desktop-file.c
  
 Index: dbus/dbus-string.c
 ===================================================================
---- dbus/dbus-string.c	(revision 227)
+--- dbus/dbus-string.c	(revision 250)
 +++ dbus/dbus-string.c	(working copy)
 @@ -1790,6 +1790,72 @@
  }
@@ -322,7 +352,7 @@ Index: dbus/dbus-string.c
  #ifdef DBUS_BUILD_TESTS
 Index: dbus/dbus-string.h
 ===================================================================
---- dbus/dbus-string.h	(revision 227)
+--- dbus/dbus-string.h	(revision 250)
 +++ dbus/dbus-string.h	(working copy)
 @@ -215,6 +215,10 @@
                                                    int                start,
@@ -337,7 +367,7 @@ Index: dbus/dbus-string.h
                                                    int                end,
 Index: dbus/dbus-server-unix.c
 ===================================================================
---- dbus/dbus-server-unix.c	(revision 227)
+--- dbus/dbus-server-unix.c	(revision 250)
 +++ dbus/dbus-server-unix.c	(working copy)
 @@ -27,12 +27,16 @@
  #include "dbus-connection-internal.h"
@@ -494,7 +524,7 @@ Index: dbus/dbus-server-unix.c
      }
 Index: dbus/dbus-test.c
 ===================================================================
---- dbus/dbus-test.c	(revision 227)
+--- dbus/dbus-test.c	(revision 250)
 +++ dbus/dbus-test.c	(working copy)
 @@ -154,7 +154,9 @@
    
@@ -508,7 +538,7 @@ Index: dbus/dbus-test.c
    
 Index: dbus/dbus-spawn.c
 ===================================================================
---- dbus/dbus-spawn.c	(revision 227)
+--- dbus/dbus-spawn.c	(revision 250)
 +++ dbus/dbus-spawn.c	(working copy)
 @@ -1021,6 +1021,7 @@
   *
@@ -564,7 +594,7 @@ Index: dbus/dbus-spawn.c
        _dbus_babysitter_kill_child (sitter);
 Index: dbus/dbus-spawn.h
 ===================================================================
---- dbus/dbus-spawn.h	(revision 227)
+--- dbus/dbus-spawn.h	(revision 250)
 +++ dbus/dbus-spawn.h	(working copy)
 @@ -37,6 +37,7 @@
  
@@ -576,7 +606,7 @@ Index: dbus/dbus-spawn.h
                                                     DBusError                 *error);
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 227)
+--- dbus/dbus-sysdeps-util.c	(revision 250)
 +++ dbus/dbus-sysdeps-util.c	(working copy)
 @@ -81,7 +81,28 @@
    DBusString str;
@@ -659,7 +689,7 @@ Index: dbus/dbus-sysdeps-util.c
  }
 Index: dbus/dbus-transport-unix.c
 ===================================================================
---- dbus/dbus-transport-unix.c	(revision 227)
+--- dbus/dbus-transport-unix.c	(revision 250)
 +++ dbus/dbus-transport-unix.c	(working copy)
 @@ -26,6 +26,9 @@
  #include "dbus-transport-unix.h"
@@ -673,7 +703,7 @@ Index: dbus/dbus-transport-unix.c
  /**
 Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus/dbus-sysdeps.c	(revision 227)
+--- dbus/dbus-sysdeps.c	(revision 250)
 +++ dbus/dbus-sysdeps.c	(working copy)
 @@ -3,6 +3,7 @@
   * 
@@ -1694,7 +1724,7 @@ Index: dbus/dbus-sysdeps.c
   * Gets the temporary files directory by inspecting the environment variables 
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 227)
+--- dbus/dbus-sysdeps.h	(revision 250)
 +++ dbus/dbus-sysdeps.h	(working copy)
 @@ -101,6 +101,12 @@
  #define DBUS_UID_FORMAT "%lu"
@@ -1711,7 +1741,7 @@ Index: dbus/dbus-sysdeps.h
   */
 Index: dbus/dbus-string-util.c
 ===================================================================
---- dbus/dbus-string-util.c	(revision 227)
+--- dbus/dbus-string-util.c	(revision 250)
 +++ dbus/dbus-string-util.c	(working copy)
 @@ -739,7 +739,27 @@
    test_roundtrips (test_hex_roundtrip);
@@ -1744,7 +1774,7 @@ Index: dbus/dbus-string-util.c
  
 Index: dbus/Makefile.am
 ===================================================================
---- dbus/Makefile.am	(revision 227)
+--- dbus/Makefile.am	(revision 250)
 +++ dbus/Makefile.am	(working copy)
 @@ -104,6 +104,7 @@
  	dbus-string.h				\
@@ -1756,7 +1786,7 @@ Index: dbus/Makefile.am
  	dbus-userdb.h
 Index: tools/dbus-monitor.c
 ===================================================================
---- tools/dbus-monitor.c	(revision 227)
+--- tools/dbus-monitor.c	(revision 250)
 +++ tools/dbus-monitor.c	(working copy)
 @@ -19,6 +19,7 @@
   *
@@ -1768,7 +1798,7 @@ Index: tools/dbus-monitor.c
  #include <string.h>
 Index: tools/dbus-send.c
 ===================================================================
---- tools/dbus-send.c	(revision 227)
+--- tools/dbus-send.c	(revision 250)
 +++ tools/dbus-send.c	(working copy)
 @@ -19,6 +19,7 @@
   *
@@ -1778,33 +1808,3 @@ Index: tools/dbus-send.c
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
-Index: bus/dispatch.c
-===================================================================
---- bus/dispatch.c	(revision 247)
-+++ bus/dispatch.c	(working copy)
-@@ -4061,9 +4061,11 @@
-       _dbus_warn ("Messages were left over after setting up initial SHA-1 connection\n");
-       _dbus_assert_not_reached ("initial connection setup failed");
-     }
--  
-+
-+#ifndef DBUS_WIN_FIXME  
-   check1_try_iterations (context, "create_and_hello_sha1",
-                          check_hello_connection);
-+#endif
- 
-   kill_client_connection_unchecked (foo);
- 
-Index: test/Makefile.am
-===================================================================
---- test/Makefile.am	(Revision 247)
-+++ test/Makefile.am	(Arbeitskopie)
-@@ -110,7 +110,7 @@
- 		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
- 	done ;											\
- 	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
--		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
-+		FILES=`(cd $(srcdir) && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;		\
- 	        for F in $$FILES; do								\
- 			SRC=$(srcdir)/$$F ;							\
- 			DEST=$(top_builddir)/test/$$F ;						\
