@@ -90,34 +90,6 @@ Index: test/test-sleep-forever.c
  
  int
  main (int argc, char **argv)
-Index: cmake/ConfigureChecks.cmake
-===================================================================
---- cmake/ConfigureChecks.cmake	(revision 264)
-+++ cmake/ConfigureChecks.cmake	(working copy)
-@@ -11,7 +11,9 @@
- check_include_file(sys/wait.h   HAVE_SYS_WAIT_H)# dbus-sysdeps-win.c
- check_include_file(time.h       HAVE_TIME_H)    # dbus-sysdeps-win.c
- check_include_file(unistd.h     HAVE_UNISTD_H)  # dbus-sysdeps-util-win.c
-+check_include_file(stdio.h      HAVE_STDIO_H)   # dbus-sysdeps.h
- 
-+
- check_symbol_exists(backtrace    "execinfo.h"       HAVE_BACKTRACE)          #  dbus-sysdeps.c, dbus-sysdeps-win.c
- check_symbol_exists(getgrouplist "grp.h"            HAVE_GETGROUPLIST)       #  dbus-sysdeps.c
- check_symbol_exists(getpeerucred "ucred.h"          HAVE_GETPEERUCRED)       #  dbus-sysdeps.c, dbus-sysdeps-win.c
-Index: cmake/config.h.cmake
-===================================================================
---- cmake/config.h.cmake	(revision 264)
-+++ cmake/config.h.cmake	(working copy)
-@@ -61,6 +61,9 @@
- /* Define to 1 if you have unistd.h */
- #cmakedefine   HAVE_UNISTD_H 1
- 
-+/* Define to 1 if you have stdio.h */
-+#cmakedefine   HAVE_STDIO_H 1
-+
- // symbols
- /* Define to 1 if you have backtrace */
- #cmakedefine   HAVE_BACKTRACE 1
 Index: bus/dispatch.c
 ===================================================================
 --- bus/dispatch.c	(revision 264)
