@@ -106,6 +106,10 @@ if (DBUS_BUILD_TESTS)
 	add_test(bus-test ${EXECUTABLE_OUTPUT_PATH}/bus-test ${CMAKE_SOURCE_DIR}/../test/data)
 endif (DBUS_BUILD_TESTS)
 
+if(MSVC)
+	project_source_group(${GROUP_CODE} bus_test_SOURCES dummy)
+endif(MSVC)
+
 ## mop up the gcov files
 #clean-local:
 #	/bin/rm *.bb *.bbg *.da *.gcov || true

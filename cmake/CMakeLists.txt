@@ -28,6 +28,12 @@ SET(DBUS_SOURCE_DIR ${CMAKE_SOURCE_DIR}/..)
 include (MacroLibrary)
 
 if(MSVC)
+	# controll folders in msvc projects
+	include(ProjectSourceGroup)
+	if(NOT GROUP_CODE)
+		#set(GROUP_CODE split) #cmake default
+		set(GROUP_CODE flat)
+	endif(NOT GROUP_CODE)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
     
     SET(WARNING_AS_ERROR

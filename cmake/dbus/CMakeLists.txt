@@ -180,6 +180,7 @@ set(libdbus_HEADERS
 if(MSVC)
 	set(CMAKE_DEBUG_POSTFIX "d")
 	add_library(dbus-1 STATIC ${libdbus_SOURCES} ${libdbus_HEADERS} )
+	project_source_group(${GROUP_CODE} libdbus_SOURCES libdbus_HEADERS)
 else(MSVC)
 	add_library(dbus-1 ${libdbus_SOURCES} ${libdbus_HEADERS} )
 endif(MSVC)
