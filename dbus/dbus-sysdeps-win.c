@@ -303,9 +303,7 @@ _dbus_read (int               fd,
             DBusString       *buffer,
             int               count)
 {
-#ifdef DBUS_WIN
   DBusWin32FDType type;
-#endif
   int bytes_read;
   int start;
   char *data;
@@ -321,9 +319,6 @@ _dbus_read (int               fd,
     }
 
   data = _dbus_string_get_data_len (buffer, start, count);
-
-#ifndef DBUS_WIN
-#else
 
   _DBUS_LOCK (win_fds);
 
@@ -365,8 +360,6 @@ _dbus_read (int               fd,
       _dbus_assert_not_reached ("unhandled fd type");
     }
 
-#endif
-
   if (bytes_read < 0)
         {
           /* put length back (note that this doesn't actually realloc anything) */
@@ -403,17 +396,12 @@ _dbus_write (int               fd,
              int               start,
              int               len)
 {
-#ifdef DBUS_WIN
   DBusWin32FDType type;
-#endif
   const char *data;
   int bytes_written;
   
   data = _dbus_string_get_const_data_len (buffer, start, len);
   
-#ifndef DBUS_WIN
-#else
-
   _DBUS_LOCK (win_fds);
 
   fd = FROM_HANDLE (fd);
@@ -453,8 +441,6 @@ _dbus_write (int               fd,
     default:
       _dbus_assert_not_reached ("unhandled fd type");
     }
-
-#endif
 
 #if 0
   if (bytes_written > 0)
@@ -931,7 +917,6 @@ _dbus_listen_unix_socket (const char     *path,
   return listen_fd;
 }
 
-#ifdef DBUS_WIN
 #if 0
 
 /**
@@ -949,7 +934,6 @@ _dbus_connect_named_pipe (const char     *path,
   _dbus_assert_not_reached ("not implemented");
 }
 
-#endif
 #endif
 
 
@@ -1972,9 +1956,7 @@ _dbus_poll (DBusPollFD *fds,
             int         n_fds,
             int         timeout_milliseconds)
 {
-#ifdef DBUS_WIN
   char msg[200], *msgp;
-#endif
 
   fd_set read_set, write_set, err_set;
   int max_fd = 0;
@@ -1986,7 +1968,6 @@ _dbus_poll (DBusPollFD *fds,
   FD_ZERO (&write_set);
   FD_ZERO (&err_set);
 
-#ifdef DBUS_WIN
   _DBUS_LOCK (win_fds);
 
   _dbus_assert (win_fds != NULL);
@@ -2021,17 +2002,14 @@ _dbus_poll (DBusPollFD *fds,
 
   msgp += sprintf (msgp, "\n");
   _dbus_verbose ("%s",msg);
-#endif
 
   for (i = 0; i < n_fds; i++)
     {
       DBusPollFD *fdp = &fds[i];
       int sock = _dbus_decapsulate_quick (fdp->fd);
 
-#ifdef DBUS_WIN
       if (win_fds[FROM_HANDLE (fdp->fd)].type != DBUS_WIN_FD_SOCKET)
         continue;
-#endif
 
       if (fdp->events & _DBUS_POLLIN)
         FD_SET (sock, &read_set);
@@ -2044,9 +2022,7 @@ _dbus_poll (DBusPollFD *fds,
       max_fd = MAX (max_fd, sock);
     }
     
-#ifdef DBUS_WIN
   _DBUS_UNLOCK (win_fds);
-#endif
     
   tv.tv_sec = timeout_milliseconds / 1000;
   tv.tv_usec = (timeout_milliseconds % 1000) * 1000;
@@ -2054,7 +2030,6 @@ _dbus_poll (DBusPollFD *fds,
   ready = select (max_fd + 1, &read_set, &write_set, &err_set,
                   timeout_milliseconds < 0 ? NULL : &tv);
 
-#ifdef DBUS_WIN
   if (DBUS_SOCKET_API_RETURNS_ERROR (ready))
     {
       DBUS_SOCKET_SET_ERRNO ();
@@ -2064,10 +2039,8 @@ _dbus_poll (DBusPollFD *fds,
   else if (ready == 0)
       _dbus_verbose ("select: = 0\n");
   else 
-#endif
   if (ready > 0)
     {
-#ifdef DBUS_WIN
       msgp = msg;
       msgp += sprintf (msgp, "select: = %d:", ready);
       _DBUS_LOCK (win_fds);
@@ -2087,7 +2060,6 @@ _dbus_poll (DBusPollFD *fds,
         }
       msgp += sprintf (msgp, "\n");
       _dbus_verbose ("%s",msg);
-#endif
 
       for (i = 0; i < n_fds; i++)
       {
@@ -2105,9 +2077,7 @@ _dbus_poll (DBusPollFD *fds,
         if (FD_ISSET (sock, &err_set))
           fdp->revents |= _DBUS_POLLERR;
       }
-#ifdef DBUS_WIN
       _DBUS_UNLOCK (win_fds);
-#endif
     }
   return ready;
 }
@@ -2167,32 +2137,6 @@ _dbus_win_warn_win_error (const char *message,
 }
 
 /**
- * @addtogroup DBusInternalsUtils
- * @{
- */
-#ifndef DBUS_DISABLE_ASSERT
-/**
- * Aborts the program with SIGABRT (dumping core).
- */
-void
-_dbus_abort (void)
-{
-#ifdef DBUS_ENABLE_VERBOSE_MODE
-  const char *s;
-  s = _dbus_getenv ("DBUS_PRINT_BACKTRACE");
-  if (s && *s)
-    _dbus_print_backtrace ();
-#endif
-#if defined (DBUS_WIN) && defined (__GNUC__)
-  if (IsDebuggerPresent ())
-    __asm__ __volatile__ ("int $03");
-#endif
-  abort ();
-  _exit (1); /* in case someone manages to ignore SIGABRT */
-}
-#endif
-
-/**
  * A wrapper around strerror() because some platforms
  * may be lame and not have strerror().
  *
@@ -2204,7 +2148,6 @@ _dbus_strerror (int error_number)
 {
   const char *msg;
   
-#ifdef DBUS_WIN
   switch (error_number)
     {
     case WSAEINTR: return "Interrupted function call";
@@ -2264,7 +2207,6 @@ _dbus_strerror (int error_number)
 #endif
     case WSASYSCALLFAILURE: return "System call failure";
     }
-#endif
   msg = strerror (error_number);
   if (msg == NULL)
     msg = "unknown";
@@ -2654,22 +2596,9 @@ Original CVS version of dbus-sysdeps.c
 #include <errno.h>
 #include <fcntl.h>
 
-#ifdef DBUS_WIN
 #include "dbus-sysdeps-win.h"
 #include "dbus-hash.h"
 #include "dbus-sockets-win.h"
-#else
-#include <unistd.h>
-#include <sys/socket.h>
-#include <dirent.h>
-#include <sys/un.h>
-#include <pwd.h>
-#include <sys/time.h>
-#include <sys/wait.h>
-#include <netinet/in.h>
-#include <netdb.h>
-#include <grp.h>
-#endif
 
 #include <time.h>
 #include <locale.h>
@@ -2699,19 +2628,11 @@ Original CVS version of dbus-sysdeps.c
 _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
-#ifndef DBUS_WIN
-#define _dbus_decapsulate_quick(i)       (i)
-#define DBUS_SOCKET_IS_INVALID(s)        ((s) < 0)
-#define DBUS_SOCKET_API_RETURNS_ERROR(n) ((n) < 0)
-#define DBUS_SOCKET_SET_ERRNO()          /* empty */
-#define DBUS_CLOSE_SOCKET(s)             close(s)
-#endif
-
 /**
  * @addtogroup DBusInternalsUtils
  * @{
  */
-#if !defined(DBUS_DISABLE_ASSERT) && !defined(DBUS_WIN)
+#if !defined(DBUS_DISABLE_ASSERT)
 /**
  * Aborts the program with SIGABRT (dumping core).
  */
@@ -2724,7 +2645,7 @@ _dbus_abort (void)
   if (s && *s)
     _dbus_print_backtrace ();
 #endif
-#if defined (DBUS_WIN) && defined (__GNUC__)
+#if defined (__GNUC__)
   if (IsDebuggerPresent ())
     __asm__ __volatile__ ("int $03");
 #endif
