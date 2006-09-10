@@ -3251,7 +3251,7 @@ fill_user_info_from_passwd (struct passwd *p,
 
 
 dbus_bool_t
-_dbus_fill_user_info (DBusUserInfo       *info,
+fill_user_info (DBusUserInfo       *info,
                 dbus_uid_t          uid,
                 const DBusString   *username,
                 DBusError          *error)
