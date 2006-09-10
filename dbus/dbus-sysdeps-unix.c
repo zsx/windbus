@@ -703,7 +703,7 @@ _dbus_listen_tcp_socket (const char     *host,
   return listen_fd;
 }
 
-static dbus_bool_t
+dbus_bool_t
 write_credentials_byte (int             server_fd,
                         DBusError      *error)
 {
@@ -1026,7 +1026,7 @@ fill_user_info_from_passwd (struct passwd *p,
   return TRUE;
 }
 
-static dbus_bool_t
+dbus_bool_t
 fill_user_info (DBusUserInfo       *info,
                 dbus_uid_t          uid,
                 const DBusString   *username,
