@@ -703,19 +703,6 @@ Index: dbus/dbus-transport-unix.c
  
  
  /**
-Index: dbus/dbus-sysdeps-win.c
-===================================================================
---- dbus/dbus-sysdeps-win.c	(revision 280)
-+++ dbus/dbus-sysdeps-win.c	(working copy)
-@@ -3251,7 +3251,7 @@
- 
- 
- dbus_bool_t
--_dbus_fill_user_info (DBusUserInfo       *info,
-+fill_user_info (DBusUserInfo       *info,
-                 dbus_uid_t          uid,
-                 const DBusString   *username,
-                 DBusError          *error)
 Index: dbus/dbus-sysdeps.c
 ===================================================================
 --- dbus/dbus-sysdeps.c	(revision 280)
