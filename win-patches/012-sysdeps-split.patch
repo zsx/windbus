@@ -1,7 +1,7 @@
-Index: dbus-sysdeps.c
+Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus-sysdeps.c	(revision 287)
-+++ dbus-sysdeps.c	(working copy)
+--- dbus/dbus-sysdeps.c	(revision 287)
++++ dbus/dbus-sysdeps.c	(working copy)
 @@ -76,25 +76,7 @@
   * @addtogroup DBusInternalsUtils
   * @{
@@ -1655,3 +1655,15 @@ Index: dbus-sysdeps.c
   * Gets the temporary files directory by inspecting the environment variables 
   * TMPDIR, TMP, and TEMP in that order. If none of those are set "/tmp" is returned
   *
+Index: dbus/Makefile.am
+===================================================================
+--- dbus/Makefile.am	(revision 287)
++++ dbus/Makefile.am	(working copy)
+@@ -104,6 +104,7 @@
+ 	dbus-string.h				\
+ 	dbus-string-private.h			\
+ 	dbus-sysdeps.c				\
++	dbus-sysdeps-unix.c		    \
+ 	dbus-sysdeps.h				\
+ 	dbus-userdb.c				\
+ 	dbus-userdb.h
