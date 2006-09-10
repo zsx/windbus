@@ -77,6 +77,7 @@ DBusConnection*   _dbus_connection_new_for_transport           (DBusTransport   
 void              _dbus_connection_do_iteration_unlocked       (DBusConnection     *connection,
                                                                 unsigned int        flags,
                                                                 int                 timeout_milliseconds);
+void              _dbus_connection_close_internal              (DBusConnection *connection);
 
 DBusPendingCall*  _dbus_pending_call_new                       (DBusConnection     *connection,
                                                                 int                 timeout_milliseconds,
@@ -93,6 +94,12 @@ dbus_bool_t       _dbus_connection_send_and_unlock             (DBusConnection  
 
 void              _dbus_connection_queue_synthesized_message_link (DBusConnection *connection,
 						                   DBusList *link);
+void              _dbus_connection_test_get_locks                 (DBusConnection *conn,
+                                                                   DBusMutex **mutex_loc,
+                                                                   DBusMutex **dispatch_mutex_loc,
+                                                                   DBusMutex **io_path_mutex_loc,
+                                                                   DBusCondVar **dispatch_cond_loc,
+                                                                   DBusCondVar **io_path_cond_loc);
 
 DBUS_END_DECLS
 

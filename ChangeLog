@@ -1,3 +1,123 @@
+2006-09-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/test-main.c (main): Initialize threading during tests
+
+	* dbus/dbus-connection.c (_dbus_connection_new_for_transport):
+	Unlock connection on error
+	(generate_local_error_message): static method for generating
+	an error message when we don't have a message to reply to
+	(_dbus_connection_block_pending_call): Send a disconnect error
+	instead of just a timeout (NULL) when the bus gets disconnected
+	while blocking for a reply.
+	
+
+2006-09-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-connection.c (dbus_connection_dispatch): Properly remove
+	filters (Patch from Kimmo Hämäläinen 
+	<kimmo dot hamalainen at nokia dot com>)
+
+2006-09-07  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-connection-internal.h: Add prototype for 
+	_dbus_connection_test_get_locks to remove warning
+
+2006-09-07  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-spawn.c (_dbus_spawn_async_with_babysitter): Make sure we
+	close child_err_report_pipe[WRITE_END] on exec (Patch from 
+	Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>)
+
+2006-09-07  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Clean up close calls to use _dbus_close (Patch from 
+	Kimmo Hämäläinen <kimmo dot hamalainen at nokia dot com>)
+
+2006-09-06  John (J5) Palmieri  <johnp@redhat.com>
+
+	* doc/TODO:
+	- Remove pending call locking todo item
+	- dbus_connection_open now holds hard ref.  Remove todo item
+	- do proper locking on _dbus_bus_check_connection_and_unref
+	  and handle DBUS_BUS_STARTER. Remove todo item
+	- Warn on closing of a shared connection.  Remove todo item
+
+	* bus/bus.c, bus/connection.c, bus/dispatch.c, dbus/dbus-bus.c,
+	dbus/dbus-connection.c: Use the dbus_connection_close_internal
+	so we don't get the warning when closing shared connections
+
+	* test/test-service.c, test/test-shell-service.c: Applications
+	don't close shared connections themselves so we unref instead of
+	close
+
+	* test/test-utils.c (test_connection_shutdown): Close the connection
+
+	* dbus/dbus-bus.c (_dbus_bus_check_connection_and_unref): Changed to
+	_dbus_bus_check_connection_and_unref_unlocked since we only call this
+	method on a locked connection.  
+	Make sure we call _dbus_connection_unref_unlocked instead of 
+	dbus_connection_unref also.
+	Handle DBUS_BUS_STARTER correctly
+
+	* dbus/dbus-connection.c (connection_record_shared_unlocked):
+	Mark as shared and hard ref the connection
+	(connection_forget_shared_unlocked): Remove the hard ref from the 
+	connection
+	(_dbus_connection_close_internal_and_unlock):  New internal function
+	which takes a locked connection and unlocks it after closing it
+	(_dbus_connection_close_internal): New internal function which acts
+	like the origonal dbus_connection_close method by grabbing a connection
+	lock and calling _dbus_connection_close_internal_and_unlock
+	(dbus_connection_close): Public close method, warns when the app
+	trys to close a shared connection
+
+2006-09-06  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/driver.c:
+	(bus_driver_generate_introspect_string): New method for populating
+	a DBusString with the introspect data
+	(bus_driver_handle_introspect): Move introspect generation code to 
+	bus_driver_generate_introspect_string
+
+	* bus/main.c:
+	(introspect): New function which prints out the intropect data and
+	exits
+	(main): Add a --introspect switch
+
+2006-09-06  John (J5) Palmieri  <johnp@redhat.com>
+
+	* doc/TODO: Removed dtd publishing item.  
+	It seems the dtd has already been added at
+	http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd
+
+2006-09-05  John (J5) Palmieri  <johnp@redhat.com>
+
+	* doc/TODO, various source files: Audited todo's and FIXME's and
+	prepended the ones we should be looking at with 1.0.  Those
+	prepended with 1.0? need clerification or might not be needed
+	for 1.0
+
+2006-09-05  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-pending-call.c: Add some checks so we don't crash on
+	NULL in the public API (Patch from Kimmo Hämäläinen 
+	<kimmo dot hamalainen at nokia dot com>)
+
+2006-09-05  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: Fix for OS-X compile time endian issues (patch from
+	Benjamin Reed <ranger at befunk dot com>)
+
+2006-09-05  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: Check for no-common compiler flag (OS-X fix from
+	Benjamin Reed <ranger at befunk dot com>)
+
+2006-09-01  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/dbus-launch.c: Add a sigterm handler (patch from Frederic Crozat
+	<fcrozat at mandriva dot com>)
+
 2006-08-29  Havoc Pennington  <hp@redhat.com>
 
 	* test/test-service.c (path_message_func): fix lack of return value

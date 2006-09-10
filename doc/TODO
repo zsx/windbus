@@ -8,7 +8,9 @@ Important for 1.0
    locks. Fixes the recursive deadlock. See the @todo for more
    and this thread: http://lists.freedesktop.org/archives/dbus/2006-February/004128.html
 
- - Audit @todo and FIXME for security issues
+ - Take a look at the issues marked @todo 1.0 or FIXME 1.0.  Ones with
+   Question marks at the ends either need clarification or are not 
+   really needed for 1.0 but would be nice.
 
  - the "break loader" and valid/invalid message tests are all disabled;
    they need to be fixed and re-enabled with the new message args stuff.
@@ -18,23 +20,6 @@ Important for 1.0
    cleanup)
 
  - just before 1.0, try a HAVE_INT64=0 build and be sure it runs
-
- - publish the introspection dtd at its URL
-
- - fix locking on DBusPendingCall
-
- - dbus_connection_open() is like dbus_bus_get() in that it returns a shared
-   connection; it needs the corresponding fix to hold a strong reference to 
-   these connections.
-
- - _dbus_bus_check_connection_and_unref does not do proper locking and 
-   doesn't handle all the shared connections, e.g. DBUS_BUS_STARTER
-
- - for both the dbus-bus.c shared connections and dbus_connection_open() 
-   shared connections, it is probably appropriate to warn() if someone 
-   calls close() on them ; essentially shared connections are not closeable
-   because it's unclear who would do the closing and when, short of 
-   dbus_shutdown()
 
 Important for 1.0 GLib Bindings
 ===
