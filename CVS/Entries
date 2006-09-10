@@ -14,4 +14,9 @@
 /configure.in/1.174/Tue Sep  5 21:56:20 2006//
 /dbus-1.pc.in/1.3/Fri Mar 17 03:20:14 2006//
 /update-dbus-docs.sh/1.3/Thu Dec  1 05:42:03 2005//
-D
+D/bus////
+D/dbus////
+D/doc////
+D/glib////
+D/test////
+D/tools////
