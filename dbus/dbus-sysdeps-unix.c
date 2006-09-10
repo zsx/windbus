@@ -931,7 +931,36 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
     
   return TRUE;
 }
- 
+
+/**
+ * Sends a single nul byte with our UNIX credentials as ancillary
+ * data.  Returns #TRUE if the data was successfully written.  On
+ * systems that don't support sending credentials, just writes a byte,
+ * doesn't send any credentials.  On some systems, such as Linux,
+ * reading/writing the byte isn't actually required, but we do it
+ * anyway just to avoid multiple codepaths.
+ *
+ * Fails if no byte can be written, so you must select() first.
+ *
+ * The point of the byte is that on some systems we have to
+ * use sendmsg()/recvmsg() to transmit credentials.
+ *
+ * @param server_fd file descriptor for connection to server
+ * @param error return location for error code
+ * @returns #TRUE if the byte was sent
+ */
+dbus_bool_t
+_dbus_send_credentials_unix_socket  (int              server_fd,
+                                     DBusError       *error)
+{
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  if (write_credentials_byte (server_fd, error))
+    return TRUE;
+  else
+    return FALSE;
+}
+
 /**
  * Accepts a connection on a listening socket.
  * Handles EINTR for you.
@@ -962,6 +991,11 @@ _dbus_accept  (int listen_fd)
 
 /** @} */
 
+/**
+ * @addtogroup DBusString
+ *
+ * @{
+ */
 /**
 * Checks to make sure the given directory is 
 * private to the user 
@@ -998,7 +1032,9 @@ _dbus_check_dir_is_private_to_user (DBusString *dir, DBusError *error)
     
   return TRUE;
 }
- 
+
+/** @} */ /* DBusString group */
+
  /**
  * @addtogroup DBusInternalsUtils
  * @{
