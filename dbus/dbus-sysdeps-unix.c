@@ -1,10 +1,8 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
-/* dbus-sysdeps.c Wrappers around system/libc features (internal to D-BUS implementation)
+/* dbus-sysdeps.c Wrappers around system/libc features (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003  Red Hat, Inc.
  * Copyright (C) 2003 CodeFactory AB
- * Copyright (C) 2005 Novell, Inc.
- * Copyright (C) 2006 Peter Kümmel
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -71,15 +69,19 @@
 #define socklen_t int
 #endif
 
-
 int _dbus_socket_to_handle (int socket){ return socket; }
 int _dbus_handle_to_socket (int handle){ return handle; }
 int _dbus_fd_to_handle     (int fd)    { return fd; }
 int _dbus_handle_to_fd     (int handle){ return handle; }
 
 
+int _dbus_mkdir (const char *path, 
+	             mode_t mode)
+{
+  return mkdir(path, mode);
+}
 
- /**
+/**
  * @addtogroup DBusInternalsUtils
  * @{
  */
@@ -100,12 +102,6 @@ _dbus_abort (void)
   _exit (1); /* in case someone manages to ignore SIGABRT */
 }
 #endif
-
-int _dbus_mkdir (const char *path, 
-	             mode_t mode)
-{
-  return mkdir(path, mode);
-}
 
  
 /**
@@ -707,7 +703,7 @@ _dbus_listen_tcp_socket (const char     *host,
   return listen_fd;
 }
 
-dbus_bool_t
+static dbus_bool_t
 write_credentials_byte (int             server_fd,
                         DBusError      *error)
 {
@@ -722,7 +718,6 @@ write_credentials_byte (int             server_fd,
   struct msghdr msg;
 #endif
 
- 
 #if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
   iov.iov_base = buf;
   iov.iov_len = 1;
@@ -773,7 +768,7 @@ write_credentials_byte (int             server_fd,
     }
 }
 
- /**
+/**
  * Reads a single byte which must be nul (an error occurs otherwise),
  * and reads unix credentials if available. Fills in pid/uid/gid with
  * -1 if no credentials are available. Return value indicates whether
@@ -936,7 +931,6 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
     
   return TRUE;
 }
-
  
 /**
  * Accepts a connection on a listening socket.
@@ -966,7 +960,7 @@ _dbus_accept  (int listen_fd)
   return client_fd;
 }
 
-
+/** @} */
 
 /**
 * Checks to make sure the given directory is 
@@ -1032,8 +1026,8 @@ fill_user_info_from_passwd (struct passwd *p,
   return TRUE;
 }
 
-dbus_bool_t
-_dbus_fill_user_info (DBusUserInfo       *info,
+static dbus_bool_t
+fill_user_info (DBusUserInfo       *info,
                 dbus_uid_t          uid,
                 const DBusString   *username,
                 DBusError          *error)
@@ -1351,7 +1345,7 @@ _dbus_poll (DBusPollFD *fds,
 /** microseconds in a millisecond */
 #define MICROSECONDS_PER_MILLISECOND 1000
 
- /**
+/**
  * Sleeps the given number of milliseconds.
  * @param milliseconds number of milliseconds
  */
@@ -1618,7 +1612,7 @@ _dbus_full_duplex_pipe (int        *fd1,
 }
 
 
- /**
+/**
  * Measure the length of the given format string and arguments,
  * not including the terminating nul.
  *
@@ -1634,5 +1628,7 @@ _dbus_printf_string_upper_bound (const char *format,
   return vsnprintf (&c, 1, format, args);
 }
 
-/** @} end of dbus-sysdeps-unix.c */
+/** @} end of sysdeps-unix */
+
+/* tests in dbus-sysdeps-util.c and tests in dbus-sysdeps-util-unix.c */
 
