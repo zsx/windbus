@@ -360,7 +360,7 @@ _dbus_connect_unix_socket (const char     *path,
         {
           dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
                       "Abstract socket name too long\n");
-          close (fd);
+          _dbus_close (fd, NULL);
           return -1;
 	}
 	
@@ -369,7 +369,7 @@ _dbus_connect_unix_socket (const char     *path,
 #else /* HAVE_ABSTRACT_SOCKETS */
       dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
                       "Operating system does not support abstract socket namespace\n");
-      close (fd);
+      _dbus_close (fd, NULL);
       return -1;
 #endif /* ! HAVE_ABSTRACT_SOCKETS */
     }
@@ -379,7 +379,7 @@ _dbus_connect_unix_socket (const char     *path,
         {
           dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
                       "Socket name too long\n");
-          close (fd);
+          _dbus_close (fd, NULL);
           return -1;
 	}
 
@@ -393,7 +393,7 @@ _dbus_connect_unix_socket (const char     *path,
                       "Failed to connect to socket %s: %s",
                       path, _dbus_strerror (errno));
 
-      close (fd);
+      _dbus_close (fd, NULL);
       fd = -1;
       
       return -1;
@@ -403,7 +403,7 @@ _dbus_connect_unix_socket (const char     *path,
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
       
-      close (fd);
+      _dbus_close (fd, NULL);
       fd = -1;
 
       return -1;
@@ -468,7 +468,7 @@ _dbus_listen_unix_socket (const char     *path,
         {
           dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
                       "Abstract socket name too long\n");
-          close (listen_fd);
+          _dbus_close (listen_fd, NULL);
           return -1;
 	}
       
@@ -477,7 +477,7 @@ _dbus_listen_unix_socket (const char     *path,
 #else /* HAVE_ABSTRACT_SOCKETS */
       dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
                       "Operating system does not support abstract socket namespace\n");
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
 #endif /* ! HAVE_ABSTRACT_SOCKETS */
     }
@@ -505,7 +505,7 @@ _dbus_listen_unix_socket (const char     *path,
         {
           dbus_set_error (error, DBUS_ERROR_BAD_ADDRESS,
                       "Abstract socket name too long\n");
-          close (listen_fd);
+          _dbus_close (listen_fd, NULL);
           return -1;
 	}
 	
@@ -517,7 +517,7 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s\": %s",
                       path, _dbus_strerror (errno));
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
 
@@ -526,14 +526,14 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to listen on socket \"%s\": %s",
                       path, _dbus_strerror (errno));
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
 
   if (!_dbus_set_fd_nonblocking (listen_fd, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
   
@@ -591,7 +591,7 @@ _dbus_connect_tcp_socket (const char     *host,
                       _dbus_error_from_errno (errno),
                       "Failed to lookup hostname: %s",
                       host);
-      close (fd);
+      _dbus_close (fd, NULL);
       return -1;
     }
   
@@ -609,7 +609,7 @@ _dbus_connect_tcp_socket (const char     *host,
                       "Failed to connect to socket %s:%d %s",
                       host, port, _dbus_strerror (errno));
 
-      close (fd);
+      _dbus_close (fd, NULL);
       fd = -1;
       
       return -1;
@@ -617,7 +617,7 @@ _dbus_connect_tcp_socket (const char     *host,
 
   if (!_dbus_set_fd_nonblocking (fd, error))
     {
-      close (fd);
+      _dbus_close (fd, NULL);
       fd = -1;
 
       return -1;
@@ -665,7 +665,7 @@ _dbus_listen_tcp_socket (const char     *host,
                       _dbus_error_from_errno (errno),
                       "Failed to lookup hostname: %s",
                       host);
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
   
@@ -681,7 +681,7 @@ _dbus_listen_tcp_socket (const char     *host,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s:%d\": %s",
                       host, port, _dbus_strerror (errno));
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
 
@@ -690,13 +690,13 @@ _dbus_listen_tcp_socket (const char     *host,
       dbus_set_error (error, _dbus_error_from_errno (errno),  
                       "Failed to listen on socket \"%s:%d\": %s",
                       host, port, _dbus_strerror (errno));
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
 
   if (!_dbus_set_fd_nonblocking (listen_fd, error))
     {
-      close (listen_fd);
+      _dbus_close (listen_fd, NULL);
       return -1;
     }
   
@@ -1532,7 +1532,7 @@ _dbus_close (int        fd,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
  again:
-  if (close (fd) < 0)
+  if (_dbus_close (fd, NULL) < 0)
     {
       if (errno == EINTR)
         goto again;
