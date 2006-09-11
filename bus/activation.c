@@ -285,22 +285,16 @@ update_desktop_file_entry (BusActivation       *activation,
   if (!bus_desktop_file_get_string (desktop_file,
                                     DBUS_SERVICE_SECTION,
                                     DBUS_SERVICE_NAME,
-                                    &name))
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "No \""DBUS_SERVICE_NAME"\" key in .service file\n");
-      goto failed;
-    }
+                                    &name,
+                                    error))
+    goto failed;
 
   if (!bus_desktop_file_get_string (desktop_file,
                                     DBUS_SERVICE_SECTION,
                                     DBUS_SERVICE_EXEC,
-                                    &exec))
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "No \""DBUS_SERVICE_EXEC"\" key in .service file\n");
-      goto failed;
-    }
+                                    &exec,
+                                    error))
+    goto failed;
 
   entry = _dbus_hash_table_lookup_string (s_dir->entries, 
                                           _dbus_string_get_const_data (filename));
@@ -466,7 +460,10 @@ check_service_file (BusActivation       *activation,
               retval = TRUE;
               goto out;
             }
-          
+         
+          /* @todo We can return OOM or a DBUS_ERROR_FAILED error 
+           *       Handle these both better
+           */ 
           if (!update_desktop_file_entry (activation, entry->s_dir, &filename, desktop_file, &tmp_error))
             {
               bus_desktop_file_free (desktop_file);
@@ -593,6 +590,9 @@ update_directory (BusActivation       *activation,
           continue;
         }
 
+      /* @todo We can return OOM or a DBUS_ERROR_FAILED error 
+       *       Handle these both better
+       */ 
       if (!update_desktop_file_entry (activation, s_dir, &filename, desktop_file, &tmp_error))
         {
           bus_desktop_file_free (desktop_file);
@@ -1017,7 +1017,7 @@ bus_activation_send_pending_auto_activation_messages (BusActivation  *activation
 }
 
 /**
- * FIXME @todo 1.0? the error messages here would ideally be preallocated
+ * FIXME @todo the error messages here would ideally be preallocated
  * so we don't need to allocate memory to send them.
  * Using the usual tactic, prealloc an OOM message, then
  * if we can't alloc the real error send the OOM error instead.
