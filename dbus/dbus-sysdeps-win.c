@@ -3966,6 +3966,8 @@ _dbus_create_file_exclusively (const DBusString *filename,
                       _dbus_strerror (errno));
       return FALSE;
     }
+  else
+    fd = _dbus_fd_to_handle(fd);
 
   if (!_dbus_close (fd, NULL))
     {
