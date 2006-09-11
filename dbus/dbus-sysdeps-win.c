@@ -2632,27 +2632,6 @@ _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
  * @addtogroup DBusInternalsUtils
  * @{
  */
-#if !defined(DBUS_DISABLE_ASSERT)
-/**
- * Aborts the program with SIGABRT (dumping core).
- */
-void
-_dbus_abort (void)
-{
-#ifdef DBUS_ENABLE_VERBOSE_MODE
-  const char *s;
-  s = _dbus_getenv ("DBUS_PRINT_BACKTRACE");
-  if (s && *s)
-    _dbus_print_backtrace ();
-#endif
-#if defined (__GNUC__)
-  if (IsDebuggerPresent ())
-    __asm__ __volatile__ ("int $03");
-#endif
-  abort ();
-  _exit (1); /* in case someone manages to ignore SIGABRT */
-}
-#endif
 
 int _dbus_mkdir (const char *path, 
 	             mode_t mode)
@@ -2664,6 +2643,16 @@ int _dbus_mkdir (const char *path,
 #endif
 }
 
+/**
+ * Exit the process, returning the given value.
+ *
+ * @param code the exit code
+ */
+void
+_dbus_exit (int code)
+{
+  _exit (code);
+}
 
 /**
  * Creates a socket and connects to a socket at the given host 
@@ -3248,6 +3237,39 @@ fill_user_info_from_passwd (struct passwd *p,
 }
 #endif
 
+/**
+ * Gets user info for the given user ID.
+ *
+ * @param info user info object to initialize
+ * @param uid the user ID
+ * @param error error return
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_user_info_fill_uid (DBusUserInfo *info,
+                          dbus_uid_t    uid,
+                          DBusError    *error)
+{
+  return fill_user_info (info, uid,
+                         NULL, error);
+}
+
+/**
+ * Gets user info for the given username.
+ *
+ * @param info user info object to initialize
+ * @param username the username
+ * @param error error return
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_user_info_fill (DBusUserInfo     *info,
+                      const DBusString *username,
+                      DBusError        *error)
+{
+  return fill_user_info (info, DBUS_UID_UNSET,
+                         username, error);
+}
 
 
 dbus_bool_t
@@ -3572,6 +3594,7 @@ _dbus_sleep_milliseconds (int milliseconds)
 #endif /* !DBUS_WIN */
 }
 
+
 /**
  * Get current time, as in gettimeofday().
  *
@@ -3644,6 +3667,582 @@ _dbus_printf_string_upper_bound (const char *format,
 }
 #endif
 
+
+/**
+ * Gets the credentials of the current process.
+ *
+ * @param credentials credentials to fill in.
+ */
+void
+_dbus_credentials_from_current_process (DBusCredentials *credentials)
+{
+  credentials->pid = _dbus_getpid ();
+  credentials->uid = _dbus_getuid ();
+  credentials->gid = _dbus_getgid ();
+}
+
+
+
+
+/**
+ * Appends the contents of the given file to the string,
+ * returning error code. At the moment, won't open a file
+ * more than a megabyte in size.
+ *
+ * @param str the string to append to
+ * @param filename filename to load
+ * @param error place to set an error
+ * @returns #FALSE if error was set
+ */
+dbus_bool_t
+_dbus_file_get_contents (DBusString       *str,
+                         const DBusString *filename,
+                         DBusError        *error)
+{
+  int fd;
+  struct stat sb;
+  int orig_len;
+  int total;
+  const char *filename_c;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  filename_c = _dbus_string_get_const_data (filename);
+  
+  /* O_BINARY useful on Cygwin and Win32 */
+  fd = open (filename_c, O_RDONLY | O_BINARY);
+  if (fd < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to open \"%s\": %s",
+                      filename_c,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  if (fstat (fd, &sb) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to stat \"%s\": %s",
+                      filename_c,
+                      _dbus_strerror (errno));
+
+      _dbus_verbose ("fstat() failed: %s",
+                     _dbus_strerror (errno));
+      
+      _dbus_close (fd, NULL);
+      
+      return FALSE;
+    }
+
+  if (sb.st_size > _DBUS_ONE_MEGABYTE)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "File size %lu of \"%s\" is too large.",
+                      (unsigned long) sb.st_size, filename_c);
+      _dbus_close (fd, NULL);
+      return FALSE;
+    }
+  
+  total = 0;
+  orig_len = _dbus_string_get_length (str);
+  if (sb.st_size > 0 && S_ISREG (sb.st_mode))
+    {
+      int bytes_read;
+      const int encapsulated_fd = _dbus_fd_to_handle (fd);
+
+      while (total < (int) sb.st_size)
+        {
+          bytes_read = _dbus_read (encapsulated_fd, str,
+                                   sb.st_size - total);
+          if (bytes_read <= 0)
+            {
+              dbus_set_error (error, _dbus_error_from_errno (errno),
+                              "Error reading \"%s\": %s",
+                              filename_c,
+                              _dbus_strerror (errno));
+
+              _dbus_verbose ("read() failed: %s",
+                             _dbus_strerror (errno));
+              
+              _dbus_close (encapsulated_fd, NULL);
+              _dbus_string_set_length (str, orig_len);
+              return FALSE;
+            }
+          else
+            total += bytes_read;
+        }
+
+      _dbus_close (encapsulated_fd, NULL);
+      return TRUE;
+    }
+  else if (sb.st_size != 0)
+    {
+      _dbus_verbose ("Can only open regular files at the moment.\n");
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "\"%s\" is not a regular file",
+                      filename_c);
+      _dbus_close (fd, NULL);
+      return FALSE;
+    }
+  else
+    {
+      _dbus_close (fd, NULL);
+      return TRUE;
+    }
+}
+
+/**
+ * Writes a string out to a file. If the file exists,
+ * it will be atomically overwritten by the new data.
+ *
+ * @param str the string to write out
+ * @param filename the file to save string to
+ * @param error error to be filled in on failure
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_string_save_to_file (const DBusString *str,
+                           const DBusString *filename,
+                           DBusError        *error)
+{
+  int fd;
+  int bytes_to_write;
+  const char *filename_c;
+  DBusString tmp_filename;
+  const char *tmp_filename_c;
+  int total;
+  dbus_bool_t need_unlink;
+  dbus_bool_t retval;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  fd = -1;
+  retval = FALSE;
+  need_unlink = FALSE;
+  
+  if (!_dbus_string_init (&tmp_filename))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      return FALSE;
+    }
+
+  if (!_dbus_string_copy (filename, 0, &tmp_filename, 0))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&tmp_filename);
+      return FALSE;
+    }
+  
+  if (!_dbus_string_append (&tmp_filename, "."))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&tmp_filename);
+      return FALSE;
+    }
+
+#define N_TMP_FILENAME_RANDOM_BYTES 8
+  if (!_dbus_generate_random_ascii (&tmp_filename, N_TMP_FILENAME_RANDOM_BYTES))
+    {
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+      _dbus_string_free (&tmp_filename);
+      return FALSE;
+    }
+    
+  filename_c = _dbus_string_get_const_data (filename);
+  tmp_filename_c = _dbus_string_get_const_data (&tmp_filename);
+
+  fd = open (tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
+             0600);
+  if (fd < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not create %s: %s", tmp_filename_c,
+                      _dbus_strerror (errno));
+      goto out;
+    }
+
+  fd = _dbus_fd_to_handle (fd);
+
+  need_unlink = TRUE;
+  
+  total = 0;
+  bytes_to_write = _dbus_string_get_length (str);
+
+  while (total < bytes_to_write)
+    {
+      int bytes_written;
+
+      bytes_written = _dbus_write (fd, str, total,
+                                   bytes_to_write - total);
+
+      if (bytes_written <= 0)
+        {
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+                          "Could not write to %s: %s", tmp_filename_c,
+                          _dbus_strerror (errno));
+          
+          goto out;
+        }
+
+      total += bytes_written;
+    }
+
+  if (!_dbus_close (fd, NULL))
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not close file %s: %s",
+                      tmp_filename_c, _dbus_strerror (errno));
+
+      goto out;
+    }
+
+  fd = -1;
+  
+  if (
+#ifdef DBUS_WIN
+      (unlink (filename_c) == -1 && errno != ENOENT) ||
+#endif
+      rename (tmp_filename_c, filename_c) < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not rename %s to %s: %s",
+                      tmp_filename_c, filename_c,
+                      _dbus_strerror (errno));
+
+      goto out;
+    }
+
+  need_unlink = FALSE;
+  
+  retval = TRUE;
+  
+ out:
+  /* close first, then unlink, to prevent ".nfs34234235" garbage
+   * files
+   */
+
+  if (fd >= 0)
+    _dbus_close (fd, NULL);
+        
+  if (need_unlink && unlink (tmp_filename_c) < 0)
+    _dbus_verbose ("Failed to unlink temp file %s: %s\n",
+                   tmp_filename_c, _dbus_strerror (errno));
+
+  _dbus_string_free (&tmp_filename);
+
+  if (!retval)
+    _DBUS_ASSERT_ERROR_IS_SET (error);
+  
+  return retval;
+}
+
+
+/** Creates the given file, failing if the file already exists.
+ *
+ * @param filename the filename
+ * @param error error location
+ * @returns #TRUE if we created the file and it didn't exist
+ */
+dbus_bool_t
+_dbus_create_file_exclusively (const DBusString *filename,
+                               DBusError        *error)
+{
+  int fd;
+  const char *filename_c;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  filename_c = _dbus_string_get_const_data (filename);
+  
+  fd = open (filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
+             0600);
+  if (fd < 0)
+    {
+      dbus_set_error (error,
+                      DBUS_ERROR_FAILED,
+                      "Could not create file %s: %s\n",
+                      filename_c,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+
+  if (!_dbus_close (fd, NULL))
+    {
+      dbus_set_error (error,
+                      DBUS_ERROR_FAILED,
+                      "Could not close file %s: %s\n",
+                      filename_c,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+  
+  return TRUE;
+}
+
+
+/**
+ * Creates a directory; succeeds if the directory
+ * is created or already existed.
+ *
+ * @param filename directory filename
+ * @param error initialized error object
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_create_directory (const DBusString *filename,
+                        DBusError        *error)
+{
+  const char *filename_c;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  filename_c = _dbus_string_get_const_data (filename);
+
+  if (_dbus_mkdir (filename_c, 0700) < 0)
+    {
+      if (errno == EEXIST)
+        return TRUE;
+      
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Failed to create directory %s: %s\n",
+                      filename_c, _dbus_strerror (errno));
+      return FALSE;
+    }
+  else
+    return TRUE;
+}
+
+
+static void
+pseudorandom_generate_random_bytes_buffer (char *buffer,
+                                           int   n_bytes)
+{
+  unsigned long tv_usec;
+  int i;
+  
+  /* fall back to pseudorandom */
+  _dbus_verbose ("Falling back to pseudorandom for %d bytes\n",
+                 n_bytes);
+  
+  _dbus_get_current_time (NULL, &tv_usec);
+  srand (tv_usec);
+  
+  i = 0;
+  while (i < n_bytes)
+    {
+      double r;
+      unsigned int b;
+          
+      r = rand ();
+      b = (r / (double) RAND_MAX) * 255.0;
+
+      buffer[i] = b;
+
+      ++i;
+    }
+}
+
+static dbus_bool_t
+pseudorandom_generate_random_bytes (DBusString *str,
+                                    int         n_bytes)
+{
+  int old_len;
+  char *p;
+  
+  old_len = _dbus_string_get_length (str);
+
+  if (!_dbus_string_lengthen (str, n_bytes))
+    return FALSE;
+
+  p = _dbus_string_get_data_len (str, old_len, n_bytes);
+
+  pseudorandom_generate_random_bytes_buffer (p, n_bytes);
+
+  return TRUE;
+}
+
+/**
+ * Gets the temporary files directory by inspecting the environment variables 
+ * TMPDIR, TMP, and TEMP in that order. If none of those are set "/tmp" is returned
+ *
+ * @returns location of temp directory
+ */
+const char*
+_dbus_get_tmpdir(void)
+{
+  static const char* tmpdir = NULL;
+
+  if (tmpdir == NULL)
+    {
+      /* TMPDIR is what glibc uses, then
+       * glibc falls back to the P_tmpdir macro which
+       * just expands to "/tmp"
+       */
+      if (tmpdir == NULL)
+        tmpdir = getenv("TMPDIR");
+
+      /* These two env variables are probably
+       * broken, but maybe some OS uses them?
+       */
+      if (tmpdir == NULL)
+        tmpdir = getenv("TMP");
+      if (tmpdir == NULL)
+        tmpdir = getenv("TEMP");
+
+      /* And this is the sane fallback. */
+      if (tmpdir == NULL)
+        tmpdir = "/tmp";
+    }
+  
+  _dbus_assert(tmpdir != NULL);
+  
+  return tmpdir;
+}
+
+
+/**
+ * Deletes the given file.
+ *
+ * @param filename the filename
+ * @param error error location
+ * 
+ * @returns #TRUE if unlink() succeeded
+ */
+dbus_bool_t
+_dbus_delete_file (const DBusString *filename,
+                   DBusError        *error)
+{
+  const char *filename_c;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  filename_c = _dbus_string_get_const_data (filename);
+
+  if (unlink (filename_c) < 0)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Failed to delete file %s: %s\n",
+                      filename_c, _dbus_strerror (errno));
+      return FALSE;
+    }
+  else
+    return TRUE;
+}
+
+/**
+ * Generates the given number of random bytes,
+ * using the best mechanism we can come up with.
+ *
+ * @param str the string
+ * @param n_bytes the number of random bytes to append to string
+ * @returns #TRUE on success, #FALSE if no memory
+ */
+dbus_bool_t
+_dbus_generate_random_bytes (DBusString *str,
+                             int         n_bytes)
+{
+  int old_len;
+  int fd;
+
+  /* FALSE return means "no memory", if it could
+   * mean something else then we'd need to return
+   * a DBusError. So we always fall back to pseudorandom
+   * if the I/O fails.
+   */
+  
+  old_len = _dbus_string_get_length (str);
+  fd = -1;
+
+  if (fd < 0)
+    return pseudorandom_generate_random_bytes (str, n_bytes);
+
+  if (_dbus_read (fd, str, n_bytes) != n_bytes)
+    {
+      _dbus_close (fd, NULL);
+      _dbus_string_set_length (str, old_len);
+      return pseudorandom_generate_random_bytes (str, n_bytes);
+    }
+
+  _dbus_verbose ("Read %d bytes from /dev/urandom\n",
+                 n_bytes);
+  
+  _dbus_close (fd, NULL);
+  
+  return TRUE;
+}
+
+#if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
+/**
+ * On GNU libc systems, print a crude backtrace to the verbose log.
+ * On other systems, print "no backtrace support"
+ *
+ */
+void
+_dbus_print_backtrace (void)
+{
+#if defined (HAVE_BACKTRACE) && defined (DBUS_ENABLE_VERBOSE_MODE)
+  void *bt[500];
+  int bt_size;
+  int i;
+  char **syms;
+  
+  bt_size = backtrace (bt, 500);
+
+  syms = backtrace_symbols (bt, bt_size);
+  
+  i = 0;
+  while (i < bt_size)
+    {
+      _dbus_verbose ("  %s\n", syms[i]);
+      ++i;
+    }
+
+  free (syms);
+#else
+  _dbus_verbose ("  D-Bus not compiled with backtrace support\n");
+#endif
+}
+
+
+/**
+ * Sends a single nul byte with our UNIX credentials as ancillary
+ * data.  Returns #TRUE if the data was successfully written.  On
+ * systems that don't support sending credentials, just writes a byte,
+ * doesn't send any credentials.  On some systems, such as Linux,
+ * reading/writing the byte isn't actually required, but we do it
+ * anyway just to avoid multiple codepaths.
+ *
+ * Fails if no byte can be written, so you must select() first.
+ *
+ * The point of the byte is that on some systems we have to
+ * use sendmsg()/recvmsg() to transmit credentials.
+ *
+ * @param server_fd file descriptor for connection to server
+ * @param error return location for error code
+ * @returns #TRUE if the byte was sent
+ */
+dbus_bool_t
+_dbus_send_credentials_unix_socket  (int              server_fd,
+                                     DBusError       *error)
+{
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  if (write_credentials_byte (server_fd, error))
+    return TRUE;
+  else
+    return FALSE;
+}
+
+
+
+
+
+
+
+
+
+#endif /* asserts or tests enabled */
 
 /** @} end of sysdeps-win */
 
