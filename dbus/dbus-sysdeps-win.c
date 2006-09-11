@@ -4150,13 +4150,16 @@ _dbus_generate_random_bytes (DBusString *str,
    * a DBusError. So we always fall back to pseudorandom
    * if the I/O fails.
    */
-  
+
+#ifndef DBUS_WIN  
   old_len = _dbus_string_get_length (str);
   fd = -1;
+#endif
 
   if (fd < 0)
     return pseudorandom_generate_random_bytes (str, n_bytes);
 
+#ifndef DBUS_WIN
   if (_dbus_read (fd, str, n_bytes) != n_bytes)
     {
       _dbus_close (fd, NULL);
@@ -4170,7 +4173,11 @@ _dbus_generate_random_bytes (DBusString *str,
   _dbus_close (fd, NULL);
   
   return TRUE;
-}
+#else
+  _dbus_assert_not_reached ("_dbus_generate_random_bytes fails");
+  return FALSE;
+#endif
+ }
 
 #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
 /**
