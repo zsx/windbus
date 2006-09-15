@@ -181,51 +181,21 @@ _dbus_write_file (DBusFile         *file,
                   int               start,
                   int               len)
 {
-  DBusWin32FDType type;
+  const int fd = file->FDATA;
   const char *data;
   int bytes_written;
   
   data = _dbus_string_get_const_data_len (buffer, start, len);
-  
-  _DBUS_LOCK (win_fds);
 
-  fd = FROM_HANDLE (fd);
+  _dbus_assert (fd >= 0);
 
-  _dbus_assert (fd >= 0 && fd < win_n_fds);
-  _dbus_assert (win_fds != NULL);
+  _dbus_verbose ("write: len=%d fd=%d\n", len, fd);
+  bytes_written = write (fd, data, len);
 
-  type = win_fds[fd].type;
-  fd = win_fds[fd].fd;
-
-  _DBUS_UNLOCK (win_fds);
-
-  switch (type)
-    {
-    case DBUS_WIN_FD_SOCKET:
-      _dbus_verbose ("send: len=%d socket=%d\n", len, fd);
-      bytes_written = send (fd, data, len, 0);
-      if (bytes_written == SOCKET_ERROR)
-	{
-	  DBUS_SOCKET_SET_ERRNO();
-	  _dbus_verbose ("send: failed: %s\n", _dbus_strerror (errno));
-	  bytes_written = -1;
-	}
-      else
-	_dbus_verbose ("send: = %d\n", bytes_written); 
-      break;
-
-    case DBUS_WIN_FD_C_LIB:
-      _dbus_verbose ("write: len=%d fd=%d\n", len, fd);
-      bytes_written = write (fd, data, len);
-      if (bytes_written == -1)
+  if (bytes_written == -1)
 	_dbus_verbose ("write: failed: %s\n", _dbus_strerror (errno));
-      else
+  else
 	_dbus_verbose ("write: = %d\n", bytes_written); 
-      break;
-
-    default:
-      _dbus_assert_not_reached ("unhandled fd type");
-    }
 
 #if 0
   if (bytes_written > 0)
@@ -622,15 +592,6 @@ _dbus_write_socket (int               fd,
 	}
       else
 	_dbus_verbose ("send: = %d\n", bytes_written); 
-      break;
-
-    case DBUS_WIN_FD_C_LIB:
-      _dbus_verbose ("write: len=%d fd=%d\n", len, fd);
-      bytes_written = write (fd, data, len);
-      if (bytes_written == -1)
-	_dbus_verbose ("write: failed: %s\n", _dbus_strerror (errno));
-      else
-	_dbus_verbose ("write: = %d\n", bytes_written); 
       break;
 
     default:
