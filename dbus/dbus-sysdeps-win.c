@@ -107,8 +107,22 @@ dbus_bool_t
 _dbus_close_file (DBusFile  *file,
                   DBusError *error)
 {
-	// replace with file code from _dbus_close_socket
-	return _dbus_close_socket(_dbus_fd_to_handle(file->FDATA), error);
+  const int fd = file->FDATA;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  
+  _dbus_assert (fd >= 0);
+
+  if (_close (fd) == -1)
+	{
+	  dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not close fd %d: %s", fd,
+                      _dbus_strerror (errno));
+	  return FALSE;
+	}
+  _dbus_verbose ("closed C file descriptor %d:\n",fd);
+
+  return TRUE;
 }
 
 int
@@ -595,21 +609,6 @@ _dbus_close_socket (int        fd,
 	  return FALSE;
 	}
       _dbus_verbose ("closed socket %d:%d:%d\n",
-		     encapsulated_fd, fd, win_fds[fd].fd);
-      _DBUS_UNLOCK (win_fds);
-      break;
-
-    case DBUS_WIN_FD_C_LIB:
-      if (close (win_fds[fd].fd) == -1)
-	{
-	  dbus_set_error (error, _dbus_error_from_errno (errno),
-			  "Could not close fd %d:%d:%d: %s",
-			  encapsulated_fd, fd, win_fds[fd].fd,
-			  _dbus_strerror (errno));
-	  _DBUS_UNLOCK (win_fds);
-	  return FALSE;
-	}
-      _dbus_verbose ("closed C file descriptor %d:%d:%d\n",
 		     encapsulated_fd, fd, win_fds[fd].fd);
       _DBUS_UNLOCK (win_fds);
       break;
