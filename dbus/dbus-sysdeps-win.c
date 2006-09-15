@@ -130,11 +130,10 @@ _dbus_read_file(DBusFile   *file,
 				DBusString *buffer,
 				int         count)
 {
-  DBusWin32FDType type;
+  const int fd = file->FDATA;
   int bytes_read;
   int start;
   char *data;
-
   _dbus_assert (count >= 0);
   
   start = _dbus_string_get_length (buffer);
@@ -147,52 +146,22 @@ _dbus_read_file(DBusFile   *file,
 
   data = _dbus_string_get_data_len (buffer, start, count);
 
-  _DBUS_LOCK (win_fds);
-
-  fd = FROM_HANDLE (fd);
-
-  _dbus_assert (fd >= 0 && fd < win_n_fds);
-  _dbus_assert (win_fds != NULL);
-
-  type = win_fds[fd].type;
-  fd = win_fds[fd].fd;
-
-  _DBUS_UNLOCK (win_fds);
+  _dbus_assert (fd >= 0);
     
-  switch (type)
-    {
-    case DBUS_WIN_FD_SOCKET:
-      _dbus_verbose ("recv: count=%d socket=%d\n", count, fd);
-      bytes_read = recv (fd, data, count, 0);
-      if (bytes_read == SOCKET_ERROR)
-	{
-	  DBUS_SOCKET_SET_ERRNO();
-	  _dbus_verbose ("recv: failed: %s\n", _dbus_strerror (errno));
-	  bytes_read = -1;
-	}
-      else
-	_dbus_verbose ("recv: = %d\n", bytes_read); 
-      break;
+  _dbus_verbose ("read: count=%d fd=%d\n", count, fd);
+  bytes_read = read (fd, data, count);
 
-    case DBUS_WIN_FD_C_LIB:
-      _dbus_verbose ("read: count=%d fd=%d\n", count, fd);
-      bytes_read = read (fd, data, count);
-      if (bytes_read == -1)
+  if (bytes_read == -1)
 	_dbus_verbose ("read: failed: %s\n", _dbus_strerror (errno));
-      else
+  else
 	_dbus_verbose ("read: = %d\n", bytes_read); 
-      break;
-
-    default:
-      _dbus_assert_not_reached ("unhandled fd type");
-    }
 
   if (bytes_read < 0)
-        {
-          /* put length back (note that this doesn't actually realloc anything) */
-          _dbus_string_set_length (buffer, start);
-          return -1;
-        }
+    {
+      /* put length back (note that this doesn't actually realloc anything) */
+      _dbus_string_set_length (buffer, start);
+      return -1;
+    }
   else
     {
       /* put length back (doesn't actually realloc) */
@@ -202,7 +171,6 @@ _dbus_read_file(DBusFile   *file,
       if (bytes_read > 0)
         _dbus_verbose_bytes_of_string (buffer, start, bytes_read);
 #endif
-      
       return bytes_read;
     }
 }
@@ -531,15 +499,6 @@ _dbus_read_socket (int               fd,
 	}
       else
 	_dbus_verbose ("recv: = %d\n", bytes_read); 
-      break;
-
-    case DBUS_WIN_FD_C_LIB:
-      _dbus_verbose ("read: count=%d fd=%d\n", count, fd);
-      bytes_read = read (fd, data, count);
-      if (bytes_read == -1)
-	_dbus_verbose ("read: failed: %s\n", _dbus_strerror (errno));
-      else
-	_dbus_verbose ("read: = %d\n", bytes_read); 
       break;
 
     default:
