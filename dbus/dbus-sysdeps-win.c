@@ -26,12 +26,13 @@
 
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
-#include "dbus-sysdeps-win.h"
 #include "dbus-threads.h"
+#include "dbus-protocol.h"
+#include "dbus-string.h"
+#include "dbus-sysdeps-win.h"
 #include "dbus-protocol.h"
 #include "dbus-hash.h"
 #include "dbus-sockets-win.h"
-#include "dbus-string.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -39,8 +40,37 @@
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lmerr.h>
+#include <sys/types.h>
+#include <fcntl.h>
 
-#include "dbus-sysdeps-win.h"
+#include <time.h>
+#include <locale.h>
+#include <sys/stat.h>
+
+#ifdef HAVE_WRITEV
+#include <sys/uio.h>
+#endif
+#ifdef HAVE_POLL
+#include <sys/poll.h>
+#endif
+#ifdef HAVE_BACKTRACE
+#include <execinfo.h>
+#endif
+#ifdef HAVE_GETPEERUCRED
+#include <ucred.h>
+#endif
+
+#ifndef O_BINARY
+#define O_BINARY 0
+#endif
+
+#ifndef HAVE_SOCKLEN_T
+#define socklen_t int
+#endif
+
+_DBUS_DEFINE_GLOBAL_LOCK (win_fds);
+_DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
 #ifdef _DBUS_WIN_USE_RANDOMIZER
 static int  win_encap_randomizer;
@@ -543,14 +573,14 @@ _dbus_open_file (DBusFile   *file,
 
 {
 	if (pmode!=-1)
-		file->d = _open (filename, oflag, pmode);
+		file->FDATA = _open (filename, oflag, pmode);
 	else
-		file->d = _open (filename, oflag);
-	if (file->d > 0)
+		file->FDATA = _open (filename, oflag);
+	if (file->FDATA > 0)
 		return TRUE;
 	else
 	{
-		file->d = -1;
+		file->FDATA = -1;
 		return FALSE;
 	}
 }
@@ -568,7 +598,7 @@ _dbus_close_file (DBusFile  *file,
                   DBusError *error)
 {
 	// replace with file code from _dbus_close_socket
-	return _dbus_close_socket(_dbus_fd_to_handle(file->d), error);
+	return _dbus_close_socket(_dbus_fd_to_handle(file->FDATA), error);
 }
 
 int
@@ -577,8 +607,9 @@ _dbus_read_file(DBusFile   *file,
 				int         count)
 {
 	// replace with file code from _dbus_read_socket
-	return _dbus_read_socket(_dbus_fd_to_handle(file->d), buffer, count);
+	return _dbus_read_socket(_dbus_fd_to_handle(file->FDATA), buffer, count);
 }
+
 
 int 
 _dbus_write_file (DBusFile         *file,
@@ -589,6 +620,20 @@ _dbus_write_file (DBusFile         *file,
   	// replace with file code from _dbus_write_socket
 	return _dbus_write_socket(_dbus_fd_to_handle(file->FDATA), buffer, start, len);
 }
+
+dbus_bool_t 
+_dbus_is_valid_file (DBusFile* file)
+{
+	return file->FDATA >= 0;
+}
+
+dbus_bool_t _dbus_fstat (DBusFile    *file, 
+                         struct stat *sb)
+{
+	return fstat(file->FDATA, sb) >= 0;
+}
+
+#undef FDATA
 
 /**
  * Sets the file descriptor to be close
@@ -2278,7 +2323,7 @@ _dbus_strerror (int error_number)
 }
 
 
-#include <lmerr.h>
+
 /* lan manager error codes */ 
 const char*
 _dbus_lm_strerror(int error_number)
@@ -2646,50 +2691,6 @@ Original CVS version of dbus-sysdeps.c
  *
  */
 
-#include "dbus-internals.h"
-#include "dbus-sysdeps.h"
-#include "dbus-threads.h"
-#include "dbus-protocol.h"
-#include "dbus-string.h"
-#include <sys/types.h>
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#include <stdio.h>
-#include <errno.h>
-#include <fcntl.h>
-
-#include "dbus-sysdeps-win.h"
-#include "dbus-hash.h"
-#include "dbus-sockets-win.h"
-
-#include <time.h>
-#include <locale.h>
-#include <sys/stat.h>
-
-#ifdef HAVE_WRITEV
-#include <sys/uio.h>
-#endif
-#ifdef HAVE_POLL
-#include <sys/poll.h>
-#endif
-#ifdef HAVE_BACKTRACE
-#include <execinfo.h>
-#endif
-#ifdef HAVE_GETPEERUCRED
-#include <ucred.h>
-#endif
-
-#ifndef O_BINARY
-#define O_BINARY 0
-#endif
-
-#ifndef HAVE_SOCKLEN_T
-#define socklen_t int
-#endif
-
-_DBUS_DEFINE_GLOBAL_LOCK (win_fds);
-_DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
 /**
  * @addtogroup DBusInternalsUtils
@@ -3782,7 +3783,7 @@ _dbus_file_get_contents (DBusString       *str,
       return FALSE;
     }
 
-  if (fstat (file.d, &sb) < 0)
+  if (!_dbus_fstat (&file, &sb))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to stat \"%s\": %s",
@@ -3826,7 +3827,7 @@ _dbus_file_get_contents (DBusString       *str,
               _dbus_verbose ("read() failed: %s",
                              _dbus_strerror (errno));
               
-              _dbus_close_socket (file.d, NULL);
+              _dbus_close_file (&file, NULL);
               _dbus_string_set_length (str, orig_len);
               return FALSE;
             }
@@ -3878,7 +3879,6 @@ _dbus_string_save_to_file (const DBusString *str,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  file.d = -1;
   retval = FALSE;
   need_unlink = FALSE;
   
@@ -3955,7 +3955,6 @@ _dbus_string_save_to_file (const DBusString *str,
       goto out;
     }
 
-  file.d = -1;
   
   if (
 #ifdef DBUS_WIN
@@ -3980,7 +3979,7 @@ _dbus_string_save_to_file (const DBusString *str,
    * files
    */
 
-  if (file.d >= 0)
+  if (_dbus_is_valid_file(&file))
     _dbus_close_file (&file, NULL);
         
   if (need_unlink && unlink (tmp_filename_c) < 0)

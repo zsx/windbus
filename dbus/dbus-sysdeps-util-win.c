@@ -82,10 +82,10 @@ _dbus_write_pid_file (const DBusString *filename,
       return FALSE;
     }
 
-  if ((f = fdopen (file.d, "w")) == NULL)
+  if ((f = fdopen (file.FDATA, "w")) == NULL)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to fdopen fd %d: %s", file.d, _dbus_strerror (errno));
+                      "Failed to fdopen fd %d: %s", file.FDATA, _dbus_strerror (errno));
       _dbus_close_file (&file, NULL);
       return FALSE;
     }

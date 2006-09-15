@@ -137,13 +137,19 @@ dbus_bool_t _dbus_close_file (DBusFile  *file,
 							  DBusError *error);
 
 
-int _dbus_read_file (DBusFile   *file,
-					 DBusString *buffer,
-					 int         count);
+int _dbus_read_file  (DBusFile   *file,
+					  DBusString *buffer,
+					  int         count);
 
+int _dbus_write_file (DBusFile         *file,
+                      const DBusString *buffer,
+                      int               start,
+                      int               len);
+
+#define FDATA private_data
 struct DBusFile
 {
-	int d;
+	int FDATA;
 };
 
 
