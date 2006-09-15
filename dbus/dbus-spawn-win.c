@@ -169,13 +169,13 @@ _dbus_babysitter_unref (DBusBabysitter *sitter)
     {
       if (sitter->socket_to_babysitter != -1)
 	{
-	  _dbus_close (sitter->socket_to_babysitter, NULL);
+	  _dbus_close_socket (sitter->socket_to_babysitter, NULL);
 	  sitter->socket_to_babysitter = -1;
 	}
 
       if (sitter->socket_to_main != -1)
 	{
-	  _dbus_close (sitter->socket_to_main, NULL);
+	  _dbus_close_socket (sitter->socket_to_main, NULL);
 	  sitter->socket_to_main = -1;
 	}
 
@@ -328,7 +328,7 @@ handle_watch (DBusWatch       *watch,
    */
 
   PING();
-  _dbus_close (sitter->socket_to_babysitter, NULL);
+  _dbus_close_socket (sitter->socket_to_babysitter, NULL);
   PING();
   sitter->socket_to_babysitter = -1;
 

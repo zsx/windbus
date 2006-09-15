@@ -22,6 +22,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+#undef open
 
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
@@ -273,7 +274,7 @@ _dbus_handle_to_fd (int handle)
 
 
 
-
+//#define open(X,Y) DO_NOT_USE_OPEN_DIERCTLY
 
 
 /************************************************************************
@@ -299,7 +300,7 @@ _dbus_handle_to_fd (int handle)
  * @returns the number of bytes read or -1
  */
 int
-_dbus_read (int               fd,
+_dbus_read_socket (int               fd,
             DBusString       *buffer,
             int               count)
 {
@@ -391,7 +392,7 @@ _dbus_read (int               fd,
  * @returns the number of bytes written or -1 on error
  */
 int
-_dbus_write (int               fd,
+_dbus_write_socket (int               fd,
              const DBusString *buffer,
              int               start,
              int               len)
@@ -459,8 +460,8 @@ _dbus_write (int               fd,
  * @returns #FALSE if error set
  */
 dbus_bool_t
-_dbus_close (int        fd,
-                 DBusError *error)
+_dbus_close_socket (int        fd,
+             DBusError *error)
 {
   const int encapsulated_fd = fd;
 
@@ -525,6 +526,58 @@ _dbus_close (int        fd,
 
   return TRUE;
 
+}
+
+/**
+ * open a file 
+ *
+ * @param fd the file descriptor
+ * @param error error object
+ * @returns #FALSE if error set
+ */
+dbus_bool_t
+_dbus_open_file (DBusFile   *file,
+                 const char *filename,
+                 int         oflag,
+                 int         pmode) 
+
+{
+	if (pmode!=-1)
+		file->d = _open (filename, oflag, pmode);
+	else
+		file->d = _open (filename, oflag);
+	if (file->d > 0)
+		return TRUE;
+	else
+	{
+		file->d = -1;
+		return FALSE;
+	}
+}
+
+
+/**
+ * Closes a file 
+ *
+ * @param fd the file descriptor
+ * @param error error object
+ * @returns #FALSE if error set
+ */
+dbus_bool_t
+_dbus_close_file (DBusFile  *file,
+                  DBusError *error)
+{
+	// replace with file code from _dbus_close_socket
+	return _dbus_close_socket(_dbus_fd_to_handle(file->d), error);
+}
+
+int
+_dbus_read_file(DBusFile   *file,
+				DBusString *buffer,
+				int         count)
+{
+	// replace with file code from _dbus_read_socket
+	return _dbus_read_socket(_dbus_fd_to_handle(file->d), buffer, count);
 }
 
 /**
@@ -624,13 +677,13 @@ _dbus_set_fd_nonblocking (int             fd,
  * @returns total bytes written from both buffers, or -1 on error
  */
 int
-_dbus_write_two (int               fd,
-                 const DBusString *buffer1,
-                 int               start1,
-                 int               len1,
-                 const DBusString *buffer2,
-                 int               start2,
-                 int               len2)
+_dbus_write_socket_two (int               fd,
+                        const DBusString *buffer1,
+                        int               start1,
+                        int               len1,
+                        const DBusString *buffer2,
+                        int               start2,
+                        int               len2)
 {
   DBusWin32FDType type;
   WSABUF vectors[2];
@@ -691,10 +744,10 @@ _dbus_write_two (int               fd,
       return bytes_written;
 
     case DBUS_WIN_FD_C_LIB:
-      ret1 = _dbus_write (fd, buffer1, start1, len1);
+      ret1 = _dbus_write_socket (fd, buffer1, start1, len1);
       if (ret1 == len1 && buffer2 != NULL)
 	    {
-	      int ret2 = _dbus_write (fd, buffer2, start2, len2);
+	      int ret2 = _dbus_write_socket (fd, buffer2, start2, len2);
 	      if (ret2 < 0)
 	      ret2 = 0; /* we can't report an error as the first write was OK */
           return ret1 + ret2;
@@ -849,7 +902,7 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_error (error, _dbus_error_from_errno (errno),
 		      "getsockname failed: %s",
 		      _dbus_strerror (errno));
-      _dbus_close (listen_fd, NULL);
+      _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
 
@@ -862,7 +915,7 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_error (error, _dbus_error_from_errno (errno),
 		      "Failed to create pseudo-unix socket port number file %s: %s",
 		      path, _dbus_strerror (errno));
-      _dbus_close (listen_fd, NULL);
+      _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
 
@@ -873,7 +926,7 @@ _dbus_listen_unix_socket (const char     *path,
   if (!path)
     {
       _DBUS_SET_OOM (error);
-      _dbus_close (listen_fd, NULL);
+      _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
 
@@ -882,14 +935,14 @@ _dbus_listen_unix_socket (const char     *path,
   if (!_dbus_string_init (&portstr))
     {
       _DBUS_SET_OOM (error);
-      _dbus_close (listen_fd, NULL);
+      _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
 
   if (!_dbus_string_append_int (&portstr, ntohs (((struct sockaddr_in*) &sa)->sin_port)))
     {
       _DBUS_SET_OOM (error);
-      _dbus_close (listen_fd, NULL);
+      _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
 
@@ -902,7 +955,7 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_error (error, _dbus_error_from_errno (errno),
 		      "Failed to write port number to file %s: %s",
 		      path, _dbus_strerror (errno));
-      _dbus_close (listen_fd, NULL);
+      _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
   else if (n < l)
@@ -910,7 +963,7 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_error (error, _dbus_error_from_errno (errno),
 		      "Failed to write port number to file %s",
 		      path);
-      _dbus_close (listen_fd, NULL);
+      _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
 
@@ -2743,7 +2796,7 @@ _dbus_connect_tcp_socket (const char     *host,
 
   if (!_dbus_set_fd_nonblocking (fd, error))
     {
-      _dbus_close (fd, NULL);
+      _dbus_close_socket (fd, NULL);
       fd = -1;
 
       return -1;
@@ -2853,7 +2906,7 @@ _dbus_listen_tcp_socket (const char     *host,
 
   if (!_dbus_set_fd_nonblocking (listen_fd, error))
     {
-      _dbus_close (listen_fd, NULL);
+      _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
   
@@ -3699,7 +3752,7 @@ _dbus_file_get_contents (DBusString       *str,
                          const DBusString *filename,
                          DBusError        *error)
 {
-  int fd;
+  DBusFile file;
   struct stat sb;
   int orig_len;
   int total;
@@ -3710,8 +3763,7 @@ _dbus_file_get_contents (DBusString       *str,
   filename_c = _dbus_string_get_const_data (filename);
   
   /* O_BINARY useful on Cygwin and Win32 */
-  fd = open (filename_c, O_RDONLY | O_BINARY);
-  if (fd < 0)
+  if (!_dbus_open_file (&file, filename_c, O_RDONLY | O_BINARY, -1))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to open \"%s\": %s",
@@ -3720,7 +3772,7 @@ _dbus_file_get_contents (DBusString       *str,
       return FALSE;
     }
 
-  if (fstat (fd, &sb) < 0)
+  if (fstat (file.d, &sb) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to stat \"%s\": %s",
@@ -3730,7 +3782,7 @@ _dbus_file_get_contents (DBusString       *str,
       _dbus_verbose ("fstat() failed: %s",
                      _dbus_strerror (errno));
       
-      _dbus_close (fd, NULL);
+      _dbus_close_file (&file, NULL);
       
       return FALSE;
     }
@@ -3740,7 +3792,7 @@ _dbus_file_get_contents (DBusString       *str,
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "File size %lu of \"%s\" is too large.",
                       (unsigned long) sb.st_size, filename_c);
-      _dbus_close (fd, NULL);
+      _dbus_close_file (&file, NULL);
       return FALSE;
     }
   
@@ -3749,11 +3801,10 @@ _dbus_file_get_contents (DBusString       *str,
   if (sb.st_size > 0 && S_ISREG (sb.st_mode))
     {
       int bytes_read;
-      const int encapsulated_fd = _dbus_fd_to_handle (fd);
 
       while (total < (int) sb.st_size)
         {
-          bytes_read = _dbus_read (encapsulated_fd, str,
+          bytes_read = _dbus_read_file (&file, str,
                                    sb.st_size - total);
           if (bytes_read <= 0)
             {
@@ -3765,7 +3816,7 @@ _dbus_file_get_contents (DBusString       *str,
               _dbus_verbose ("read() failed: %s",
                              _dbus_strerror (errno));
               
-              _dbus_close (encapsulated_fd, NULL);
+              _dbus_close_socket (file.d, NULL);
               _dbus_string_set_length (str, orig_len);
               return FALSE;
             }
@@ -3773,7 +3824,7 @@ _dbus_file_get_contents (DBusString       *str,
             total += bytes_read;
         }
 
-      _dbus_close (encapsulated_fd, NULL);
+      _dbus_close_file (&file, NULL);
       return TRUE;
     }
   else if (sb.st_size != 0)
@@ -3782,12 +3833,12 @@ _dbus_file_get_contents (DBusString       *str,
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "\"%s\" is not a regular file",
                       filename_c);
-      _dbus_close (fd, NULL);
+      _dbus_close_file (&file, NULL);
       return FALSE;
     }
   else
     {
-      _dbus_close (fd, NULL);
+      _dbus_close_file (&file, NULL);
       return TRUE;
     }
 }
@@ -3806,7 +3857,7 @@ _dbus_string_save_to_file (const DBusString *str,
                            const DBusString *filename,
                            DBusError        *error)
 {
-  int fd;
+  DBusFile file;
   int bytes_to_write;
   const char *filename_c;
   DBusString tmp_filename;
@@ -3817,7 +3868,7 @@ _dbus_string_save_to_file (const DBusString *str,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
-  fd = -1;
+  file.d = -1;
   retval = FALSE;
   need_unlink = FALSE;
   
@@ -3852,17 +3903,14 @@ _dbus_string_save_to_file (const DBusString *str,
   filename_c = _dbus_string_get_const_data (filename);
   tmp_filename_c = _dbus_string_get_const_data (&tmp_filename);
 
-  fd = open (tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-             0600);
-  if (fd < 0)
+  if (!_dbus_open_file (&file, tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
+             0600))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not create %s: %s", tmp_filename_c,
                       _dbus_strerror (errno));
       goto out;
     }
-
-  fd = _dbus_fd_to_handle (fd);
 
   need_unlink = TRUE;
   
@@ -3873,7 +3921,7 @@ _dbus_string_save_to_file (const DBusString *str,
     {
       int bytes_written;
 
-      bytes_written = _dbus_write (fd, str, total,
+      bytes_written = _dbus_write_socket (file.d, str, total,
                                    bytes_to_write - total);
 
       if (bytes_written <= 0)
@@ -3888,7 +3936,7 @@ _dbus_string_save_to_file (const DBusString *str,
       total += bytes_written;
     }
 
-  if (!_dbus_close (fd, NULL))
+  if (!_dbus_close_file (&file, NULL))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not close file %s: %s",
@@ -3897,7 +3945,7 @@ _dbus_string_save_to_file (const DBusString *str,
       goto out;
     }
 
-  fd = -1;
+  file.d = -1;
   
   if (
 #ifdef DBUS_WIN
@@ -3922,8 +3970,8 @@ _dbus_string_save_to_file (const DBusString *str,
    * files
    */
 
-  if (fd >= 0)
-    _dbus_close (fd, NULL);
+  if (file.d >= 0)
+    _dbus_close_file (&file, NULL);
         
   if (need_unlink && unlink (tmp_filename_c) < 0)
     _dbus_verbose ("Failed to unlink temp file %s: %s\n",
@@ -3948,16 +3996,15 @@ dbus_bool_t
 _dbus_create_file_exclusively (const DBusString *filename,
                                DBusError        *error)
 {
-  int fd;
+  DBusFile file;
   const char *filename_c;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   filename_c = _dbus_string_get_const_data (filename);
   
-  fd = open (filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-             0600);
-  if (fd < 0)
+  if (!_dbus_open_file (&file, filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
+             0600))
     {
       dbus_set_error (error,
                       DBUS_ERROR_FAILED,
@@ -3966,10 +4013,8 @@ _dbus_create_file_exclusively (const DBusString *filename,
                       _dbus_strerror (errno));
       return FALSE;
     }
-  else
-    fd = _dbus_fd_to_handle(fd);
 
-  if (!_dbus_close (fd, NULL))
+  if (!_dbus_close_file (&file, NULL))
     {
       dbus_set_error (error,
                       DBUS_ERROR_FAILED,
@@ -4166,7 +4211,7 @@ _dbus_generate_random_bytes (DBusString *str,
 #ifndef DBUS_WIN
   if (_dbus_read (fd, str, n_bytes) != n_bytes)
     {
-      _dbus_close (fd, NULL);
+      _dbus_close_socket (fd, NULL);
       _dbus_string_set_length (str, old_len);
       return _dbus_generate_pseudorandom_bytes (str, n_bytes);
     }
@@ -4174,7 +4219,7 @@ _dbus_generate_random_bytes (DBusString *str,
   _dbus_verbose ("Read %d bytes from /dev/urandom\n",
                  n_bytes);
   
-  _dbus_close (fd, NULL);
+  _dbus_close_socket (fd, NULL);
   
   return TRUE;
 #else

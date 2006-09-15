@@ -126,6 +126,25 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
                                   wchar_t  **wdomain,
                                   DBusError *error);
 
+typedef struct DBusFile DBusFile;
+
+dbus_bool_t _dbus_open_file (DBusFile   *file,
+							 const char *filename,
+							 int         oflag,
+							 int         pmode);
+
+dbus_bool_t _dbus_close_file (DBusFile  *file,
+							  DBusError *error);
+
+
+int _dbus_read_file (DBusFile   *file,
+					 DBusString *buffer,
+					 int         count);
+
+struct DBusFile
+{
+	int d;
+};
 
 
 #endif

@@ -21,10 +21,14 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
  */
+
+#undef open
+
 #include "dbus-sysdeps.h"
 #include "dbus-internals.h"
 #include "dbus-protocol.h"
 #include "dbus-string.h"
+#include "dbus-sysdeps.h"
 #include "dbus-sysdeps-win.h"
 #include "dbus-memory.h"
 
@@ -65,14 +69,12 @@ _dbus_write_pid_file (const DBusString *filename,
 		      DBusError        *error)
 {
   const char *cfilename;
-  int fd;
+  DBusFile file;
   FILE *f;
 
   cfilename = _dbus_string_get_const_data (filename);
   
-  fd = open (cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644);
-  
-  if (fd < 0)
+  if (!_dbus_open_file(&file, cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to open \"%s\": %s", cfilename,
@@ -80,11 +82,11 @@ _dbus_write_pid_file (const DBusString *filename,
       return FALSE;
     }
 
-  if ((f = fdopen (fd, "w")) == NULL)
+  if ((f = fdopen (file.d, "w")) == NULL)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to fdopen fd %d: %s", fd, _dbus_strerror (errno));
-      close (fd);
+                      "Failed to fdopen fd %d: %s", file.d, _dbus_strerror (errno));
+      _dbus_close_file (&file, NULL);
       return FALSE;
     }
   
