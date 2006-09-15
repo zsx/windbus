@@ -580,6 +580,16 @@ _dbus_read_file(DBusFile   *file,
 	return _dbus_read_socket(_dbus_fd_to_handle(file->d), buffer, count);
 }
 
+int 
+_dbus_write_file (DBusFile         *file,
+                  const DBusString *buffer,
+                  int               start,
+                  int               len)
+{
+  	// replace with file code from _dbus_write_socket
+	return _dbus_write_socket(_dbus_fd_to_handle(file->FDATA), buffer, start, len);
+}
+
 /**
  * Sets the file descriptor to be close
  * on exec. Should be called for all file
@@ -3921,7 +3931,7 @@ _dbus_string_save_to_file (const DBusString *str,
     {
       int bytes_written;
 
-      bytes_written = _dbus_write_socket (file.d, str, total,
+      bytes_written = _dbus_write_file (&file, str, total,
                                    bytes_to_write - total);
 
       if (bytes_written <= 0)
