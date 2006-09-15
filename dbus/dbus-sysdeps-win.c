@@ -78,6 +78,74 @@ static int  win_encap_randomizer;
 static DBusHashTable *sid_atom_cache = NULL;
 
 
+int _dbus_fd_to_handle (int);
+
+/**
+ * File interface
+ *
+ */
+dbus_bool_t
+_dbus_open_file (DBusFile   *file,
+                 const char *filename,
+                 int         oflag,
+                 int         pmode) 
+{
+	if (pmode!=-1)
+		file->FDATA = _open (filename, oflag, pmode);
+	else
+		file->FDATA = _open (filename, oflag);
+	if (file->FDATA > 0)
+		return TRUE;
+	else
+	{
+		file->FDATA = -1;
+		return FALSE;
+	}
+}
+
+dbus_bool_t
+_dbus_close_file (DBusFile  *file,
+                  DBusError *error)
+{
+	// replace with file code from _dbus_close_socket
+	return _dbus_close_socket(_dbus_fd_to_handle(file->FDATA), error);
+}
+
+int
+_dbus_read_file(DBusFile   *file,
+				DBusString *buffer,
+				int         count)
+{
+	// replace with file code from _dbus_read_socket
+	return _dbus_read_socket(_dbus_fd_to_handle(file->FDATA), buffer, count);
+}
+
+int 
+_dbus_write_file (DBusFile         *file,
+                  const DBusString *buffer,
+                  int               start,
+                  int               len)
+{
+  	// replace with file code from _dbus_write_socket
+	return _dbus_write_socket(_dbus_fd_to_handle(file->FDATA), buffer, start, len);
+}
+
+dbus_bool_t 
+_dbus_is_valid_file (DBusFile* file)
+{
+	return file->FDATA >= 0;
+}
+
+dbus_bool_t _dbus_fstat (DBusFile    *file, 
+                         struct stat *sb)
+{
+	return fstat(file->FDATA, sb) >= 0;
+}
+
+#undef FDATA
+
+
+
 /************************************************************************
  
  handle <-> fd/socket functions
@@ -557,83 +625,6 @@ _dbus_close_socket (int        fd,
   return TRUE;
 
 }
-
-/**
- * open a file 
- *
- * @param fd the file descriptor
- * @param error error object
- * @returns #FALSE if error set
- */
-dbus_bool_t
-_dbus_open_file (DBusFile   *file,
-                 const char *filename,
-                 int         oflag,
-                 int         pmode) 
-
-{
-	if (pmode!=-1)
-		file->FDATA = _open (filename, oflag, pmode);
-	else
-		file->FDATA = _open (filename, oflag);
-	if (file->FDATA > 0)
-		return TRUE;
-	else
-	{
-		file->FDATA = -1;
-		return FALSE;
-	}
-}
-
-
-/**
- * Closes a file 
- *
- * @param fd the file descriptor
- * @param error error object
- * @returns #FALSE if error set
- */
-dbus_bool_t
-_dbus_close_file (DBusFile  *file,
-                  DBusError *error)
-{
-	// replace with file code from _dbus_close_socket
-	return _dbus_close_socket(_dbus_fd_to_handle(file->FDATA), error);
-}
-
-int
-_dbus_read_file(DBusFile   *file,
-				DBusString *buffer,
-				int         count)
-{
-	// replace with file code from _dbus_read_socket
-	return _dbus_read_socket(_dbus_fd_to_handle(file->FDATA), buffer, count);
-}
-
-
-int 
-_dbus_write_file (DBusFile         *file,
-                  const DBusString *buffer,
-                  int               start,
-                  int               len)
-{
-  	// replace with file code from _dbus_write_socket
-	return _dbus_write_socket(_dbus_fd_to_handle(file->FDATA), buffer, start, len);
-}
-
-dbus_bool_t 
-_dbus_is_valid_file (DBusFile* file)
-{
-	return file->FDATA >= 0;
-}
-
-dbus_bool_t _dbus_fstat (DBusFile    *file, 
-                         struct stat *sb)
-{
-	return fstat(file->FDATA, sb) >= 0;
-}
-
-#undef FDATA
 
 /**
  * Sets the file descriptor to be close
