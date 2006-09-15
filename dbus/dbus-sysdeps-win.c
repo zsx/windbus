@@ -120,6 +120,8 @@ _dbus_close_file (DBusFile  *file,
                       _dbus_strerror (errno));
 	  return FALSE;
 	}
+
+  file->FDATA = -1; 
   _dbus_verbose ("closed C file descriptor %d:\n",fd);
 
   return TRUE;
