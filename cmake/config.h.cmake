@@ -99,6 +99,10 @@
 #if defined(_WIN32) || defined(_WIN64)
 #define DBUS_WIN
 #define DBUS_WIN_FIXME 1
+// mingw mode_t
+#ifdef HAVE_STDIO_H
+#include <stdio.h>
+#endif
 #endif
 
 #ifndef _MSC_VER
