@@ -94,7 +94,7 @@ _dbus_open_file (DBusFile   *file,
 		file->FDATA = _open (filename, oflag, pmode);
 	else
 		file->FDATA = _open (filename, oflag);
-	if (file->FDATA > 0)
+	if (file->FDATA >= 0)
 		return TRUE;
 	else
 	{
