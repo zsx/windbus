@@ -153,6 +153,27 @@ struct DBusFile
 };
 
 
+int _dbus_handle_to_socket (int handle);
+int _dbus_handle_to_fd     (int handle);
+int _dbus_socket_to_handle (int socket);
+int _dbus_fd_to_handle     (int fd);
+
+dbus_bool_t
+fill_user_info (DBusUserInfo       *info,
+                dbus_uid_t          uid,
+                const DBusString   *username,
+                DBusError          *error);
+
+// replace with a windows version
+dbus_bool_t _dbus_open_unix_socket (int              *fd,
+                                    DBusError        *error);
+int _dbus_connect_unix_socket (const char     *path,
+                               dbus_bool_t     abstract,
+                               DBusError      *error);
+int _dbus_listen_unix_socket  (const char     *path,
+                               dbus_bool_t     abstract,
+                               DBusError      *error);
+
 #endif
 
 /** @} end of sysdeps-win.h */

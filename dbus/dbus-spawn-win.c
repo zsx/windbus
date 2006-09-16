@@ -35,14 +35,15 @@
  */
 #include "dbus-spawn.h"
 #include "dbus-sysdeps.h"
+#include "dbus-sysdeps-win.h"
 #include "dbus-internals.h"
 #include "dbus-test.h"
 #include "dbus-protocol.h"
 
 #define WIN32_LEAN_AND_MEAN
-#define STRICT
-#include <windows.h>
-#undef STRICT
+//#define STRICT
+//#include <windows.h>
+//#undef STRICT
 #include <winsock2.h>
 #undef interface
 
