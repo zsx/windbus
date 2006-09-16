@@ -2971,6 +2971,8 @@ _dbus_accept  (int listen_fd)
   struct sockaddr addr;
   socklen_t addrlen;
 
+  listen_fd = _dbus_handle_to_socket (listen_fd);
+
   addrlen = sizeof (addr);
   
 #ifndef DBUS_WIN
