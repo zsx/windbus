@@ -367,9 +367,9 @@ _dbus_value_to_handle (DBusWin32FDType type, int value)
           handle = TO_HANDLE (i);
           break;
         }
-  
-    _DBUS_UNLOCK (win_fds);
   }
+  _DBUS_UNLOCK (win_fds);
+
 
   if (handle == -1)
     {
