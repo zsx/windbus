@@ -1,3 +1,85 @@
+2006-09-16  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-server.c (dbus_server_listen): change how this works
+	to be able to delegate to a set of handlers that can succeed,
+	fail, or choose not to handle. Allows us to have 
+	dbus_server_listen_platform_specific.
+
+	* dbus/dbus-server-socket.c (_dbus_server_new_for_tcp_socket):
+	factor out the tcp socket stuff to be used on windows, leaving
+	unix domain socket only in dbus-socket-unix.c
+
+	* dbus/dbus-transport-socket.c
+	(_dbus_transport_new_for_tcp_socket): factor out the tcp socket
+	stuff to be used on windows, leaving unix domain socket only 
+	in dbus-transport-unix.c
+
+	* dbus/dbus-connection.c (dbus_connection_get_unix_user): insert
+	temporary hack to be sure this fails on windows
+	(dbus_connection_get_unix_process_id): ditto
+
+2006-09-16  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps-unix.c (_dbus_open_tcp_socket) 
+	(_dbus_open_unix_socket, _dbus_open_socket): change API for 
+	_dbus_open_socket so the domain/type/protocol from system headers
+	are not required. This is kind of pointless though unless we move
+	part of _dbus_connect_tcp_socket into sysdeps.c instead of
+	sysdeps-unix.c, which would mean adding a wrapper around
+	bind/listen/etc.
+	Also, add DBusError to the socket-opening functions so they 
+	don't require use of errno.
+
+2006-09-16  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps-unix.h: small change to Peter's patch to make
+	dbus-sysdeps-unix-util.c build, add unix-specific sysdeps header.
+
+	* dbus/dbus-sysdeps.h, dbus-sysdeps-unix.c: patch from Peter 
+	Kümmel bug #8249 to make the sysdeps.h read/write/open/close
+	functions specifically for sockets only, and move generic 
+	read/write/open/close into unix-specific code.
+
+2006-09-14  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-transport-unix.c (unix_do_iteration): fix a valgrind
+	complaint about accessing revents when poll returns 0, from Julian Seward.
+
+2006-09-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Released 1.0 RC 1 (0.93) 
+
+2006-09-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-sysdeps-util-unix.c (_dbus_write_pid_file):
+	use _dbus_close instead of close
+
+2006-09-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-sysdeps.c: Add support for LOCAL_CREDS socket
+	credentials.  Fixes "external" authentication under e.g. NetBSD
+	which does not support any other socket credentials mechanism.
+	(Patch from Julio M. Merino Vidal  <jmmv at NetBSD dot org>)
+
+2006-09-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-threads.c: Allow recursive mutex's to be passed into
+	dbus_threads_init and be used by the dbus mutex functions to
+	avoid deadlocks.
+
+	* doc/TODO: Remove recursive mutex dbus_connection_dispatch TODO item
+
+2006-09-13  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus/dbus-sysdeps-util-unix.c (_dbus_directory_get_next_file):
+	use threadsafe readdir_r instead of readdir
+
+2006-09-13  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus-threads.c (dbus_threads_init_default): New method for
+	initializing the internal thread implementation (Patch from
+	Alexander Larsson <alexl at redhat dot com>)
+
 2006-09-11  John (J5) Palmieri  <johnp@redhat.com>
 
 	* remove a bunch of todo items from the 1.0 list

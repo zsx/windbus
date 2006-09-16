@@ -5,7 +5,7 @@ AC_INIT(dbus/dbus.h)
 
 AC_CANONICAL_TARGET
 
-AM_INIT_AUTOMAKE(dbus, 0.93)
+AM_INIT_AUTOMAKE(dbus, 0.94)
 
 AM_CONFIG_HEADER(config.h)
 
@@ -489,7 +489,7 @@ fi
 AC_CHECK_LIB(socket,socket)
 AC_CHECK_LIB(nsl,gethostbyname)
 
-AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv unsetenv socketpair getgrouplist)
+AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv unsetenv socketpair getgrouplist fpathconf dirfd)
 
 AC_CHECK_HEADERS(execinfo.h, [AC_CHECK_FUNCS(backtrace)])
 
