@@ -650,12 +650,10 @@ _dbus_close_socket (int        fd,
 			  "Could not close socket %d:%d:%d %s",
 			  encapsulated_fd, fd, win_fds[fd].fd,
 			  _dbus_strerror (errno));
-	  _DBUS_UNLOCK (win_fds);
 	  return FALSE;
 	}
       _dbus_verbose ("closed socket %d:%d:%d\n",
 		     encapsulated_fd, fd, win_fds[fd].fd);
-      _DBUS_UNLOCK (win_fds);
       break;
 
     default:
