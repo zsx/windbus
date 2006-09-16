@@ -161,28 +161,6 @@ Index: bus/activation.c
                                            child_setup, activation, 
                                            error))
      {
-Index: bus/main.c
-===================================================================
---- bus/main.c	(revision 298)
-+++ bus/main.c	(working copy)
-@@ -51,7 +51,7 @@
- #endif /* DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX  */
-     case SIGHUP:
-       _dbus_string_init_const (&str, "foo");
--      if (!_dbus_write (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
-+      if (!_dbus_write_socket (reload_pipe[RELOAD_WRITE_END], &str, 0, 1))
- 	{
- 	  _dbus_warn ("Unable to write to reload pipe.\n");
- 	  exit (1);
-@@ -150,7 +150,7 @@
-   DBusError error;
-   DBusString str;
-   _dbus_string_init (&str);
--  if (_dbus_read (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
-+  if (_dbus_read_socket (reload_pipe[RELOAD_READ_END], &str, 1) != 1)
-     {
-       _dbus_warn ("Couldn't read from reload pipe.\n");
-       exit (1);
 Index: bus/desktop-file.c
 ===================================================================
 --- bus/desktop-file.c	(revision 298)
@@ -267,46 +245,6 @@ Index: bus/desktop-file.c
    
    parser->line_num += 1;
  
-Index: bus/bus.c
-===================================================================
---- bus/bus.c	(revision 298)
-+++ bus/bus.c	(working copy)
-@@ -630,7 +630,7 @@
-         }
- 
-       bytes = _dbus_string_get_length (&addr);
--      if (_dbus_write (print_addr_fd, &addr, 0, bytes) != bytes)
-+      if (_dbus_write_socket (print_addr_fd, &addr, 0, bytes) != bytes)
-         {
-           dbus_set_error (error, DBUS_ERROR_FAILED,
-                           "Printing message bus address: %s\n",
-@@ -640,7 +640,7 @@
-         }
- 
-       if (print_addr_fd > 2)
--        _dbus_close (print_addr_fd, NULL);
-+        _dbus_close_socket (print_addr_fd, NULL);
- 
-       _dbus_string_free (&addr);
-     }
-@@ -731,7 +731,7 @@
-         }
- 
-       bytes = _dbus_string_get_length (&pid);
--      if (_dbus_write (print_pid_fd, &pid, 0, bytes) != bytes)
-+      if (_dbus_write_socket (print_pid_fd, &pid, 0, bytes) != bytes)
-         {
-           dbus_set_error (error, DBUS_ERROR_FAILED,
-                           "Printing message bus PID: %s\n",
-@@ -741,7 +741,7 @@
-         }
- 
-       if (print_pid_fd > 2)
--        _dbus_close (print_pid_fd, NULL);
-+        _dbus_close_socket (print_pid_fd, NULL);
-       
-       _dbus_string_free (&pid);
-     }
 Index: dbus/dbus-string.c
 ===================================================================
 --- dbus/dbus-string.c	(revision 298)
@@ -455,86 +393,24 @@ Index: dbus/dbus-string.h
  dbus_bool_t   _dbus_string_find_to               (const DBusString  *str,
                                                    int                start,
                                                    int                end,
-Index: dbus/dbus-server-debug-pipe.c
-===================================================================
---- dbus/dbus-server-debug-pipe.c	(revision 298)
-+++ dbus/dbus-server-debug-pipe.c	(working copy)
-@@ -260,8 +260,8 @@
-                                                  NULL, &address);
-   if (client_transport == NULL)
-     {
--      _dbus_close (client_fd, NULL);
--      _dbus_close (server_fd, NULL);
-+      _dbus_close_socket (client_fd, NULL);
-+      _dbus_close_socket (server_fd, NULL);
-       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-       _dbus_string_free (&address);
-       return NULL;
-@@ -276,7 +276,7 @@
-   if (server_transport == NULL)
-     {
-       _dbus_transport_unref (client_transport);
--      _dbus_close (server_fd, NULL);
-+      _dbus_close_socket (server_fd, NULL);
-       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-       return NULL;
-     }
-Index: dbus/dbus-sysdeps-util-unix.c
-===================================================================
---- dbus/dbus-sysdeps-util-unix.c	(revision 298)
-+++ dbus/dbus-sysdeps-util-unix.c	(working copy)
-@@ -152,7 +152,7 @@
- 	    }
- 	  
- 	  bytes = _dbus_string_get_length (&pid);
--	  if (_dbus_write (print_pid_fd, &pid, 0, bytes) != bytes)
-+	  if (_dbus_write_socket (print_pid_fd, &pid, 0, bytes) != bytes)
- 	    {
- 	      dbus_set_error (error, DBUS_ERROR_FAILED,
- 			      "Printing message bus PID: %s\n",
 Index: dbus/dbus-server-unix.c
 ===================================================================
---- dbus/dbus-server-unix.c	(revision 298)
+--- dbus/dbus-server-unix.c	(revision 319)
 +++ dbus/dbus-server-unix.c	(working copy)
-@@ -27,12 +27,16 @@
+@@ -24,9 +24,9 @@
+ #include "dbus-internals.h"
+ #include "dbus-server-unix.h"
+ #include "dbus-server-socket.h"
+-#include "dbus-transport-unix.h"
++#include "dbus-transport.h"
  #include "dbus-connection-internal.h"
+-#include "dbus-sysdeps-unix.h"
++#include "dbus-sysdeps-win.h"
  #include "dbus-string.h"
- #include <sys/types.h>
-+#ifdef DBUS_WIN
-+#include "dbus-sockets-win.h"
-+#else
- #include <unistd.h>
-+#endif
  
  /**
-- * @defgroup DBusServerUnix DBusServer implementations for UNIX
-+ * @defgroup DBusServerUnix DBusServer implementations for UNIX and Winsock
-  * @ingroup  DBusInternals
-- * @brief Implementation details of DBusServer on UNIX
-+ * @brief Implementation details of DBusServer on UNIX and Winsock
-  *
-  * @{
-  */
-@@ -102,7 +106,7 @@
-   transport = _dbus_transport_new_for_fd (client_fd, &server->guid_hex, NULL);
-   if (transport == NULL)
-     {
--      _dbus_close (client_fd, NULL);
-+      _dbus_close_socket (client_fd, NULL);
-       SERVER_UNLOCK (server);
-       return FALSE;
+@@ -155,6 +155,8 @@
      }
-@@ -219,7 +223,7 @@
-       unix_server->watch = NULL;
-     }
-   
--  _dbus_close (unix_server->fd, NULL);
-+  _dbus_close_socket (unix_server->fd, NULL);
-   unix_server->fd = -1;
- 
-   if (unix_server->socket_name != NULL)
-@@ -303,6 +307,8 @@
-   return (DBusServer*) unix_server;
  }
  
 +#ifndef DBUS_WIN
@@ -542,27 +418,18 @@ Index: dbus/dbus-server-unix.c
  /**
   * Creates a new server listening on the given Unix domain socket.
   *
-@@ -373,7 +379,7 @@
-   return server;
- 
-  failed_2:
--  _dbus_close (listen_fd, NULL);
-+  _dbus_close_socket (listen_fd, NULL);
-  failed_1:
-   dbus_free (path_copy);
-  failed_0:
-@@ -382,11 +388,94 @@
+@@ -232,5 +234,86 @@
    return NULL;
  }
  
++
 +#else /* ifndef DBUS_WIN */
 +
- /**
-- * Creates a new server listening on the given hostname and port.
-- * If the hostname is NULL, listens on localhost.
++// FIXME: move to dbus-serevrwin.c
++
++ /**
 + * Creates a new server listening on the given Windows named pipe.
-  *
-- * @param host the hostname to listen on.
++ *
 + * @param path the path for the domain socket.
 + * @param abstract #TRUE to use abstract socket namespace
 + * @param error location to store reason for failure.
@@ -574,7 +441,6 @@ Index: dbus/dbus-server-unix.c
 +                                    DBusError      *error)
 +{
 +  DBusServer *server;
-+  DBusServerUnix *unix_server;
 +  int listen_fd;
 +  DBusString address;
 +  char *path_copy;
@@ -613,16 +479,15 @@ Index: dbus/dbus-server-unix.c
 +    }
 +  
 +  _dbus_fd_set_close_on_exec (listen_fd);
-+  server = _dbus_server_new_for_fd (listen_fd, &address);
++  server = _dbus_server_new_for_socket (listen_fd, &address);
 +  if (server == NULL)
 +    {
 +      _DBUS_SET_OOM (error);
 +      goto failed_2;
 +    }
 +
-+  unix_server = (DBusServerUnix*) server;
-+  unix_server->socket_name = path_copy;
-+  
++  _dbus_server_socket_own_filename(server, path_copy);
++
 +  _dbus_string_free (&address);
 +  
 +  return server;
@@ -637,27 +502,9 @@ Index: dbus/dbus-server-unix.c
 +  return NULL;
 +}
 +
-+#endif /* ifndef DBUS_WIN */
-+
-+
-+/**
-+ * Creates a new server listening on the given hostname and port.  If
-+ * the hostname is NULL, listens on localhost. If the hostname is an
-+ * empty string, listens on any local host address.
-+ *
-+ * @param host the hostname for the address to listen.
-  * @param port the port to listen on.
-  * @param error location to store reason for failure.
-  * @returns the new server, or #NULL on failure.
-@@ -436,7 +525,7 @@
-   if (server == NULL)
-     {
-       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
--      _dbus_close (listen_fd, NULL);
-+      _dbus_close_socket (listen_fd, NULL);
-       _dbus_string_free (&address);
-       return NULL;
-     }
++#endif //DBUS_WIN
+ /** @} */
+ 
 Index: dbus/dbus-test.c
 ===================================================================
 --- dbus/dbus-test.c	(revision 298)
@@ -672,105 +519,28 @@ Index: dbus/dbus-test.c
    
    run_data_test ("userdb", specific_test, _dbus_userdb_test, test_data_dir);
    
-Index: dbus/dbus-spawn.c
+Index: dbus/dbus-threads.c
 ===================================================================
---- dbus/dbus-spawn.c	(revision 298)
-+++ dbus/dbus-spawn.c	(working copy)
-@@ -276,13 +276,13 @@
-            * a hangup and then the babysitter will
-            * quit itself.
-            */
--          _dbus_close (sitter->socket_to_babysitter, NULL);
-+          _dbus_close_socket (sitter->socket_to_babysitter, NULL);
-           sitter->socket_to_babysitter = -1;
-         }
+--- dbus/dbus-threads.c	(revision 319)
++++ dbus/dbus-threads.c	(working copy)
+@@ -25,7 +25,7 @@
+ #include "dbus-threads-internal.h"
+ #include "dbus-list.h"
  
-       if (sitter->error_pipe_from_child >= 0)
-         {
--          _dbus_close (sitter->error_pipe_from_child, NULL);
-+          _dbus_close_socket (sitter->error_pipe_from_child, NULL);
-           sitter->error_pipe_from_child = -1;
-         }
+-#if defined(__WIN32) || defined(__CYGWIN__)
++#if defined(_WIN32) || defined(__CYGWIN__)
+ #define USE_WIN32_THREADS
+ #endif
  
-@@ -470,7 +470,7 @@
- close_socket_to_babysitter (DBusBabysitter *sitter)
- {
-   _dbus_verbose ("Closing babysitter\n");
--  _dbus_close (sitter->socket_to_babysitter, NULL);
-+  _dbus_close_socket (sitter->socket_to_babysitter, NULL);
-   sitter->socket_to_babysitter = -1;
- }
+@@ -788,7 +788,7 @@
+   EnterCriticalSection (&cond->lock);
  
-@@ -478,7 +478,7 @@
- close_error_pipe_from_child (DBusBabysitter *sitter)
- {
-   _dbus_verbose ("Closing child error\n");
--  _dbus_close (sitter->error_pipe_from_child, NULL);
-+  _dbus_close_socket (sitter->error_pipe_from_child, NULL);
-   sitter->error_pipe_from_child = -1;
- }
+   /* Now event must not be inside the array, check this */
+-  _dbus_assert (_dbus_list_remove (cond->list, event) == FALSE);
++  _dbus_assert (_dbus_list_remove (&cond->list, event) == FALSE);
  
-@@ -753,7 +753,7 @@
-     return -1;
-   else
-     {
--      ret = _dbus_close (*fd, NULL);
-+      ret = _dbus_close_socket (*fd, NULL);
-       *fd = -1;
-     }
- 
-@@ -1021,6 +1021,7 @@
-  *
-  * @param sitter_p return location for babysitter or #NULL
-  * @param argv the executable and arguments
-+ * @param env the environment (not used on unix yet)
-  * @param child_setup function to call in child pre-exec()
-  * @param user_data user data for setup function
-  * @param error error object to be filled in if function fails
-@@ -1029,6 +1030,7 @@
- dbus_bool_t
- _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
-                                    char                    **argv,
-+                                   char                    **env,
-                                    DBusSpawnChildSetupFunc   child_setup,
-                                    void                     *user_data,
-                                    DBusError                *error)
-@@ -1217,7 +1219,7 @@
-   
-   argv[0] = "/this/does/not/exist/32542sdgafgafdg";
-   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
--                                         NULL, NULL,
-+                                         NULL, NULL, NULL,
-                                          &error))
-     {
-       _dbus_babysitter_block_for_child_exit (sitter);
-@@ -1262,7 +1264,7 @@
-   
-   argv[0] = TEST_SEGFAULT_BINARY;
-   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
--                                         NULL, NULL,
-+                                         NULL, NULL, NULL,
-                                          &error))
-     {
-       _dbus_babysitter_block_for_child_exit (sitter);
-@@ -1307,7 +1309,7 @@
-   
-   argv[0] = TEST_EXIT_BINARY;
-   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
--                                         NULL, NULL,
-+                                         NULL, NULL, NULL,
-                                          &error))
-     {
-       _dbus_babysitter_block_for_child_exit (sitter);
-@@ -1352,7 +1354,7 @@
- 
-   argv[0] = TEST_SLEEP_FOREVER_BINARY;
-   if (_dbus_spawn_async_with_babysitter (&sitter, argv,
--                                         NULL, NULL,
-+                                         NULL, NULL, NULL,
-                                          &error))
-     {
-       _dbus_babysitter_kill_child (sitter);
+   LeaveCriticalSection (&cond->lock);
+ #endif /* !G_DISABLE_ASSERT */
 Index: dbus/dbus-spawn.h
 ===================================================================
 --- dbus/dbus-spawn.h	(revision 298)
@@ -866,318 +636,24 @@ Index: dbus/dbus-sysdeps-util.c
    
    return TRUE;
  }
-Index: dbus/dbus-sysdeps-unix.c
-===================================================================
---- dbus/dbus-sysdeps-unix.c	(revision 298)
-+++ dbus/dbus-sysdeps-unix.c	(working copy)
-@@ -75,8 +75,88 @@
-  * @addtogroup DBusInternalsUtils
-  * @{
-  */
-+ 
-+/**
-+ * Generic IO functions
-+ * 
-+ */
- 
-+static dbus_bool_t 
-+_dbus_close     (int              fd,
-+                 DBusError        *error);
-+static int 
-+_dbus_read      (int               fd,
-+                 DBusString       *buffer,
-+                 int               count);
-+static int 
-+_dbus_write     (int               fd,
-+                 const DBusString *buffer,
-+                 int               start,
-+                 int               len);
-+static int 
-+_dbus_write_two (int               fd,
-+                 const DBusString *buffer1,
-+                 int               start1,
-+                 int               len1,
-+                 const DBusString *buffer2,
-+                 int               start2,
-+                 int               len2);
-+
-+
- /**
-+ * Socket interface
-+ *
-+ */
-+
-+dbus_bool_t
-+_dbus_open_socket (int              *fd,
-+                   int               domain,
-+                   int               type,
-+                   int               protocol)
-+{
-+  *fd = socket (domain, type, protocol);
-+  return fd >= 0;
-+}
-+
-+dbus_bool_t 
-+_dbus_close_socket (int               fd,
-+                    DBusError        *error)
-+{
-+  return _dbus_close (fd, error);
-+}
-+
-+int
-+_dbus_read_socket (int               fd,
-+                   DBusString       *buffer,
-+                   int               count)
-+{
-+  return _dbus_read (fd, buffer, count);
-+}
-+
-+int
-+_dbus_write_socket (int               fd,
-+                    const DBusString *buffer,
-+                    int               start,
-+                    int               len)
-+{
-+  return _dbus_write (fd, buffer, start, len);
-+}
-+
-+int
-+_dbus_write_socket_two (int               fd,
-+                        const DBusString *buffer1,
-+                        int               start1,
-+                        int               len1,
-+                        const DBusString *buffer2,
-+                        int               start2,
-+                        int               len2)
-+{
-+	return _dbus_write_two (fd, buffer1, start1, len1,
-+	                            buffer2, start2, len2);
-+}
-+
-+
-+/**
-  * Thin wrapper around the read() system call that appends
-  * the data it reads to the DBusString buffer. It appends
-  * up to the given count, and returns the same value
-@@ -89,7 +169,7 @@
-  * @param count the amount of data to read
-  * @returns the number of bytes read or -1
-  */
--int
-+static int
- _dbus_read (int               fd,
-             DBusString       *buffer,
-             int               count)
-@@ -149,7 +229,7 @@
-  * @param len the number of bytes to try to write
-  * @returns the number of bytes written or -1 on error
-  */
--int
-+static int
- _dbus_write (int               fd,
-              const DBusString *buffer,
-              int               start,
-@@ -195,7 +275,7 @@
-  * @param len2 number of bytes to write in second buffer
-  * @returns total bytes written from both buffers, or -1 on error
-  */
--int
-+static int
- _dbus_write_two (int               fd,
-                  const DBusString *buffer1,
-                  int               start1,
-@@ -306,9 +386,8 @@
-   _dbus_verbose ("connecting to unix socket %s abstract=%d\n",
-                  path, abstract);
-   
--  fd = socket (PF_UNIX, SOCK_STREAM, 0);
-   
--  if (fd < 0)
-+  if (!_dbus_open_socket (&fd, PF_UNIX, SOCK_STREAM, 0))
-     {
-       dbus_set_error (error,
-                       _dbus_error_from_errno (errno),
-@@ -413,9 +492,7 @@
-   _dbus_verbose ("listening on unix socket %s abstract=%d\n",
-                  path, abstract);
-   
--  listen_fd = socket (PF_UNIX, SOCK_STREAM, 0);
--  
--  if (listen_fd < 0)
-+  if (!_dbus_open_socket (&listen_fd, PF_UNIX, SOCK_STREAM, 0))
-     {
-       dbus_set_error (error, _dbus_error_from_errno (errno),
-                       "Failed to create socket \"%s\": %s",
-@@ -540,10 +617,9 @@
-   struct in_addr *haddr;
- 
-   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-+ 
-   
--  fd = socket (AF_INET, SOCK_STREAM, 0);
--  
--  if (fd < 0)
-+  if (!_dbus_open_socket (&fd, AF_INET, SOCK_STREAM, 0))
-     {
-       dbus_set_error (error,
-                       _dbus_error_from_errno (errno),
-@@ -620,9 +696,8 @@
- 
-   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-   
--  listen_fd = socket (AF_INET, SOCK_STREAM, 0);
-   
--  if (listen_fd < 0)
-+  if (!_dbus_open_socket (&listen_fd, AF_INET, SOCK_STREAM, 0))
-     {
-       dbus_set_error (error, _dbus_error_from_errno (errno),
-                       "Failed to create socket \"%s:%d\": %s",
-@@ -1958,7 +2033,7 @@
-  * @param error error object
-  * @returns #FALSE if error set
-  */
--dbus_bool_t
-+static dbus_bool_t
- _dbus_close (int        fd,
-              DBusError *error)
- {
 Index: dbus/dbus-transport-unix.c
 ===================================================================
---- dbus/dbus-transport-unix.c	(revision 298)
+--- dbus/dbus-transport-unix.c	(revision 319)
 +++ dbus/dbus-transport-unix.c	(working copy)
-@@ -26,6 +26,9 @@
- #include "dbus-transport-unix.h"
+@@ -23,10 +23,11 @@
+ 
+ #include "dbus-internals.h"
+ #include "dbus-connection-internal.h"
+-#include "dbus-transport-unix.h"
++#include "dbus-transport.h"
++#include "dbus-transport-socket.h"
  #include "dbus-transport-protected.h"
  #include "dbus-watch.h"
-+#ifdef DBUS_WIN
-+#include "dbus-sockets-win.h"
-+#endif
- 
+-#include "dbus-sysdeps-unix.h"
++#include "dbus-sysdeps-win.h"
  
  /**
-@@ -250,8 +253,8 @@
- 
-   _dbus_auth_get_buffer (transport->auth, &buffer);
-   
--  bytes_read = _dbus_read (unix_transport->fd,
--                           buffer, unix_transport->max_bytes_read_per_iteration);
-+  bytes_read = _dbus_read_socket (unix_transport->fd,
-+                                  buffer, unix_transport->max_bytes_read_per_iteration);
- 
-   _dbus_auth_return_buffer (transport->auth, buffer,
-                             bytes_read > 0 ? bytes_read : 0);
-@@ -305,9 +308,9 @@
-                                      &buffer))
-     return FALSE;
-   
--  bytes_written = _dbus_write (unix_transport->fd,
--                               buffer,
--                               0, _dbus_string_get_length (buffer));
-+  bytes_written = _dbus_write_socket (unix_transport->fd,
-+                                      buffer,
-+                                      0, _dbus_string_get_length (buffer));
- 
-   if (bytes_written > 0)
-     {
-@@ -556,10 +559,10 @@
- #endif
-           
-           bytes_written =
--            _dbus_write (unix_transport->fd,
--                         &unix_transport->encoded_outgoing,
--                         unix_transport->message_bytes_written,
--                         total_bytes_to_write - unix_transport->message_bytes_written);
-+            _dbus_write_socket (unix_transport->fd,
-+                                &unix_transport->encoded_outgoing,
-+                                unix_transport->message_bytes_written,
-+                                total_bytes_to_write - unix_transport->message_bytes_written);
-         }
-       else
-         {
-@@ -573,21 +576,21 @@
-           if (unix_transport->message_bytes_written < header_len)
-             {
-               bytes_written =
--                _dbus_write_two (unix_transport->fd,
--                                 header,
--                                 unix_transport->message_bytes_written,
--                                 header_len - unix_transport->message_bytes_written,
--                                 body,
--                                 0, body_len);
-+                _dbus_write_socket_two (unix_transport->fd,
-+                                        header,
-+                                        unix_transport->message_bytes_written,
-+                                        header_len - unix_transport->message_bytes_written,
-+                                        body,
-+                                        0, body_len);
-             }
-           else
-             {
-               bytes_written =
--                _dbus_write (unix_transport->fd,
--                             body,
--                             (unix_transport->message_bytes_written - header_len),
--                             body_len -
--                             (unix_transport->message_bytes_written - header_len));
-+                _dbus_write_socket (unix_transport->fd,
-+                                    body,
-+                                    (unix_transport->message_bytes_written - header_len),
-+                                    body_len -
-+                                    (unix_transport->message_bytes_written - header_len));
-             }
-         }
- 
-@@ -682,9 +685,9 @@
-       if (_dbus_string_get_length (&unix_transport->encoded_incoming) > 0)
-         bytes_read = _dbus_string_get_length (&unix_transport->encoded_incoming);
-       else
--        bytes_read = _dbus_read (unix_transport->fd,
--                                 &unix_transport->encoded_incoming,
--                                 unix_transport->max_bytes_read_per_iteration);
-+        bytes_read = _dbus_read_socket (unix_transport->fd,
-+                                        &unix_transport->encoded_incoming,
-+                                        unix_transport->max_bytes_read_per_iteration);
- 
-       _dbus_assert (_dbus_string_get_length (&unix_transport->encoded_incoming) ==
-                     bytes_read);
-@@ -719,8 +722,8 @@
-       _dbus_message_loader_get_buffer (transport->loader,
-                                        &buffer);
-       
--      bytes_read = _dbus_read (unix_transport->fd,
--                               buffer, unix_transport->max_bytes_read_per_iteration);
-+      bytes_read = _dbus_read_socket (unix_transport->fd,
-+                                      buffer, unix_transport->max_bytes_read_per_iteration);
-       
-       _dbus_message_loader_return_buffer (transport->loader,
-                                           buffer,
-@@ -882,7 +885,7 @@
-   
-   free_watches (transport);
-   
--  _dbus_close (unix_transport->fd, NULL);
-+  _dbus_close_socket (unix_transport->fd, NULL);
-   unix_transport->fd = -1;
- }
- 
-@@ -1241,7 +1244,7 @@
-   return transport;
- 
-  failed_1:
--  _dbus_close (fd, NULL);
-+  _dbus_close_socket (fd, NULL);
-  failed_0:
-   _dbus_string_free (&address);
-   return NULL;
-@@ -1301,7 +1304,7 @@
-   if (transport == NULL)
-     {
-       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
--      _dbus_close (fd, NULL);
-+      _dbus_close_socket (fd, NULL);
-       _dbus_string_free (&address);
-       fd = -1;
-     }
+  * @defgroup DBusTransportUnix DBusTransport implementations for UNIX
 Index: dbus/dbus-sysdeps.c
 ===================================================================
 --- dbus/dbus-sysdeps.c	(revision 298)
@@ -1211,9 +687,9 @@ Index: dbus/dbus-sysdeps.c
    struct lconv *locale_data;
 Index: dbus/dbus-internals.c
 ===================================================================
---- dbus/dbus-internals.c	(revision 298)
+--- dbus/dbus-internals.c	(revision 319)
 +++ dbus/dbus-internals.c	(working copy)
-@@ -220,7 +220,7 @@
+@@ -217,7 +217,7 @@
  #include <pthread.h>
  #endif
  
@@ -1224,156 +700,18 @@ Index: dbus/dbus-internals.c
    if (!verbose_initted)
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 298)
+--- dbus/dbus-sysdeps.h	(revision 319)
 +++ dbus/dbus-sysdeps.h	(working copy)
-@@ -74,21 +74,10 @@
- dbus_bool_t _dbus_setenv (const char *varname,
- 			  const char *value);
+@@ -275,6 +275,9 @@
  
--int _dbus_read      (int               fd,
--                     DBusString       *buffer,
--                     int               count);
--int _dbus_write     (int               fd,
--                     const DBusString *buffer,
--                     int               start,
--                     int               len);
--int _dbus_write_two (int               fd,
--                     const DBusString *buffer1,
--                     int               start1,
--                     int               len1,
--                     const DBusString *buffer2,
--                     int               start2,
--                     int               len2);
+ void _dbus_fd_set_close_on_exec (int fd);
  
-+ int _dbus_mkdir    (const char *path, 
-+	                 mode_t mode); 
++int _dbus_mkdir    (const char *path,
++                    mode_t mode);
 +
- typedef unsigned long dbus_pid_t;
- typedef unsigned long dbus_uid_t;
- typedef unsigned long dbus_gid_t;
-@@ -101,7 +90,46 @@
- #define DBUS_UID_FORMAT "%lu"
- #define DBUS_GID_FORMAT "%lu"
+ const char* _dbus_get_tmpdir      (void);
  
-+int _dbus_handle_to_socket (int handle);
-+int _dbus_handle_to_fd     (int handle);
-+int _dbus_socket_to_handle (int socket);
-+int _dbus_fd_to_handle     (int fd);
-+
-+
-+
  /**
-+ * Socket interface
-+ *
-+ *  @todo Use for the file descriptors a struct
-+ *           - struct DBusSocket{ int d; }; -
-+ *        instead of int to get type-safety which 
-+ *        will be checked by the compiler.
-+ * 
-+ */
-+
-+dbus_bool_t _dbus_open_socket      (int              *fd,
-+                                    int               domain, 
-+                                    int               type, 
-+                                    int               protocol);
-+dbus_bool_t _dbus_close_socket     (int               fd,
-+                                    DBusError        *error);
-+int         _dbus_read_socket      (int               fd,
-+                                    DBusString       *buffer,
-+                                    int               count);
-+int         _dbus_write_socket     (int               fd,
-+                                    const DBusString *buffer,
-+                                    int               start,
-+                                    int               len);
-+int         _dbus_write_socket_two (int               fd,
-+                                    const DBusString *buffer1,
-+                                    int               start1,
-+                                    int               len1,
-+                                    const DBusString *buffer2,
-+                                    int               start2,
-+                                    int               len2);
-+
-+
-+/**
-  * Struct representing socket credentials
-  */
- typedef struct
-@@ -136,8 +164,8 @@
- void        _dbus_credentials_from_current_process (DBusCredentials       *credentials);
- dbus_bool_t _dbus_credentials_match                (const DBusCredentials *expected_credentials,
-                                                     const DBusCredentials *provided_credentials);
-+dbus_bool_t  write_credentials_byte (int server_fd, DBusError      *error);
- 
--
- typedef struct DBusUserInfo  DBusUserInfo;
- typedef struct DBusGroupInfo DBusGroupInfo;
- 
-@@ -169,6 +197,11 @@
- dbus_bool_t _dbus_user_info_fill_uid (DBusUserInfo     *info,
-                                       dbus_uid_t        uid,
-                                       DBusError        *error);
-+dbus_bool_t fill_user_info     (DBusUserInfo     *info,
-+                                      dbus_uid_t        uid,
-+                                      const DBusString *username,
-+                                      DBusError        *error);
-+
- void        _dbus_user_info_free     (DBusUserInfo     *info);
- 
- dbus_bool_t _dbus_group_info_fill     (DBusGroupInfo    *info,
-@@ -223,7 +256,10 @@
- void _dbus_get_current_time (long *tv_sec,
-                              long *tv_usec);
- 
--
-+/**
-+ * File/directory interface
-+ */
-+dbus_bool_t _dbus_file_exists         (const char       *file);
- dbus_bool_t _dbus_file_get_contents   (DBusString       *str,
-                                        const DBusString *filename,
-                                        DBusError        *error);
-@@ -258,6 +294,13 @@
- dbus_bool_t  _dbus_check_dir_is_private_to_user    (DBusString *dir,
-                                                     DBusError *error);
- 
-+void _dbus_fd_set_close_on_exec (int fd);
-+
-+const char* _dbus_get_tmpdir      (void);
-+
-+/**
-+ * Random numbers 
-+ */
- void        _dbus_generate_pseudorandom_bytes_buffer (char *buffer,
-                                                       int   n_bytes);
- void        _dbus_generate_random_bytes_buffer (char       *buffer,
-@@ -272,7 +315,6 @@
- 
- void _dbus_disable_sigpipe (void);
- 
--void _dbus_fd_set_close_on_exec (int fd);
- 
- void _dbus_exit (int code) _DBUS_GNUC_NORETURN;
- 
-@@ -302,8 +344,6 @@
-                                     int              *fd2,
-                                     dbus_bool_t       blocking,
-                                     DBusError        *error);
--dbus_bool_t _dbus_close            (int               fd,
--                                    DBusError        *error);
- 
- void        _dbus_print_backtrace  (void);
- 
-@@ -322,10 +362,8 @@
- void _dbus_set_signal_handler (int               sig,
-                                DBusSignalHandler handler);
- 
--dbus_bool_t _dbus_file_exists     (const char *file);
- dbus_bool_t _dbus_user_at_console (const char *username,
-                                    DBusError  *error);
--const char* _dbus_get_tmpdir      (void);
- 
- /* Define DBUS_VA_COPY() to do the right thing for copying va_list variables. 
-  * config.h may have already defined DBUS_VA_COPY as va_copy or __va_copy. 
 Index: dbus/dbus-string-util.c
 ===================================================================
 --- dbus/dbus-string-util.c	(revision 298)
