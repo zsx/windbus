@@ -23,7 +23,7 @@ if (WIN32)
 add_definitions(-Dsleep=_sleep)
 endif (WIN32)
 
-set (TEST_SERVICE_DIR "/")
+set (TEST_SERVICE_DIR "${CMAKE_BINARY_DIR}/test/data/valid-service-files")
 set (TEST_SOCKET_DIR "/")
 
 #if (DBUS_BUILD_TESTS)
