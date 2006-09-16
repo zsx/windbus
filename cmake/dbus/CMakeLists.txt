@@ -47,16 +47,21 @@ set (DBUS_LIB_SOURCES
 	${DBUS_DIR}/dbus-pending-call.c
 	${DBUS_DIR}/dbus-resources.c
 	${DBUS_DIR}/dbus-server.c
+	${DBUS_DIR}/dbus-server-socket.c
 	${DBUS_DIR}/dbus-server-debug-pipe.c
-	${DBUS_DIR}/dbus-server-unix.c
 	${DBUS_DIR}/dbus-sha.c
 	${DBUS_DIR}/dbus-signature.c
 	${DBUS_DIR}/dbus-timeout.c
 	${DBUS_DIR}/dbus-threads.c
 	${DBUS_DIR}/dbus-transport.c
-	${DBUS_DIR}/dbus-transport-unix.c
+	${DBUS_DIR}/dbus-transport-socket.c
 	${DBUS_DIR}/dbus-watch.c
-##dbus-md5.c
+#dbus-md5.c
+#
+#  find a clean Windows implementation
+#  and move code to a *-win.c file
+	${DBUS_DIR}/dbus-transport-unix.c
+	${DBUS_DIR}/dbus-server-unix.c
 )
 set (DBUS_LIB_HEADERS
 	${DBUS_DIR}/dbus-auth.h
@@ -111,6 +116,7 @@ set (DBUS_SHARED_HEADERS
 	${DBUS_DIR}/dbus-string.h
 	${DBUS_DIR}/dbus-string-private.h
 	${DBUS_DIR}/dbus-sysdeps.h
+	${DBUS_DIR}/dbus-sysdeps-win.h
 	${DBUS_DIR}/dbus-userdb.h
 )
 
