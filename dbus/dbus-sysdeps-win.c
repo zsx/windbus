@@ -88,19 +88,19 @@ dbus_bool_t
 _dbus_open_file (DBusFile   *file,
                  const char *filename,
                  int         oflag,
-                 int         pmode) 
+                 int         pmode)
 {
-	if (pmode!=-1)
-		file->FDATA = _open (filename, oflag, pmode);
-	else
-		file->FDATA = _open (filename, oflag);
-	if (file->FDATA >= 0)
-		return TRUE;
-	else
-	{
-		file->FDATA = -1;
-		return FALSE;
-	}
+  if (pmode!=-1)
+    file->FDATA = _open (filename, oflag, pmode);
+  else
+    file->FDATA = _open (filename, oflag);
+  if (file->FDATA >= 0)
+    return TRUE;
+  else
+    {
+      file->FDATA = -1;
+      return FALSE;
+    }
 }
 
 dbus_bool_t
@@ -110,18 +110,18 @@ _dbus_close_file (DBusFile  *file,
   const int fd = file->FDATA;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   _dbus_assert (fd >= 0);
 
   if (_close (fd) == -1)
-	{
-	  dbus_set_error (error, _dbus_error_from_errno (errno),
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not close fd %d: %s", fd,
                       _dbus_strerror (errno));
-	  return FALSE;
-	}
+      return FALSE;
+    }
 
-  file->FDATA = -1; 
+  file->FDATA = -1;
   _dbus_verbose ("closed C file descriptor %d:\n",fd);
 
   return TRUE;
@@ -129,15 +129,15 @@ _dbus_close_file (DBusFile  *file,
 
 int
 _dbus_read_file(DBusFile   *file,
-				DBusString *buffer,
-				int         count)
+                DBusString *buffer,
+                int         count)
 {
   const int fd = file->FDATA;
   int bytes_read;
   int start;
   char *data;
   _dbus_assert (count >= 0);
-  
+
   start = _dbus_string_get_length (buffer);
 
   if (!_dbus_string_lengthen (buffer, count))
@@ -149,14 +149,14 @@ _dbus_read_file(DBusFile   *file,
   data = _dbus_string_get_data_len (buffer, start, count);
 
   _dbus_assert (fd >= 0);
-    
+
   _dbus_verbose ("read: count=%d fd=%d\n", count, fd);
   bytes_read = read (fd, data, count);
 
   if (bytes_read == -1)
-	_dbus_verbose ("read: failed: %s\n", _dbus_strerror (errno));
+    _dbus_verbose ("read: failed: %s\n", _dbus_strerror (errno));
   else
-	_dbus_verbose ("read: = %d\n", bytes_read); 
+    _dbus_verbose ("read: = %d\n", bytes_read);
 
   if (bytes_read < 0)
     {
@@ -170,14 +170,16 @@ _dbus_read_file(DBusFile   *file,
       _dbus_string_set_length (buffer, start + bytes_read);
 
 #if 0
+
       if (bytes_read > 0)
         _dbus_verbose_bytes_of_string (buffer, start, bytes_read);
 #endif
+
       return bytes_read;
     }
 }
 
-int 
+int
 _dbus_write_file (DBusFile         *file,
                   const DBusString *buffer,
                   int               start,
@@ -186,7 +188,7 @@ _dbus_write_file (DBusFile         *file,
   const int fd = file->FDATA;
   const char *data;
   int bytes_written;
-  
+
   data = _dbus_string_get_const_data_len (buffer, start, len);
 
   _dbus_assert (fd >= 0);
@@ -195,28 +197,29 @@ _dbus_write_file (DBusFile         *file,
   bytes_written = write (fd, data, len);
 
   if (bytes_written == -1)
-	_dbus_verbose ("write: failed: %s\n", _dbus_strerror (errno));
+    _dbus_verbose ("write: failed: %s\n", _dbus_strerror (errno));
   else
-	_dbus_verbose ("write: = %d\n", bytes_written); 
+    _dbus_verbose ("write: = %d\n", bytes_written);
 
 #if 0
+
   if (bytes_written > 0)
     _dbus_verbose_bytes_of_string (buffer, start, bytes_written);
 #endif
-  
+
   return bytes_written;
 }
 
-dbus_bool_t 
+dbus_bool_t
 _dbus_is_valid_file (DBusFile* file)
 {
-	return file->FDATA >= 0;
+  return file->FDATA >= 0;
 }
 
-dbus_bool_t _dbus_fstat (DBusFile    *file, 
+dbus_bool_t _dbus_fstat (DBusFile    *file,
                          struct stat *sb)
 {
-	return fstat(file->FDATA, sb) >= 0;
+  return fstat(file->FDATA, sb) >= 0;
 }
 
 #undef FDATA
@@ -226,7 +229,7 @@ dbus_bool_t _dbus_fstat (DBusFile    *file,
 /************************************************************************
  
  handle <-> fd/socket functions
-
+ 
  ************************************************************************/
 
 static DBusWin32FD *win_fds = NULL;
@@ -241,7 +244,7 @@ static int win_n_fds = 0; // is this the size? rename to win_fds_size? #
 #define IS_HANDLE(n)   ((n)&0x10000000)
 #endif
 
-// do we need this? 
+// do we need this?
 // doesn't the compiler optimize within one file?
 #define _dbus_decapsulate_quick(i) win_fds[FROM_HANDLE (i)].fd
 
@@ -278,12 +281,14 @@ _dbus_win_allocate_fd (void)
         win_fds[i].type = DBUS_WIN_FD_UNUSED;
 
 #ifdef _DBUS_WIN_USE_RANDOMIZER
+
       _dbus_string_init (&random);
       _dbus_generate_random_bytes (&random, sizeof (int));
       memmove (&win_encap_randomizer, _dbus_string_get_const_data (&random), sizeof (int));
       win_encap_randomizer &= 0xFF;
       _dbus_string_free (&random);
 #endif
+
     }
 
   for (i = 0; i < win_n_fds && win_fds[i].type != DBUS_WIN_FD_UNUSED; i++)
@@ -315,33 +320,33 @@ _dbus_win_allocate_fd (void)
 }
 
 static
-int                                                                     
-_dbus_create_handle_from_value (DBusWin32FDType type, int value)                                   
-{    
+int
+_dbus_create_handle_from_value (DBusWin32FDType type, int value)
+{
   int i;
-  int handle = -1;      
+  int handle = -1;
 
   // check: parameter must be a valid value
   _dbus_assert(value != -1);
   _dbus_assert(!IS_HANDLE(value));
- 
+
   // get index of a new position in the map
-  i = _dbus_win_allocate_fd ();                                   
-  
-   // fill new posiiton in the map: value->index
-  win_fds[i].fd = value;                                             
+  i = _dbus_win_allocate_fd ();
+
+  // fill new posiiton in the map: value->index
+  win_fds[i].fd = value;
   win_fds[i].type = type;
-                              
+
   // create handle from the index: index->handle
-  handle = TO_HANDLE (i);                                               
-                                                                        
-  _dbus_verbose ("_dbus_create_handle_from_value, value: %d, handle: %d\n", value, handle);  
-         
+  handle = TO_HANDLE (i);
+
+  _dbus_verbose ("_dbus_create_handle_from_value, value: %d, handle: %d\n", value, handle);
+
   return handle;
 }
 
 static
-int                 
+int
 _dbus_value_to_handle (DBusWin32FDType type, int value)
 {
   int i;
@@ -357,17 +362,17 @@ _dbus_value_to_handle (DBusWin32FDType type, int value)
   // will be constructed  _dbus_create_handle_from_value
   // because handle = -1
   if (win_fds != NULL)
-  {
-    // search for the value in the map
-    // find the index of the value: value->index
-    for (i = 0; i < win_n_fds; i++)
-      if (win_fds[i].type == type && win_fds[i].fd == value)
-        {
-          // create handle from the index: index->handle
-          handle = TO_HANDLE (i);
-          break;
-        }
-  }
+    {
+      // search for the value in the map
+      // find the index of the value: value->index
+      for (i = 0; i < win_n_fds; i++)
+        if (win_fds[i].type == type && win_fds[i].fd == value)
+          {
+            // create handle from the index: index->handle
+            handle = TO_HANDLE (i);
+            break;
+          }
+    }
   _DBUS_UNLOCK (win_fds);
 
 
@@ -377,24 +382,24 @@ _dbus_value_to_handle (DBusWin32FDType type, int value)
     }
 
   _dbus_assert(handle != -1);
-  
+
   return handle;
 }
 
 
-int                 
+int
 _dbus_socket_to_handle (int socket)
-{     
+{
   return _dbus_value_to_handle (DBUS_WIN_FD_SOCKET, socket);
 }
 
-int                 
+int
 _dbus_fd_to_handle (int fd)
-{     
+{
   return _dbus_value_to_handle (DBUS_WIN_FD_C_LIB, fd);
 }
 
-                                              
+
 static
 int
 _dbus_handle_to_value (DBusWin32FDType type, int handle)
@@ -417,7 +422,7 @@ _dbus_handle_to_value (DBusWin32FDType type, int handle)
 
   // get value from index: index->value
   value = win_fds[i].fd;
-  
+
   _dbus_verbose ("deencapsulated C value fd=%d i=%d dfd=%x\n", value, i, handle);
 
   return value;
@@ -455,7 +460,7 @@ _dbus_handle_to_fd (int handle)
 /************************************************************************
   
   ????????????????????
-
+ 
  ************************************************************************/
 
 
@@ -476,8 +481,8 @@ _dbus_handle_to_fd (int handle)
  */
 int
 _dbus_read_socket (int               fd,
-            DBusString       *buffer,
-            int               count)
+                   DBusString       *buffer,
+                   int               count)
 {
   DBusWin32FDType type;
   int bytes_read;
@@ -485,7 +490,7 @@ _dbus_read_socket (int               fd,
   char *data;
 
   _dbus_assert (count >= 0);
-  
+
   start = _dbus_string_get_length (buffer);
 
   if (!_dbus_string_lengthen (buffer, count))
@@ -507,20 +512,20 @@ _dbus_read_socket (int               fd,
   fd = win_fds[fd].fd;
 
   _DBUS_UNLOCK (win_fds);
-    
+
   switch (type)
     {
     case DBUS_WIN_FD_SOCKET:
       _dbus_verbose ("recv: count=%d socket=%d\n", count, fd);
       bytes_read = recv (fd, data, count, 0);
       if (bytes_read == SOCKET_ERROR)
-	{
-	  DBUS_SOCKET_SET_ERRNO();
-	  _dbus_verbose ("recv: failed: %s\n", _dbus_strerror (errno));
-	  bytes_read = -1;
-	}
+        {
+          DBUS_SOCKET_SET_ERRNO();
+          _dbus_verbose ("recv: failed: %s\n", _dbus_strerror (errno));
+          bytes_read = -1;
+        }
       else
-	_dbus_verbose ("recv: = %d\n", bytes_read); 
+        _dbus_verbose ("recv: = %d\n", bytes_read);
       break;
 
     default:
@@ -528,21 +533,22 @@ _dbus_read_socket (int               fd,
     }
 
   if (bytes_read < 0)
-        {
-          /* put length back (note that this doesn't actually realloc anything) */
-          _dbus_string_set_length (buffer, start);
-          return -1;
-        }
+    {
+      /* put length back (note that this doesn't actually realloc anything) */
+      _dbus_string_set_length (buffer, start);
+      return -1;
+    }
   else
     {
       /* put length back (doesn't actually realloc) */
       _dbus_string_set_length (buffer, start + bytes_read);
 
 #if 0
+
       if (bytes_read > 0)
         _dbus_verbose_bytes_of_string (buffer, start, bytes_read);
 #endif
-      
+
       return bytes_read;
     }
 }
@@ -559,16 +565,16 @@ _dbus_read_socket (int               fd,
  */
 int
 _dbus_write_socket (int               fd,
-             const DBusString *buffer,
-             int               start,
-             int               len)
+                    const DBusString *buffer,
+                    int               start,
+                    int               len)
 {
   DBusWin32FDType type;
   const char *data;
   int bytes_written;
-  
+
   data = _dbus_string_get_const_data_len (buffer, start, len);
-  
+
   _DBUS_LOCK (win_fds);
 
   fd = FROM_HANDLE (fd);
@@ -587,13 +593,13 @@ _dbus_write_socket (int               fd,
       _dbus_verbose ("send: len=%d socket=%d\n", len, fd);
       bytes_written = send (fd, data, len, 0);
       if (bytes_written == SOCKET_ERROR)
-	{
-	  DBUS_SOCKET_SET_ERRNO();
-	  _dbus_verbose ("send: failed: %s\n", _dbus_strerror (errno));
-	  bytes_written = -1;
-	}
+        {
+          DBUS_SOCKET_SET_ERRNO();
+          _dbus_verbose ("send: failed: %s\n", _dbus_strerror (errno));
+          bytes_written = -1;
+        }
       else
-	_dbus_verbose ("send: = %d\n", bytes_written); 
+        _dbus_verbose ("send: = %d\n", bytes_written);
       break;
 
     default:
@@ -604,7 +610,7 @@ _dbus_write_socket (int               fd,
   if (bytes_written > 0)
     _dbus_verbose_bytes_of_string (buffer, start, bytes_written);
 #endif
-  
+
   return bytes_written;
 }
 
@@ -618,12 +624,12 @@ _dbus_write_socket (int               fd,
  */
 dbus_bool_t
 _dbus_close_socket (int        fd,
-             DBusError *error)
+                    DBusError *error)
 {
   const int encapsulated_fd = fd;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   _DBUS_LOCK (win_fds);
 
   fd = FROM_HANDLE (fd);
@@ -635,26 +641,26 @@ _dbus_close_socket (int        fd,
     {
     case DBUS_WIN_FD_SOCKET:
       if (win_fds[fd].port_file_fd >= 0)
-	{
-	  _chsize (win_fds[fd].port_file_fd, 0);
-	  close (win_fds[fd].port_file_fd);
-	  win_fds[fd].port_file_fd = -1;
-	  unlink (_dbus_string_get_const_data (&win_fds[fd].port_file));
-	  free ((char *) _dbus_string_get_const_data (&win_fds[fd].port_file));
-	}
-      
+        {
+          _chsize (win_fds[fd].port_file_fd, 0);
+          close (win_fds[fd].port_file_fd);
+          win_fds[fd].port_file_fd = -1;
+          unlink (_dbus_string_get_const_data (&win_fds[fd].port_file));
+          free ((char *) _dbus_string_get_const_data (&win_fds[fd].port_file));
+        }
+
       if (closesocket (win_fds[fd].fd) == SOCKET_ERROR)
-	{
-	  DBUS_SOCKET_SET_ERRNO ();
-	  dbus_set_error (error, _dbus_error_from_errno (errno),
-			  "Could not close socket %d:%d:%d %s",
-			  encapsulated_fd, fd, win_fds[fd].fd,
-			  _dbus_strerror (errno));
-	  _DBUS_UNLOCK (win_fds);
-	  return FALSE;
-	}
+        {
+          DBUS_SOCKET_SET_ERRNO ();
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+                          "Could not close socket %d:%d:%d %s",
+                          encapsulated_fd, fd, win_fds[fd].fd,
+                          _dbus_strerror (errno));
+          _DBUS_UNLOCK (win_fds);
+          return FALSE;
+        }
       _dbus_verbose ("closed socket %d:%d:%d\n",
-		     encapsulated_fd, fd, win_fds[fd].fd);
+                     encapsulated_fd, fd, win_fds[fd].fd);
       break;
 
     default:
@@ -680,7 +686,7 @@ void
 _dbus_fd_set_close_on_exec (int fd)
 {
   int fd2;
-  if (fd < 0) 
+  if (fd < 0)
     return;
   _DBUS_LOCK (win_fds);
 
@@ -709,7 +715,7 @@ _dbus_set_fd_nonblocking (int             fd,
   const int encapsulated_fd = fd;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   _DBUS_LOCK (win_fds);
 
   fd = FROM_HANDLE (fd);
@@ -721,14 +727,14 @@ _dbus_set_fd_nonblocking (int             fd,
     {
     case DBUS_WIN_FD_SOCKET:
       if (ioctlsocket (win_fds[fd].fd, FIONBIO, &one) == SOCKET_ERROR)
-	{
-	  dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
-			  "Failed to set socket %d:%d to nonblocking: %s",
-			  encapsulated_fd, win_fds[fd].fd,
-			  _dbus_strerror (WSAGetLastError ()));
-	  _DBUS_UNLOCK (win_fds);
-	  return FALSE;
-	}
+        {
+          dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
+                          "Failed to set socket %d:%d to nonblocking: %s",
+                          encapsulated_fd, win_fds[fd].fd,
+                          _dbus_strerror (WSAGetLastError ()));
+          _DBUS_UNLOCK (win_fds);
+          return FALSE;
+        }
       break;
 
     case DBUS_WIN_FD_C_LIB:
@@ -801,7 +807,7 @@ _dbus_write_socket_two (int               fd,
   _DBUS_UNLOCK (win_fds);
 
   data1 = _dbus_string_get_const_data_len (buffer1, start1, len1);
-  
+
   if (buffer2 != NULL)
     data2 = _dbus_string_get_const_data_len (buffer2, start2, len2);
   else
@@ -810,7 +816,7 @@ _dbus_write_socket_two (int               fd,
       start2 = 0;
       len2 = 0;
     }
-   
+
   switch (type)
     {
     case DBUS_WIN_FD_SOCKET:
@@ -818,16 +824,16 @@ _dbus_write_socket_two (int               fd,
       vectors[0].len = len1;
       vectors[1].buf = (char*) data2;
       vectors[1].len = len2;
-      
+
       _dbus_verbose ("WSASend: len1+2=%d+%d socket=%d\n", len1, len2, fd);
       rc = WSASend (fd, vectors, data2 ? 2 : 1, &bytes_written,
-		    0, NULL, NULL);
+                    0, NULL, NULL);
       if (rc < 0)
-	    {
+        {
           DBUS_SOCKET_SET_ERRNO ();
-	      _dbus_verbose ("WSASend: failed: %s\n", _dbus_strerror (errno));
-	      bytes_written = -1;
-	    }
+          _dbus_verbose ("WSASend: failed: %s\n", _dbus_strerror (errno));
+          bytes_written = -1;
+        }
       else
         _dbus_verbose ("WSASend: = %ld\n", bytes_written);
       return bytes_written;
@@ -835,14 +841,14 @@ _dbus_write_socket_two (int               fd,
     case DBUS_WIN_FD_C_LIB:
       ret1 = _dbus_write_socket (fd, buffer1, start1, len1);
       if (ret1 == len1 && buffer2 != NULL)
-	    {
-	      int ret2 = _dbus_write_socket (fd, buffer2, start2, len2);
-	      if (ret2 < 0)
-	      ret2 = 0; /* we can't report an error as the first write was OK */
+        {
+          int ret2 = _dbus_write_socket (fd, buffer2, start2, len2);
+          if (ret2 < 0)
+            ret2 = 0; /* we can't report an error as the first write was OK */
           return ret1 + ret2;
-	    }
+        }
       else
-	    return ret1;
+        return ret1;
 
     default:
       _dbus_assert_not_reached ("unhandled fd type");
@@ -893,21 +899,21 @@ _dbus_connect_unix_socket (const char     *path,
 
   _dbus_verbose ("connecting to pseudo-unix socket at %s\n",
                  path);
-  
+
   if (abstract)
     {
       dbus_set_error (error, DBUS_ERROR_NOT_SUPPORTED,
                       "Implementation does not support abstract socket namespace\n");
       return -1;
     }
-    
+
   fd = _sopen (path, O_RDONLY, SH_DENYNO);
 
   if (fd == -1)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-		      "Failed to open file %s: %s",
-		      path, _dbus_strerror (errno));
+                      "Failed to open file %s: %s",
+                      path, _dbus_strerror (errno));
       return -1;
     }
 
@@ -917,8 +923,8 @@ _dbus_connect_unix_socket (const char     *path,
   if (n == 0)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-		      "Failed to read port number from file %s",
-		      path);
+                      "Failed to read port number from file %s",
+                      path);
       return -1;
     }
 
@@ -928,11 +934,11 @@ _dbus_connect_unix_socket (const char     *path,
   if (port <= 0 || port > 0xFFFF)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-		      "Invalid port numer in file %s",
-		      path);
+                      "Invalid port numer in file %s",
+                      path);
       return -1;
     }
- 
+
   return _dbus_connect_tcp_socket (NULL, port, error);
 
 }
@@ -976,7 +982,7 @@ _dbus_listen_unix_socket (const char     *path,
                       "Implementation does not support abstract socket namespace\n");
       return -1;
     }
-    
+
   listen_fd = _dbus_listen_tcp_socket (NULL, 0, error);
 
   if (listen_fd == -1)
@@ -989,8 +995,8 @@ _dbus_listen_unix_socket (const char     *path,
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
-		      "getsockname failed: %s",
-		      _dbus_strerror (errno));
+                      "getsockname failed: %s",
+                      _dbus_strerror (errno));
       _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
@@ -1002,8 +1008,8 @@ _dbus_listen_unix_socket (const char     *path,
   if (filefd == -1)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-		      "Failed to create pseudo-unix socket port number file %s: %s",
-		      path, _dbus_strerror (errno));
+                      "Failed to create pseudo-unix socket port number file %s: %s",
+                      path, _dbus_strerror (errno));
       _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
@@ -1042,16 +1048,16 @@ _dbus_listen_unix_socket (const char     *path,
   if (n == -1)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-		      "Failed to write port number to file %s: %s",
-		      path, _dbus_strerror (errno));
+                      "Failed to write port number to file %s: %s",
+                      path, _dbus_strerror (errno));
       _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
   else if (n < l)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
-		      "Failed to write port number to file %s",
-		      path);
+                      "Failed to write port number to file %s",
+                      path);
       _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
@@ -1071,7 +1077,7 @@ _dbus_listen_unix_socket (const char     *path,
  */
 int
 _dbus_connect_named_pipe (const char     *path,
-			  DBusError      *error)
+                          DBusError      *error)
 {
   _dbus_assert_not_reached ("not implemented");
 }
@@ -1088,13 +1094,13 @@ _dbus_account_to_win_sid (const wchar_t  *waccount,
   DWORD sid_length, wdomain_length;
   SID_NAME_USE use;
   wchar_t *wdomain;
-		     
+
   *ppsid = NULL;
 
   sid_length = 0;
   wdomain_length = 0;
   if (!LookupAccountNameW (NULL, waccount, NULL, &sid_length,
-	     NULL, &wdomain_length, &use) 
+                           NULL, &wdomain_length, &use)
       && GetLastError () != ERROR_INSUFFICIENT_BUFFER)
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
@@ -1116,7 +1122,7 @@ _dbus_account_to_win_sid (const wchar_t  *waccount,
     }
 
   if (!LookupAccountNameW (NULL, waccount, (PSID) *ppsid, &sid_length,
-			   wdomain, &wdomain_length, &use))
+                           wdomain, &wdomain_length, &use))
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
       goto out2;
@@ -1130,9 +1136,9 @@ _dbus_account_to_win_sid (const wchar_t  *waccount,
 
   retval = TRUE;
 
- out2:
+out2:
   dbus_free (wdomain);
- out1:
+out1:
   if (!retval)
     {
       dbus_free (*ppsid);
@@ -1145,9 +1151,9 @@ _dbus_account_to_win_sid (const wchar_t  *waccount,
 
 dbus_bool_t
 fill_win_user_info_name_and_groups (wchar_t 	  *wname,
-				      wchar_t 	  *wdomain,
-				      DBusUserInfo *info,
-				      DBusError    *error)
+                                    wchar_t 	  *wdomain,
+                                    DBusUserInfo *info,
+                                    DBusError    *error)
 {
   dbus_bool_t retval = FALSE;
   char *name, *domain;
@@ -1176,59 +1182,59 @@ fill_win_user_info_name_and_groups (wchar_t 	  *wname,
 
   info->n_group_ids = 0;
   if (NetUserGetLocalGroups (NULL, wname, 0, LG_INCLUDE_INDIRECT,
-			     (LPBYTE *) &local_groups, MAX_PREFERRED_LENGTH,
-			     &nread, &ntotal) == NERR_Success)
+                             (LPBYTE *) &local_groups, MAX_PREFERRED_LENGTH,
+                             &nread, &ntotal) == NERR_Success)
     {
       DWORD i;
       int n;
 
       info->group_ids = dbus_new (dbus_gid_t, nread);
       if (!info->group_ids)
-	{
-	  _DBUS_SET_OOM (error);
-	  goto out3;
-	}
+        {
+          _DBUS_SET_OOM (error);
+          goto out3;
+        }
 
       for (i = n = 0; i < nread; i++)
-	{
-	  PSID group_sid;
-	  if (_dbus_account_to_win_sid (local_groups[i].lgrui0_name,
-					  &group_sid, error))
-	    {
-	      info->group_ids[n++] = _dbus_win_sid_to_uid_t (group_sid);
-	      dbus_free (group_sid);
-	    }
-	}
+        {
+          PSID group_sid;
+          if (_dbus_account_to_win_sid (local_groups[i].lgrui0_name,
+                                        &group_sid, error))
+            {
+              info->group_ids[n++] = _dbus_win_sid_to_uid_t (group_sid);
+              dbus_free (group_sid);
+            }
+        }
       info->n_group_ids = n;
     }
 
   if (NetUserGetGroups (NULL, wname, 0,
-			(LPBYTE *) &global_groups, MAX_PREFERRED_LENGTH,
-			&nread, &ntotal) == NERR_Success)
+                        (LPBYTE *) &global_groups, MAX_PREFERRED_LENGTH,
+                        &nread, &ntotal) == NERR_Success)
     {
       DWORD i;
       int n = info->n_group_ids;
 
       info->group_ids = dbus_realloc (info->group_ids, (n + nread) * sizeof (dbus_gid_t));
       if (!info->group_ids)
-	{
-	  _DBUS_SET_OOM (error);
-	  goto out4;
-	}
+        {
+          _DBUS_SET_OOM (error);
+          goto out4;
+        }
 
       for (i = 0; i < nread; i++)
-	{
-	  PSID group_sid;
-	  if (_dbus_account_to_win_sid (global_groups[i].grui0_name,
-					  &group_sid, error))
-	    {
-	      info->group_ids[n++] = _dbus_win_sid_to_uid_t (group_sid);
-	      dbus_free (group_sid);
-	    }
-	}
+        {
+          PSID group_sid;
+          if (_dbus_account_to_win_sid (global_groups[i].grui0_name,
+                                        &group_sid, error))
+            {
+              info->group_ids[n++] = _dbus_win_sid_to_uid_t (group_sid);
+              dbus_free (group_sid);
+            }
+        }
       info->n_group_ids = n;
     }
-  
+
   if (info->n_group_ids > 0)
     {
       /* FIXME: find out actual primary group */
@@ -1244,15 +1250,15 @@ fill_win_user_info_name_and_groups (wchar_t 	  *wname,
 
   retval = TRUE;
 
- out4:
+out4:
   if (global_groups != NULL)
     NetApiBufferFree (global_groups);
- out3:
+out3:
   if (local_groups != NULL)
     NetApiBufferFree (local_groups);
- out1:
+out1:
   dbus_free (domain);
- out0:
+out0:
   dbus_free (name);
 
   return retval;
@@ -1260,9 +1266,9 @@ fill_win_user_info_name_and_groups (wchar_t 	  *wname,
 
 dbus_bool_t
 fill_win_user_info_homedir (wchar_t  	 *wname,
-			      wchar_t  	 *wdomain,
-			      DBusUserInfo *info,
-			      DBusError    *error)
+                            wchar_t  	 *wdomain,
+                            DBusUserInfo *info,
+                            DBusError    *error)
 {
   dbus_bool_t retval = FALSE;
   USER_INFO_1 *user_info = NULL;
@@ -1281,33 +1287,34 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
 
   if (!local_computer)
     {
-    	ret = NetGetAnyDCName (NULL, wdomain, (LPBYTE *) &dc);
-      if (ret != NERR_Success) {
-	      info->homedir = _dbus_strdup ("\\");
-      	_dbus_warn("NetGetAnyDCName() failed with errorcode %d '%s'\n",ret,_dbus_lm_strerror(ret));
-				return TRUE;
-			}
+      ret = NetGetAnyDCName (NULL, wdomain, (LPBYTE *) &dc);
+      if (ret != NERR_Success)
+        {
+          info->homedir = _dbus_strdup ("\\");
+          _dbus_warn("NetGetAnyDCName() failed with errorcode %d '%s'\n",ret,_dbus_lm_strerror(ret));
+          return TRUE;
+        }
     }
-      
+
   /* No way to find out the profile of another user, let's try the
    * "home directory" from NetUserGetInfo's USER_INFO_1.
    */
-  ret = NetUserGetInfo (NULL, wname, 1, (LPBYTE *) &user_info); 
+  ret = NetUserGetInfo (NULL, wname, 1, (LPBYTE *) &user_info);
   if (ret == NERR_Success )
-	  if(user_info->usri1_home_dir != NULL &&
-         user_info->usri1_home_dir != (LPWSTR)0xfeeefeee &&  /* freed memory http://www.gamedev.net/community/forums/topic.asp?topic_id=158402 */
-         user_info->usri1_home_dir[0] != '\0')
-        {
-          info->homedir = _dbus_win_utf16_to_utf8 (user_info->usri1_home_dir, error);
-          if (!info->homedir)
-	        goto out1;
-	    }
-	  else
-        {
-          _dbus_warn("NetUserGetInfo() failed: no valid user_info\n");
-          /* Not set, so use something random. */
-          info->homedir = _dbus_strdup ("\\");
-         }
+    if(user_info->usri1_home_dir != NULL &&
+        user_info->usri1_home_dir != (LPWSTR)0xfeeefeee &&  /* freed memory http://www.gamedev.net/community/forums/topic.asp?topic_id=158402 */
+        user_info->usri1_home_dir[0] != '\0')
+      {
+        info->homedir = _dbus_win_utf16_to_utf8 (user_info->usri1_home_dir, error);
+        if (!info->homedir)
+          goto out1;
+      }
+    else
+      {
+        _dbus_warn("NetUserGetInfo() failed: no valid user_info\n");
+        /* Not set, so use something random. */
+        info->homedir = _dbus_strdup ("\\");
+      }
   else
     {
       char *dc_string = _dbus_win_utf16_to_utf8(dc,error);
@@ -1316,14 +1323,14 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
       /* Not set, so use something random. */
       info->homedir = _dbus_strdup ("\\");
     }
-  
+
   retval = TRUE;
 
- out1:
+out1:
   if (dc != NULL)
     NetApiBufferFree (dc);
   if (user_info != NULL)
-  	NetApiBufferFree (user_info);
+    NetApiBufferFree (user_info);
 
   return retval;
 }
@@ -1338,11 +1345,11 @@ fill_win_user_info_from_name (wchar_t      *wname,
   wchar_t *wdomain;
   DWORD sid_length, wdomain_length;
   SID_NAME_USE use;
-		     
+
   sid_length = 0;
   wdomain_length = 0;
   if (!LookupAccountNameW (NULL, wname, NULL, &sid_length,
-			   NULL, &wdomain_length, &use) &&
+                           NULL, &wdomain_length, &use) &&
       GetLastError () != ERROR_INSUFFICIENT_BUFFER)
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
@@ -1364,7 +1371,7 @@ fill_win_user_info_from_name (wchar_t      *wname,
     }
 
   if (!LookupAccountNameW (NULL, wname, sid, &sid_length,
-			   wdomain, &wdomain_length, &use))
+                           wdomain, &wdomain_length, &use))
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
       goto out1;
@@ -1380,15 +1387,15 @@ fill_win_user_info_from_name (wchar_t      *wname,
 
   if (!fill_win_user_info_name_and_groups (wname, wdomain, info, error))
     goto out1;
-    
+
   if (!fill_win_user_info_homedir (wname, wdomain, info, error))
     goto out1;
 
   retval = TRUE;
 
- out1:
+out1:
   dbus_free (wdomain);
- out0:
+out0:
   dbus_free (sid);
 
   return retval;
@@ -1396,9 +1403,9 @@ fill_win_user_info_from_name (wchar_t      *wname,
 
 dbus_bool_t
 _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
-				    wchar_t  **wname,
-				    wchar_t  **wdomain,
-				    DBusError *error)
+                                  wchar_t  **wname,
+                                  wchar_t  **wdomain,
+                                  DBusError *error)
 {
   PSID sid;
   DWORD wname_length, wdomain_length;
@@ -1413,7 +1420,7 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
   wname_length = 0;
   wdomain_length = 0;
   if (!LookupAccountSidW (NULL, sid, NULL, &wname_length,
-			  NULL, &wdomain_length, &use) &&
+                          NULL, &wdomain_length, &use) &&
       GetLastError () != ERROR_INSUFFICIENT_BUFFER)
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
@@ -1435,7 +1442,7 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
     }
 
   if (!LookupAccountSidW (NULL, sid, *wname, &wname_length,
-			  *wdomain, &wdomain_length, &use))
+                          *wdomain, &wdomain_length, &use))
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
       goto out2;
@@ -1443,13 +1450,13 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
 
   return TRUE;
 
- out2:
+out2:
   dbus_free (*wdomain);
   *wdomain = NULL;
- out1:
+out1:
   dbus_free (*wname);
   *wname = NULL;
- out0:
+out0:
   LocalFree (sid);
 
   return FALSE;
@@ -1457,33 +1464,36 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
 
 dbus_bool_t
 fill_win_user_info_from_uid (dbus_uid_t    uid,
-			       DBusUserInfo *info,
-			       DBusError    *error)
+                             DBusUserInfo *info,
+                             DBusError    *error)
 {
   dbus_bool_t retval = FALSE;
   wchar_t *wname, *wdomain;
 
   info->uid = uid;
 
-  if (!_dbus_win_sid_to_name_and_domain (uid, &wname, &wdomain, error)) {
-   	_dbus_verbose("%s after _dbus_win_sid_to_name_and_domain\n",__FUNCTION__);
-    return FALSE;
- 	 }
+  if (!_dbus_win_sid_to_name_and_domain (uid, &wname, &wdomain, error))
+    {
+      _dbus_verbose("%s after _dbus_win_sid_to_name_and_domain\n",__FUNCTION__);
+      return FALSE;
+    }
 
-  if (!fill_win_user_info_name_and_groups (wname, wdomain, info, error)) {
-  	_dbus_verbose("%s after fill_win_user_info_name_and_groups\n",__FUNCTION__);
-    goto out0;
- 	 }
+  if (!fill_win_user_info_name_and_groups (wname, wdomain, info, error))
+    {
+      _dbus_verbose("%s after fill_win_user_info_name_and_groups\n",__FUNCTION__);
+      goto out0;
+    }
 
-    
-  if (!fill_win_user_info_homedir (wname, wdomain, info, error)) {
-  	_dbus_verbose("%s after fill_win_user_info_homedir\n",__FUNCTION__);
-     goto out0; 
- 	 }
- 	 
+
+  if (!fill_win_user_info_homedir (wname, wdomain, info, error))
+    {
+      _dbus_verbose("%s after fill_win_user_info_homedir\n",__FUNCTION__);
+      goto out0;
+    }
+
   retval = TRUE;
 
- out0:
+out0:
   dbus_free (wdomain);
   dbus_free (wname);
 
@@ -1503,19 +1513,19 @@ _dbus_win_startup_winsock (void)
   WORD wVersionRequested;
   WSADATA wsaData;
   int err;
- 
+
   if (beenhere)
     return;
 
   wVersionRequested = MAKEWORD (2, 0);
- 
+
   err = WSAStartup (wVersionRequested, &wsaData);
   if (err != 0)
     {
       _dbus_assert_not_reached ("Could not initialize WinSock");
       _dbus_abort ();
     }
- 
+
   /* Confirm that the WinSock DLL supports 2.0.  Note that if the DLL
    * supports versions greater than 2.0 in addition to 2.0, it will
    * still return 2.0 in wVersion since that is the version we
@@ -1542,14 +1552,14 @@ _dbus_win_startup_winsock (void)
 /************************************************************************
  
  UTF / string code
-
+ 
  ************************************************************************/
 
 /**
  * Measure the message length without terminating nul 
  */
 int _dbus_printf_string_upper_bound (const char *format,
-                         va_list args) 
+                                     va_list args)
 {
   /* MSVCRT's vsnprintf semantics are a bit different */
   /* The C library source in the Platform SDK indicates that this
@@ -1589,7 +1599,7 @@ _dbus_win_utf8_to_utf16 (const char *str,
   wchar_t *retval;
 
   _dbus_string_init_const (&s, str);
-  
+
   if (!_dbus_string_validate_utf8 (&s, 0, _dbus_string_get_length (&s)))
     {
       dbus_set_error_const (error, DBUS_ERROR_FAILED, "Invalid UTF-8");
@@ -1670,25 +1680,25 @@ _dbus_win_utf16_to_utf8 (const wchar_t *str,
 /************************************************************************
  
  uid ... <-> win sid functions
-
+ 
  ************************************************************************/
 
 dbus_bool_t
 _dbus_win_account_to_sid (const wchar_t *waccount,
-			    void      	 **ppsid,
-			    DBusError 	  *error)
+                          void      	 **ppsid,
+                          DBusError 	  *error)
 {
   dbus_bool_t retval = FALSE;
   DWORD sid_length, wdomain_length;
   SID_NAME_USE use;
   wchar_t *wdomain;
-		     
+
   *ppsid = NULL;
 
   sid_length = 0;
   wdomain_length = 0;
   if (!LookupAccountNameW (NULL, waccount, NULL, &sid_length,
-			   NULL, &wdomain_length, &use) &&
+                           NULL, &wdomain_length, &use) &&
       GetLastError () != ERROR_INSUFFICIENT_BUFFER)
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
@@ -1710,7 +1720,7 @@ _dbus_win_account_to_sid (const wchar_t *waccount,
     }
 
   if (!LookupAccountNameW (NULL, waccount, (PSID) *ppsid, &sid_length,
-			   wdomain, &wdomain_length, &use))
+                           wdomain, &wdomain_length, &use))
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
       goto out2;
@@ -1724,9 +1734,9 @@ _dbus_win_account_to_sid (const wchar_t *waccount,
 
   retval = TRUE;
 
- out2:
+out2:
   dbus_free (wdomain);
- out1:
+out1:
   if (!retval)
     {
       dbus_free (*ppsid);
@@ -1739,21 +1749,21 @@ _dbus_win_account_to_sid (const wchar_t *waccount,
 static void
 _sid_atom_cache_shutdown (void *unused)
 {
- DBusHashIter iter;
- _DBUS_LOCK (sid_atom_cache);
- _dbus_hash_iter_init (sid_atom_cache, &iter);
- while (_dbus_hash_iter_next (&iter))
-   {
-	 ATOM atom;
-     atom = (ATOM) _dbus_hash_iter_get_value (&iter);
-     GlobalDeleteAtom(atom);
-	 _dbus_hash_iter_remove_entry(&iter);
-   }
+  DBusHashIter iter;
+  _DBUS_LOCK (sid_atom_cache);
+  _dbus_hash_iter_init (sid_atom_cache, &iter);
+  while (_dbus_hash_iter_next (&iter))
+    {
+      ATOM atom;
+      atom = (ATOM) _dbus_hash_iter_get_value (&iter);
+      GlobalDeleteAtom(atom);
+      _dbus_hash_iter_remove_entry(&iter);
+    }
   _DBUS_UNLOCK (sid_atom_cache);
   _dbus_hash_table_unref (sid_atom_cache);
   sid_atom_cache = NULL;
 }
-  
+
 /**
  * Returns the 2-way associated dbus_uid_t form a SID.
  *
@@ -1766,15 +1776,15 @@ _dbus_win_sid_to_uid_t (PSID psid)
   dbus_uid_t olduid;
   char *string;
   ATOM atom;
-  
-  if (!IsValidSid (psid)) 
+
+  if (!IsValidSid (psid))
     {
       _dbus_verbose("%s invalid sid\n",__FUNCTION__);
       return DBUS_UID_UNSET;
-    }  
-  if (!ConvertSidToStringSidA (psid, &string)) 
+    }
+  if (!ConvertSidToStringSidA (psid, &string))
     {
- 	  _dbus_verbose("%s invalid sid\n",__FUNCTION__);
+      _dbus_verbose("%s invalid sid\n",__FUNCTION__);
       return DBUS_UID_UNSET;
     }
 
@@ -1782,8 +1792,8 @@ _dbus_win_sid_to_uid_t (PSID psid)
 
   if (atom == 0)
     {
- 	  _dbus_verbose("%s GlobalAddAtom failed\n",__FUNCTION__);
-	  LocalFree (string);
+      _dbus_verbose("%s GlobalAddAtom failed\n",__FUNCTION__);
+      LocalFree (string);
       return DBUS_UID_UNSET;
     }
 
@@ -1821,7 +1831,7 @@ dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
 
   atom = _dbus_hash_table_lookup_ulong (sid_atom_cache, uid);
   if (atom == NULL)
-	{
+    {
       _dbus_verbose("%s uid %i not found in cache\n",__FUNCTION__,uid);
       return FALSE;
     }
@@ -1857,10 +1867,10 @@ _dbus_getuid(void)
 
   if (!OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &process_token))
     _dbus_win_warn_win_error ("OpenProcessToken failed", GetLastError ());
-  else if ((!GetTokenInformation (process_token, TokenUser, NULL, 0, &n) 
-	        && GetLastError () != ERROR_INSUFFICIENT_BUFFER) 
-			|| (token_user = alloca (n)) == NULL 
-			|| !GetTokenInformation (process_token, TokenUser, token_user, n, &n))
+  else if ((!GetTokenInformation (process_token, TokenUser, NULL, 0, &n)
+            && GetLastError () != ERROR_INSUFFICIENT_BUFFER)
+           || (token_user = alloca (n)) == NULL
+           || !GetTokenInformation (process_token, TokenUser, token_user, n, &n))
     _dbus_win_warn_win_error ("GetTokenInformation failed", GetLastError ());
   else
     retval = _dbus_win_sid_to_uid_t (token_user->User.Sid);
@@ -1887,11 +1897,11 @@ _dbus_getgid (void)
   if (!OpenProcessToken (GetCurrentProcess (), TOKEN_QUERY, &process_token))
     _dbus_win_warn_win_error ("OpenProcessToken failed", GetLastError ());
   else if ((!GetTokenInformation (process_token, TokenPrimaryGroup,
-				  NULL, 0, &n) &&
-	    GetLastError () != ERROR_INSUFFICIENT_BUFFER) ||
-	   (token_primary_group = alloca (n)) == NULL ||
-	   !GetTokenInformation (process_token, TokenPrimaryGroup,
-				 token_primary_group, n, &n))
+                                  NULL, 0, &n) &&
+            GetLastError () != ERROR_INSUFFICIENT_BUFFER) ||
+           (token_primary_group = alloca (n)) == NULL ||
+           !GetTokenInformation (process_token, TokenPrimaryGroup,
+                                 token_primary_group, n, &n))
     _dbus_win_warn_win_error ("GetTokenInformation failed", GetLastError ());
   else
     retval = _dbus_win_sid_to_uid_t (token_primary_group->PrimaryGroup);
@@ -1906,7 +1916,7 @@ _dbus_getgid (void)
 /************************************************************************
  
  pipes
-
+ 
  ************************************************************************/
 
 /**
@@ -1945,7 +1955,7 @@ _dbus_full_duplex_pipe (int        *fd1,
       DBUS_SOCKET_SET_ERRNO ();
       goto out0;
     }
-  
+
   arg = 1;
   if (ioctlsocket (temp, FIONBIO, &arg) == SOCKET_ERROR)
     {
@@ -1983,7 +1993,7 @@ _dbus_full_duplex_pipe (int        *fd1,
       DBUS_SOCKET_SET_ERRNO ();
       goto out0;
     }
-  
+
   arg = 1;
   if (ioctlsocket (socket1, FIONBIO, &arg) == SOCKET_ERROR)
     {
@@ -1995,13 +2005,13 @@ _dbus_full_duplex_pipe (int        *fd1,
       WSAGetLastError () != WSAEWOULDBLOCK)
     {
       dbus_set_error_const (error, DBUS_ERROR_FAILED,
-			    "_dbus_full_duplex_pipe socketpair() emulation failed");
+                            "_dbus_full_duplex_pipe socketpair() emulation failed");
       goto out1;
     }
 
   FD_ZERO (&read_set);
   FD_SET (temp, &read_set);
-  
+
   tv.tv_sec = 0;
   tv.tv_usec = 0;
 
@@ -2038,50 +2048,50 @@ _dbus_full_duplex_pipe (int        *fd1,
     {
       arg = 0;
       if (ioctlsocket (socket1, FIONBIO, &arg) == SOCKET_ERROR)
-	{
-	  DBUS_SOCKET_SET_ERRNO ();
-	  goto out2;
-	}
+        {
+          DBUS_SOCKET_SET_ERRNO ();
+          goto out2;
+        }
 
       arg = 0;
       if (ioctlsocket (socket2, FIONBIO, &arg) == SOCKET_ERROR)
-	{
-	  DBUS_SOCKET_SET_ERRNO ();
-	  goto out2;
-	}
+        {
+          DBUS_SOCKET_SET_ERRNO ();
+          goto out2;
+        }
     }
   else
     {
       arg = 1;
       if (ioctlsocket (socket2, FIONBIO, &arg) == SOCKET_ERROR)
-	{
-	  DBUS_SOCKET_SET_ERRNO ();
-	  goto out2;
-	}
+        {
+          DBUS_SOCKET_SET_ERRNO ();
+          goto out2;
+        }
     }
-      
-  
+
+
   *fd1 = _dbus_socket_to_handle (socket1);
   *fd2 = _dbus_socket_to_handle (socket2);
 
   _dbus_verbose ("full-duplex pipe %d:%d <-> %d:%d\n",
                  *fd1, socket1, *fd2, socket2);
-  
+
   closesocket (temp);
 
   return TRUE;
 
- out2:
+out2:
   closesocket (socket2);
- out1:
+out1:
   closesocket (socket1);
- out0:
+out0:
   closesocket (temp);
 
   dbus_set_error (error, _dbus_error_from_errno (errno),
-		  "Could not setup socket pair: %s",
-		  _dbus_strerror (errno));
-  
+                  "Could not setup socket pair: %s",
+                  _dbus_strerror (errno));
+
   return FALSE;
 }
 
@@ -2105,7 +2115,7 @@ _dbus_poll (DBusPollFD *fds,
   int i;
   struct timeval tv;
   int ready;
-  
+
   FD_ZERO (&read_set);
   FD_ZERO (&write_set);
   FD_ZERO (&err_set);
@@ -2127,10 +2137,10 @@ _dbus_poll (DBusPollFD *fds,
 
       if (!warned &&
           win_fds[fd].type != DBUS_WIN_FD_SOCKET)
-      {
-        _dbus_warn ("Can poll only sockets on Win32");
-        warned = TRUE;
-      }
+        {
+          _dbus_warn ("Can poll only sockets on Win32");
+          warned = TRUE;
+        }
       sock = _dbus_decapsulate_quick (fdp->fd);
 
       if (fdp->events & _DBUS_POLLIN)
@@ -2163,9 +2173,9 @@ _dbus_poll (DBusPollFD *fds,
 
       max_fd = MAX (max_fd, sock);
     }
-    
+
   _DBUS_UNLOCK (win_fds);
-    
+
   tv.tv_sec = timeout_milliseconds / 1000;
   tv.tv_usec = (timeout_milliseconds % 1000) * 1000;
 
@@ -2179,48 +2189,48 @@ _dbus_poll (DBusPollFD *fds,
         _dbus_verbose ("select: failed: %s\n", _dbus_strerror (errno));
     }
   else if (ready == 0)
-      _dbus_verbose ("select: = 0\n");
-  else 
-  if (ready > 0)
-    {
-      msgp = msg;
-      msgp += sprintf (msgp, "select: = %d:", ready);
-      _DBUS_LOCK (win_fds);
-      for (i = 0; i < n_fds; i++)
-        {
-          DBusPollFD *fdp = &fds[i];
-          int sock = _dbus_decapsulate_quick (fdp->fd);
-
-          if (FD_ISSET (sock, &read_set))
-            msgp += sprintf (msgp, "R:%d ", sock);
-
-          if (FD_ISSET (sock, &write_set))
-            msgp += sprintf (msgp, "W:%d ", sock);
-
-          if (FD_ISSET (sock, &err_set))
-            msgp += sprintf (msgp, "E:%d ", sock);
-        }
-      msgp += sprintf (msgp, "\n");
-      _dbus_verbose ("%s",msg);
-
-      for (i = 0; i < n_fds; i++)
+    _dbus_verbose ("select: = 0\n");
+  else
+    if (ready > 0)
       {
-        DBusPollFD *fdp = &fds[i];
-        int sock = _dbus_decapsulate_quick (fdp->fd);
+        msgp = msg;
+        msgp += sprintf (msgp, "select: = %d:", ready);
+        _DBUS_LOCK (win_fds);
+        for (i = 0; i < n_fds; i++)
+          {
+            DBusPollFD *fdp = &fds[i];
+            int sock = _dbus_decapsulate_quick (fdp->fd);
 
-        fdp->revents = 0;
+            if (FD_ISSET (sock, &read_set))
+              msgp += sprintf (msgp, "R:%d ", sock);
 
-        if (FD_ISSET (sock, &read_set))
-          fdp->revents |= _DBUS_POLLIN;
+            if (FD_ISSET (sock, &write_set))
+              msgp += sprintf (msgp, "W:%d ", sock);
 
-        if (FD_ISSET (sock, &write_set))
-          fdp->revents |= _DBUS_POLLOUT;
+            if (FD_ISSET (sock, &err_set))
+              msgp += sprintf (msgp, "E:%d ", sock);
+          }
+        msgp += sprintf (msgp, "\n");
+        _dbus_verbose ("%s",msg);
 
-        if (FD_ISSET (sock, &err_set))
-          fdp->revents |= _DBUS_POLLERR;
+        for (i = 0; i < n_fds; i++)
+          {
+            DBusPollFD *fdp = &fds[i];
+            int sock = _dbus_decapsulate_quick (fdp->fd);
+
+            fdp->revents = 0;
+
+            if (FD_ISSET (sock, &read_set))
+              fdp->revents |= _DBUS_POLLIN;
+
+            if (FD_ISSET (sock, &write_set))
+              fdp->revents |= _DBUS_POLLOUT;
+
+            if (FD_ISSET (sock, &err_set))
+              fdp->revents |= _DBUS_POLLERR;
+          }
+        _DBUS_UNLOCK (win_fds);
       }
-      _DBUS_UNLOCK (win_fds);
-    }
   return ready;
 }
 
@@ -2229,7 +2239,7 @@ _dbus_poll (DBusPollFD *fds,
 /************************************************************************
  
  error handling
-
+ 
  ************************************************************************/
 
 
@@ -2241,17 +2251,17 @@ _dbus_poll (DBusPollFD *fds,
  * @param code the Win32 error code
  */
 void
-_dbus_win_set_error_from_win_error (DBusError *error, 
+_dbus_win_set_error_from_win_error (DBusError *error,
                                     int        code)
 {
   char *msg;
 
   /* As we want the English message, use the A API */
   FormatMessageA (FORMAT_MESSAGE_ALLOCATE_BUFFER |
-		  FORMAT_MESSAGE_IGNORE_INSERTS |
-		  FORMAT_MESSAGE_FROM_SYSTEM,
-		  NULL, code, MAKELANGID (LANG_ENGLISH, SUBLANG_ENGLISH_US),
-		  (LPTSTR) &msg, 0, NULL);
+                  FORMAT_MESSAGE_IGNORE_INSERTS |
+                  FORMAT_MESSAGE_FROM_SYSTEM,
+                  NULL, code, MAKELANGID (LANG_ENGLISH, SUBLANG_ENGLISH_US),
+                  (LPTSTR) &msg, 0, NULL);
   if (msg)
     {
       char *msg_copy;
@@ -2259,7 +2269,7 @@ _dbus_win_set_error_from_win_error (DBusError *error,
       msg_copy = dbus_malloc (strlen (msg));
       strcpy (msg_copy, msg);
       LocalFree (msg);
-      
+
       dbus_set_error (error, "Win32 error", "%s", msg_copy);
     }
   else
@@ -2289,65 +2299,119 @@ const char*
 _dbus_strerror (int error_number)
 {
   const char *msg;
-  
+
   switch (error_number)
     {
-    case WSAEINTR: return "Interrupted function call";
-    case WSAEACCES: return "Permission denied";
-    case WSAEFAULT: return "Bad address";
-    case WSAEINVAL: return "Invalid argument";
-    case WSAEMFILE: return "Too many open files";
-    case WSAEWOULDBLOCK: return "Resource temporarily unavailable";
-    case WSAEINPROGRESS: return "Operation now in progress";
-    case WSAEALREADY: return "Operation already in progress";
-    case WSAENOTSOCK: return "Socket operation on nonsocket";
-    case WSAEDESTADDRREQ: return "Destination address required";
-    case WSAEMSGSIZE: return "Message too long";
-    case WSAEPROTOTYPE: return "Protocol wrong type for socket";
-    case WSAENOPROTOOPT: return "Bad protocol option";
-    case WSAEPROTONOSUPPORT: return "Protocol not supported";
-    case WSAESOCKTNOSUPPORT: return "Socket type not supported";
-    case WSAEOPNOTSUPP: return "Operation not supported";
-    case WSAEPFNOSUPPORT: return "Protocol family not supported";
-    case WSAEAFNOSUPPORT: return "Address family not supported by protocol family";
-    case WSAEADDRINUSE: return "Address already in use";
-    case WSAEADDRNOTAVAIL: return "Cannot assign requested address";
-    case WSAENETDOWN: return "Network is down";
-    case WSAENETUNREACH: return "Network is unreachable";
-    case WSAENETRESET: return "Network dropped connection on reset";
-    case WSAECONNABORTED: return "Software caused connection abort";
-    case WSAECONNRESET: return "Connection reset by peer";
-    case WSAENOBUFS: return "No buffer space available";
-    case WSAEISCONN: return "Socket is already connected";
-    case WSAENOTCONN: return "Socket is not connected";
-    case WSAESHUTDOWN: return "Cannot send after socket shutdown";
-    case WSAETIMEDOUT: return "Connection timed out";
-    case WSAECONNREFUSED: return "Connection refused";
-    case WSAEHOSTDOWN: return "Host is down";
-    case WSAEHOSTUNREACH: return "No route to host";
-    case WSAEPROCLIM: return "Too many processes";
-    case WSAEDISCON: return "Graceful shutdown in progress";
-    case WSATYPE_NOT_FOUND: return "Class type not found";
-    case WSAHOST_NOT_FOUND: return "Host not found";
-    case WSATRY_AGAIN: return "Nonauthoritative host not found";
-    case WSANO_RECOVERY: return "This is a nonrecoverable error";
-    case WSANO_DATA: return "Valid name, no data record of requested type";
-    case WSA_INVALID_HANDLE: return "Specified event object handle is invalid";
-    case WSA_INVALID_PARAMETER: return "One or more parameters are invalid";
-    case WSA_IO_INCOMPLETE: return "Overlapped I/O event object not in signaled state";
-    case WSA_IO_PENDING: return "Overlapped operations will complete later";
-    case WSA_NOT_ENOUGH_MEMORY: return "Insufficient memory available";
-    case WSA_OPERATION_ABORTED: return "Overlapped operation aborted";
+    case WSAEINTR:
+      return "Interrupted function call";
+    case WSAEACCES:
+      return "Permission denied";
+    case WSAEFAULT:
+      return "Bad address";
+    case WSAEINVAL:
+      return "Invalid argument";
+    case WSAEMFILE:
+      return "Too many open files";
+    case WSAEWOULDBLOCK:
+      return "Resource temporarily unavailable";
+    case WSAEINPROGRESS:
+      return "Operation now in progress";
+    case WSAEALREADY:
+      return "Operation already in progress";
+    case WSAENOTSOCK:
+      return "Socket operation on nonsocket";
+    case WSAEDESTADDRREQ:
+      return "Destination address required";
+    case WSAEMSGSIZE:
+      return "Message too long";
+    case WSAEPROTOTYPE:
+      return "Protocol wrong type for socket";
+    case WSAENOPROTOOPT:
+      return "Bad protocol option";
+    case WSAEPROTONOSUPPORT:
+      return "Protocol not supported";
+    case WSAESOCKTNOSUPPORT:
+      return "Socket type not supported";
+    case WSAEOPNOTSUPP:
+      return "Operation not supported";
+    case WSAEPFNOSUPPORT:
+      return "Protocol family not supported";
+    case WSAEAFNOSUPPORT:
+      return "Address family not supported by protocol family";
+    case WSAEADDRINUSE:
+      return "Address already in use";
+    case WSAEADDRNOTAVAIL:
+      return "Cannot assign requested address";
+    case WSAENETDOWN:
+      return "Network is down";
+    case WSAENETUNREACH:
+      return "Network is unreachable";
+    case WSAENETRESET:
+      return "Network dropped connection on reset";
+    case WSAECONNABORTED:
+      return "Software caused connection abort";
+    case WSAECONNRESET:
+      return "Connection reset by peer";
+    case WSAENOBUFS:
+      return "No buffer space available";
+    case WSAEISCONN:
+      return "Socket is already connected";
+    case WSAENOTCONN:
+      return "Socket is not connected";
+    case WSAESHUTDOWN:
+      return "Cannot send after socket shutdown";
+    case WSAETIMEDOUT:
+      return "Connection timed out";
+    case WSAECONNREFUSED:
+      return "Connection refused";
+    case WSAEHOSTDOWN:
+      return "Host is down";
+    case WSAEHOSTUNREACH:
+      return "No route to host";
+    case WSAEPROCLIM:
+      return "Too many processes";
+    case WSAEDISCON:
+      return "Graceful shutdown in progress";
+    case WSATYPE_NOT_FOUND:
+      return "Class type not found";
+    case WSAHOST_NOT_FOUND:
+      return "Host not found";
+    case WSATRY_AGAIN:
+      return "Nonauthoritative host not found";
+    case WSANO_RECOVERY:
+      return "This is a nonrecoverable error";
+    case WSANO_DATA:
+      return "Valid name, no data record of requested type";
+    case WSA_INVALID_HANDLE:
+      return "Specified event object handle is invalid";
+    case WSA_INVALID_PARAMETER:
+      return "One or more parameters are invalid";
+    case WSA_IO_INCOMPLETE:
+      return "Overlapped I/O event object not in signaled state";
+    case WSA_IO_PENDING:
+      return "Overlapped operations will complete later";
+    case WSA_NOT_ENOUGH_MEMORY:
+      return "Insufficient memory available";
+    case WSA_OPERATION_ABORTED:
+      return "Overlapped operation aborted";
 #ifdef WSAINVALIDPROCTABLE
-    case WSAINVALIDPROCTABLE: return "Invalid procedure table from service provider";
+
+    case WSAINVALIDPROCTABLE:
+      return "Invalid procedure table from service provider";
 #endif
 #ifdef WSAINVALIDPROVIDER
-    case WSAINVALIDPROVIDER: return "Invalid service provider version number";
+
+    case WSAINVALIDPROVIDER:
+      return "Invalid service provider version number";
 #endif
 #ifdef WSAPROVIDERFAILEDINIT
-    case WSAPROVIDERFAILEDINIT: return "Unable to initialize a service provider";
+
+    case WSAPROVIDERFAILEDINIT:
+      return "Unable to initialize a service provider";
 #endif
-    case WSASYSCALLFAILURE: return "System call failure";
+
+    case WSASYSCALLFAILURE:
+      return "System call failure";
     }
   msg = strerror (error_number);
   if (msg == NULL)
@@ -2358,328 +2422,641 @@ _dbus_strerror (int error_number)
 
 
 
-/* lan manager error codes */ 
+/* lan manager error codes */
 const char*
 _dbus_lm_strerror(int error_number)
 {
   const char *msg;
   switch (error_number)
     {
-    case NERR_NetNotStarted:                return "The workstation driver is not installed.";
-    case NERR_UnknownServer:                return "The server could not be located.";
-    case NERR_ShareMem:                     return "An internal error occurred. The network cannot access a shared memory segment.";
-    case NERR_NoNetworkResource:            return "A network resource shortage occurred.";
-    case NERR_RemoteOnly:                   return "This operation is not supported on workstations.";
-    case NERR_DevNotRedirected:             return "The device is not connected.";
-    case NERR_ServerNotStarted:             return "The Server service is not started.";
-    case NERR_ItemNotFound:                 return "The queue is empty.";
-    case NERR_UnknownDevDir:                return "The device or directory does not exist.";
-    case NERR_RedirectedPath:               return "The operation is invalid on a redirected resource.";
-    case NERR_DuplicateShare:               return "The name has already been shared.";
-    case NERR_NoRoom:                       return "The server is currently out of the requested resource.";
-    case NERR_TooManyItems:                 return "Requested addition of items exceeds the maximum allowed.";
-    case NERR_InvalidMaxUsers:              return "The Peer service supports only two simultaneous users.";
-    case NERR_BufTooSmall:                  return "The API return buffer is too small.";
-    case NERR_RemoteErr:                    return "A remote API error occurred.";
-    case NERR_LanmanIniError:               return "An error occurred when opening or reading the configuration file.";
-    case NERR_NetworkError:                 return "A general network error occurred.";
-    case NERR_WkstaInconsistentState:       return "The Workstation service is in an inconsistent state. Restart the computer before restarting the Workstation service.";
-    case NERR_WkstaNotStarted:              return "The Workstation service has not been started.";
-    case NERR_BrowserNotStarted:            return "The requested information is not available.";
-    case NERR_InternalError:                return "An internal error occurred.";
-    case NERR_BadTransactConfig:            return "The server is not configured for transactions.";
-    case NERR_InvalidAPI:                   return "The requested API is not supported on the remote server.";
-    case NERR_BadEventName:                 return "The event name is invalid.";
-    case NERR_DupNameReboot:                return "The computer name already exists on the network. Change it and restart the computer.";
-    case NERR_CfgCompNotFound:              return "The specified component could not be found in the configuration information.";
-    case NERR_CfgParamNotFound:             return "The specified parameter could not be found in the configuration information.";
-    case NERR_LineTooLong:                  return "A line in the configuration file is too long.";
-    case NERR_QNotFound:                    return "The printer does not exist.";
-    case NERR_JobNotFound:                  return "The print job does not exist.";
-    case NERR_DestNotFound:                 return "The printer destination cannot be found.";
-    case NERR_DestExists:                   return "The printer destination already exists.";
-    case NERR_QExists:                      return "The printer queue already exists.";
-    case NERR_QNoRoom:                      return "No more printers can be added.";
-    case NERR_JobNoRoom:                    return "No more print jobs can be added.";
-    case NERR_DestNoRoom:                   return "No more printer destinations can be added.";
-    case NERR_DestIdle:                     return "This printer destination is idle and cannot accept control operations.";
-    case NERR_DestInvalidOp:                return "This printer destination request contains an invalid control function.";
-    case NERR_ProcNoRespond:                return "The print processor is not responding.";
-    case NERR_SpoolerNotLoaded:             return "The spooler is not running.";
-    case NERR_DestInvalidState:             return "This operation cannot be performed on the print destination in its current state.";
-    case NERR_QInvalidState:                return "This operation cannot be performed on the printer queue in its current state.";
-    case NERR_JobInvalidState:              return "This operation cannot be performed on the print job in its current state.";
-    case NERR_SpoolNoMemory:                return "A spooler memory allocation failure occurred.";
-    case NERR_DriverNotFound:               return "The device driver does not exist.";
-    case NERR_DataTypeInvalid:              return "The data type is not supported by the print processor.";
-    case NERR_ProcNotFound:                 return "The print processor is not installed.";
-    case NERR_ServiceTableLocked:           return "The service database is locked.";
-    case NERR_ServiceTableFull:             return "The service table is full.";
-    case NERR_ServiceInstalled:             return "The requested service has already been started.";
-    case NERR_ServiceEntryLocked:           return "The service does not respond to control actions.";
-    case NERR_ServiceNotInstalled:          return "The service has not been started.";
-    case NERR_BadServiceName:               return "The service name is invalid.";
-    case NERR_ServiceCtlTimeout:            return "The service is not responding to the control function.";
-    case NERR_ServiceCtlBusy:               return "The service control is busy.";
-    case NERR_BadServiceProgName:           return "The configuration file contains an invalid service program name.";
-    case NERR_ServiceNotCtrl:               return "The service could not be controlled in its present state.";
-    case NERR_ServiceKillProc:              return "The service ended abnormally.";
-    case NERR_ServiceCtlNotValid:           return "The requested pause or stop is not valid for this service.";
-    case NERR_NotInDispatchTbl:             return "The service control dispatcher could not find the service name in the dispatch table.";
-    case NERR_BadControlRecv:               return "The service control dispatcher pipe read failed.";
-    case NERR_ServiceNotStarting:           return "A thread for the new service could not be created.";
-    case NERR_AlreadyLoggedOn:              return "This workstation is already logged on to the local-area network.";
-    case NERR_NotLoggedOn:                  return "The workstation is not logged on to the local-area network.";
-    case NERR_BadUsername:                  return "The user name or group name parameter is invalid.";
-    case NERR_BadPassword:                  return "The password parameter is invalid.";
-    case NERR_UnableToAddName_W:            return "@W The logon processor did not add the message alias.";
-    case NERR_UnableToAddName_F:            return "The logon processor did not add the message alias.";
-    case NERR_UnableToDelName_W:            return "@W The logoff processor did not delete the message alias.";
-    case NERR_UnableToDelName_F:            return "The logoff processor did not delete the message alias.";
-    case NERR_LogonsPaused:                 return "Network logons are paused.";
-    case NERR_LogonServerConflict:          return "A centralized logon-server conflict occurred.";
-    case NERR_LogonNoUserPath:              return "The server is configured without a valid user path.";
-    case NERR_LogonScriptError:             return "An error occurred while loading or running the logon script.";
-    case NERR_StandaloneLogon:              return "The logon server was not specified. Your computer will be logged on as STANDALONE.";
-    case NERR_LogonServerNotFound:          return "The logon server could not be found.";
-    case NERR_LogonDomainExists:            return "There is already a logon domain for this computer.";
-    case NERR_NonValidatedLogon:            return "The logon server could not validate the logon.";
-    case NERR_ACFNotFound:                  return "The security database could not be found.";
-    case NERR_GroupNotFound:                return "The group name could not be found.";
-    case NERR_UserNotFound:                 return "The user name could not be found.";
-    case NERR_ResourceNotFound:             return "The resource name could not be found.";
-    case NERR_GroupExists:                  return "The group already exists.";
-    case NERR_UserExists:                   return "The user account already exists.";
-    case NERR_ResourceExists:               return "The resource permission list already exists.";
-    case NERR_NotPrimary:                   return "This operation is only allowed on the primary domain controller of the domain.";
-    case NERR_ACFNotLoaded:                 return "The security database has not been started.";
-    case NERR_ACFNoRoom:                    return "There are too many names in the user accounts database.";
-    case NERR_ACFFileIOFail:                return "A disk I/O failure occurred.";
-    case NERR_ACFTooManyLists:              return "The limit of 64 entries per resource was exceeded.";
-    case NERR_UserLogon:                    return "Deleting a user with a session is not allowed.";
-    case NERR_ACFNoParent:                  return "The parent directory could not be located.";
-    case NERR_CanNotGrowSegment:            return "Unable to add to the security database session cache segment.";
-    case NERR_SpeGroupOp:                   return "This operation is not allowed on this special group.";
-    case NERR_NotInCache:                   return "This user is not cached in user accounts database session cache.";
-    case NERR_UserInGroup:                  return "The user already belongs to this group.";
-    case NERR_UserNotInGroup:               return "The user does not belong to this group.";
-    case NERR_AccountUndefined:             return "This user account is undefined.";
-    case NERR_AccountExpired:               return "This user account has expired.";
-    case NERR_InvalidWorkstation:           return "The user is not allowed to log on from this workstation.";
-    case NERR_InvalidLogonHours:            return "The user is not allowed to log on at this time.";
-    case NERR_PasswordExpired:              return "The password of this user has expired.";
-    case NERR_PasswordCantChange:           return "The password of this user cannot change.";
-    case NERR_PasswordHistConflict:         return "This password cannot be used now.";
-    case NERR_PasswordTooShort:             return "The password does not meet the password policy requirements. Check the minimum password length, password complexity and password history requirements.";
-    case NERR_PasswordTooRecent:            return "The password of this user is too recent to change.";
-    case NERR_InvalidDatabase:              return "The security database is corrupted.";
-    case NERR_DatabaseUpToDate:             return "No updates are necessary to this replicant network/local security database.";
-    case NERR_SyncRequired:                 return "This replicant database is outdated; synchronization is required.";
-    case NERR_UseNotFound:                  return "The network connection could not be found.";
-    case NERR_BadAsgType:                   return "This asg_type is invalid.";
-    case NERR_DeviceIsShared:               return "This device is currently being shared.";
-    case NERR_NoComputerName:               return "The computer name could not be added as a message alias. The name may already exist on the network.";
-    case NERR_MsgAlreadyStarted:            return "The Messenger service is already started.";
-    case NERR_MsgInitFailed:                return "The Messenger service failed to start.";
-    case NERR_NameNotFound:                 return "The message alias could not be found on the network.";
-    case NERR_AlreadyForwarded:             return "This message alias has already been forwarded.";
-    case NERR_AddForwarded:                 return "This message alias has been added but is still forwarded.";
-    case NERR_AlreadyExists:                return "This message alias already exists locally.";
-    case NERR_TooManyNames:                 return "The maximum number of added message aliases has been exceeded.";
-    case NERR_DelComputerName:              return "The computer name could not be deleted.";
-    case NERR_LocalForward:                 return "Messages cannot be forwarded back to the same workstation.";
-    case NERR_GrpMsgProcessor:              return "An error occurred in the domain message processor.";
-    case NERR_PausedRemote:                 return "The message was sent, but the recipient has paused the Messenger service.";
-    case NERR_BadReceive:                   return "The message was sent but not received.";
-    case NERR_NameInUse:                    return "The message alias is currently in use. Try again later.";
-    case NERR_MsgNotStarted:                return "The Messenger service has not been started.";
-    case NERR_NotLocalName:                 return "The name is not on the local computer.";
-    case NERR_NoForwardName:                return "The forwarded message alias could not be found on the network.";
-    case NERR_RemoteFull:                   return "The message alias table on the remote station is full.";
-    case NERR_NameNotForwarded:             return "Messages for this alias are not currently being forwarded.";
-    case NERR_TruncatedBroadcast:           return "The broadcast message was truncated.";
-    case NERR_InvalidDevice:                return "This is an invalid device name.";
-    case NERR_WriteFault:                   return "A write fault occurred.";
-    case NERR_DuplicateName:                return "A duplicate message alias exists on the network.";
-    case NERR_DeleteLater:                  return "@W This message alias will be deleted later.";
-    case NERR_IncompleteDel:                return "The message alias was not successfully deleted from all networks.";
-    case NERR_MultipleNets:                 return "This operation is not supported on computers with multiple networks.";
-    case NERR_NetNameNotFound:              return "This shared resource does not exist.";
-    case NERR_DeviceNotShared:              return "This device is not shared.";
-    case NERR_ClientNameNotFound:           return "A session does not exist with that computer name.";
-    case NERR_FileIdNotFound:               return "There is not an open file with that identification number.";
-    case NERR_ExecFailure:                  return "A failure occurred when executing a remote administration command.";
-    case NERR_TmpFile:                      return "A failure occurred when opening a remote temporary file.";
-    case NERR_TooMuchData:                  return "The data returned from a remote administration command has been truncated to 64K.";
-    case NERR_DeviceShareConflict:          return "This device cannot be shared as both a spooled and a non-spooled resource.";
-    case NERR_BrowserTableIncomplete:       return "The information in the list of servers may be incorrect.";
-    case NERR_NotLocalDomain:               return "The computer is not active in this domain.";
+    case NERR_NetNotStarted:
+      return "The workstation driver is not installed.";
+    case NERR_UnknownServer:
+      return "The server could not be located.";
+    case NERR_ShareMem:
+      return "An internal error occurred. The network cannot access a shared memory segment.";
+    case NERR_NoNetworkResource:
+      return "A network resource shortage occurred.";
+    case NERR_RemoteOnly:
+      return "This operation is not supported on workstations.";
+    case NERR_DevNotRedirected:
+      return "The device is not connected.";
+    case NERR_ServerNotStarted:
+      return "The Server service is not started.";
+    case NERR_ItemNotFound:
+      return "The queue is empty.";
+    case NERR_UnknownDevDir:
+      return "The device or directory does not exist.";
+    case NERR_RedirectedPath:
+      return "The operation is invalid on a redirected resource.";
+    case NERR_DuplicateShare:
+      return "The name has already been shared.";
+    case NERR_NoRoom:
+      return "The server is currently out of the requested resource.";
+    case NERR_TooManyItems:
+      return "Requested addition of items exceeds the maximum allowed.";
+    case NERR_InvalidMaxUsers:
+      return "The Peer service supports only two simultaneous users.";
+    case NERR_BufTooSmall:
+      return "The API return buffer is too small.";
+    case NERR_RemoteErr:
+      return "A remote API error occurred.";
+    case NERR_LanmanIniError:
+      return "An error occurred when opening or reading the configuration file.";
+    case NERR_NetworkError:
+      return "A general network error occurred.";
+    case NERR_WkstaInconsistentState:
+      return "The Workstation service is in an inconsistent state. Restart the computer before restarting the Workstation service.";
+    case NERR_WkstaNotStarted:
+      return "The Workstation service has not been started.";
+    case NERR_BrowserNotStarted:
+      return "The requested information is not available.";
+    case NERR_InternalError:
+      return "An internal error occurred.";
+    case NERR_BadTransactConfig:
+      return "The server is not configured for transactions.";
+    case NERR_InvalidAPI:
+      return "The requested API is not supported on the remote server.";
+    case NERR_BadEventName:
+      return "The event name is invalid.";
+    case NERR_DupNameReboot:
+      return "The computer name already exists on the network. Change it and restart the computer.";
+    case NERR_CfgCompNotFound:
+      return "The specified component could not be found in the configuration information.";
+    case NERR_CfgParamNotFound:
+      return "The specified parameter could not be found in the configuration information.";
+    case NERR_LineTooLong:
+      return "A line in the configuration file is too long.";
+    case NERR_QNotFound:
+      return "The printer does not exist.";
+    case NERR_JobNotFound:
+      return "The print job does not exist.";
+    case NERR_DestNotFound:
+      return "The printer destination cannot be found.";
+    case NERR_DestExists:
+      return "The printer destination already exists.";
+    case NERR_QExists:
+      return "The printer queue already exists.";
+    case NERR_QNoRoom:
+      return "No more printers can be added.";
+    case NERR_JobNoRoom:
+      return "No more print jobs can be added.";
+    case NERR_DestNoRoom:
+      return "No more printer destinations can be added.";
+    case NERR_DestIdle:
+      return "This printer destination is idle and cannot accept control operations.";
+    case NERR_DestInvalidOp:
+      return "This printer destination request contains an invalid control function.";
+    case NERR_ProcNoRespond:
+      return "The print processor is not responding.";
+    case NERR_SpoolerNotLoaded:
+      return "The spooler is not running.";
+    case NERR_DestInvalidState:
+      return "This operation cannot be performed on the print destination in its current state.";
+    case NERR_QInvalidState:
+      return "This operation cannot be performed on the printer queue in its current state.";
+    case NERR_JobInvalidState:
+      return "This operation cannot be performed on the print job in its current state.";
+    case NERR_SpoolNoMemory:
+      return "A spooler memory allocation failure occurred.";
+    case NERR_DriverNotFound:
+      return "The device driver does not exist.";
+    case NERR_DataTypeInvalid:
+      return "The data type is not supported by the print processor.";
+    case NERR_ProcNotFound:
+      return "The print processor is not installed.";
+    case NERR_ServiceTableLocked:
+      return "The service database is locked.";
+    case NERR_ServiceTableFull:
+      return "The service table is full.";
+    case NERR_ServiceInstalled:
+      return "The requested service has already been started.";
+    case NERR_ServiceEntryLocked:
+      return "The service does not respond to control actions.";
+    case NERR_ServiceNotInstalled:
+      return "The service has not been started.";
+    case NERR_BadServiceName:
+      return "The service name is invalid.";
+    case NERR_ServiceCtlTimeout:
+      return "The service is not responding to the control function.";
+    case NERR_ServiceCtlBusy:
+      return "The service control is busy.";
+    case NERR_BadServiceProgName:
+      return "The configuration file contains an invalid service program name.";
+    case NERR_ServiceNotCtrl:
+      return "The service could not be controlled in its present state.";
+    case NERR_ServiceKillProc:
+      return "The service ended abnormally.";
+    case NERR_ServiceCtlNotValid:
+      return "The requested pause or stop is not valid for this service.";
+    case NERR_NotInDispatchTbl:
+      return "The service control dispatcher could not find the service name in the dispatch table.";
+    case NERR_BadControlRecv:
+      return "The service control dispatcher pipe read failed.";
+    case NERR_ServiceNotStarting:
+      return "A thread for the new service could not be created.";
+    case NERR_AlreadyLoggedOn:
+      return "This workstation is already logged on to the local-area network.";
+    case NERR_NotLoggedOn:
+      return "The workstation is not logged on to the local-area network.";
+    case NERR_BadUsername:
+      return "The user name or group name parameter is invalid.";
+    case NERR_BadPassword:
+      return "The password parameter is invalid.";
+    case NERR_UnableToAddName_W:
+      return "@W The logon processor did not add the message alias.";
+    case NERR_UnableToAddName_F:
+      return "The logon processor did not add the message alias.";
+    case NERR_UnableToDelName_W:
+      return "@W The logoff processor did not delete the message alias.";
+    case NERR_UnableToDelName_F:
+      return "The logoff processor did not delete the message alias.";
+    case NERR_LogonsPaused:
+      return "Network logons are paused.";
+    case NERR_LogonServerConflict:
+      return "A centralized logon-server conflict occurred.";
+    case NERR_LogonNoUserPath:
+      return "The server is configured without a valid user path.";
+    case NERR_LogonScriptError:
+      return "An error occurred while loading or running the logon script.";
+    case NERR_StandaloneLogon:
+      return "The logon server was not specified. Your computer will be logged on as STANDALONE.";
+    case NERR_LogonServerNotFound:
+      return "The logon server could not be found.";
+    case NERR_LogonDomainExists:
+      return "There is already a logon domain for this computer.";
+    case NERR_NonValidatedLogon:
+      return "The logon server could not validate the logon.";
+    case NERR_ACFNotFound:
+      return "The security database could not be found.";
+    case NERR_GroupNotFound:
+      return "The group name could not be found.";
+    case NERR_UserNotFound:
+      return "The user name could not be found.";
+    case NERR_ResourceNotFound:
+      return "The resource name could not be found.";
+    case NERR_GroupExists:
+      return "The group already exists.";
+    case NERR_UserExists:
+      return "The user account already exists.";
+    case NERR_ResourceExists:
+      return "The resource permission list already exists.";
+    case NERR_NotPrimary:
+      return "This operation is only allowed on the primary domain controller of the domain.";
+    case NERR_ACFNotLoaded:
+      return "The security database has not been started.";
+    case NERR_ACFNoRoom:
+      return "There are too many names in the user accounts database.";
+    case NERR_ACFFileIOFail:
+      return "A disk I/O failure occurred.";
+    case NERR_ACFTooManyLists:
+      return "The limit of 64 entries per resource was exceeded.";
+    case NERR_UserLogon:
+      return "Deleting a user with a session is not allowed.";
+    case NERR_ACFNoParent:
+      return "The parent directory could not be located.";
+    case NERR_CanNotGrowSegment:
+      return "Unable to add to the security database session cache segment.";
+    case NERR_SpeGroupOp:
+      return "This operation is not allowed on this special group.";
+    case NERR_NotInCache:
+      return "This user is not cached in user accounts database session cache.";
+    case NERR_UserInGroup:
+      return "The user already belongs to this group.";
+    case NERR_UserNotInGroup:
+      return "The user does not belong to this group.";
+    case NERR_AccountUndefined:
+      return "This user account is undefined.";
+    case NERR_AccountExpired:
+      return "This user account has expired.";
+    case NERR_InvalidWorkstation:
+      return "The user is not allowed to log on from this workstation.";
+    case NERR_InvalidLogonHours:
+      return "The user is not allowed to log on at this time.";
+    case NERR_PasswordExpired:
+      return "The password of this user has expired.";
+    case NERR_PasswordCantChange:
+      return "The password of this user cannot change.";
+    case NERR_PasswordHistConflict:
+      return "This password cannot be used now.";
+    case NERR_PasswordTooShort:
+      return "The password does not meet the password policy requirements. Check the minimum password length, password complexity and password history requirements.";
+    case NERR_PasswordTooRecent:
+      return "The password of this user is too recent to change.";
+    case NERR_InvalidDatabase:
+      return "The security database is corrupted.";
+    case NERR_DatabaseUpToDate:
+      return "No updates are necessary to this replicant network/local security database.";
+    case NERR_SyncRequired:
+      return "This replicant database is outdated; synchronization is required.";
+    case NERR_UseNotFound:
+      return "The network connection could not be found.";
+    case NERR_BadAsgType:
+      return "This asg_type is invalid.";
+    case NERR_DeviceIsShared:
+      return "This device is currently being shared.";
+    case NERR_NoComputerName:
+      return "The computer name could not be added as a message alias. The name may already exist on the network.";
+    case NERR_MsgAlreadyStarted:
+      return "The Messenger service is already started.";
+    case NERR_MsgInitFailed:
+      return "The Messenger service failed to start.";
+    case NERR_NameNotFound:
+      return "The message alias could not be found on the network.";
+    case NERR_AlreadyForwarded:
+      return "This message alias has already been forwarded.";
+    case NERR_AddForwarded:
+      return "This message alias has been added but is still forwarded.";
+    case NERR_AlreadyExists:
+      return "This message alias already exists locally.";
+    case NERR_TooManyNames:
+      return "The maximum number of added message aliases has been exceeded.";
+    case NERR_DelComputerName:
+      return "The computer name could not be deleted.";
+    case NERR_LocalForward:
+      return "Messages cannot be forwarded back to the same workstation.";
+    case NERR_GrpMsgProcessor:
+      return "An error occurred in the domain message processor.";
+    case NERR_PausedRemote:
+      return "The message was sent, but the recipient has paused the Messenger service.";
+    case NERR_BadReceive:
+      return "The message was sent but not received.";
+    case NERR_NameInUse:
+      return "The message alias is currently in use. Try again later.";
+    case NERR_MsgNotStarted:
+      return "The Messenger service has not been started.";
+    case NERR_NotLocalName:
+      return "The name is not on the local computer.";
+    case NERR_NoForwardName:
+      return "The forwarded message alias could not be found on the network.";
+    case NERR_RemoteFull:
+      return "The message alias table on the remote station is full.";
+    case NERR_NameNotForwarded:
+      return "Messages for this alias are not currently being forwarded.";
+    case NERR_TruncatedBroadcast:
+      return "The broadcast message was truncated.";
+    case NERR_InvalidDevice:
+      return "This is an invalid device name.";
+    case NERR_WriteFault:
+      return "A write fault occurred.";
+    case NERR_DuplicateName:
+      return "A duplicate message alias exists on the network.";
+    case NERR_DeleteLater:
+      return "@W This message alias will be deleted later.";
+    case NERR_IncompleteDel:
+      return "The message alias was not successfully deleted from all networks.";
+    case NERR_MultipleNets:
+      return "This operation is not supported on computers with multiple networks.";
+    case NERR_NetNameNotFound:
+      return "This shared resource does not exist.";
+    case NERR_DeviceNotShared:
+      return "This device is not shared.";
+    case NERR_ClientNameNotFound:
+      return "A session does not exist with that computer name.";
+    case NERR_FileIdNotFound:
+      return "There is not an open file with that identification number.";
+    case NERR_ExecFailure:
+      return "A failure occurred when executing a remote administration command.";
+    case NERR_TmpFile:
+      return "A failure occurred when opening a remote temporary file.";
+    case NERR_TooMuchData:
+      return "The data returned from a remote administration command has been truncated to 64K.";
+    case NERR_DeviceShareConflict:
+      return "This device cannot be shared as both a spooled and a non-spooled resource.";
+    case NERR_BrowserTableIncomplete:
+      return "The information in the list of servers may be incorrect.";
+    case NERR_NotLocalDomain:
+      return "The computer is not active in this domain.";
 #ifdef NERR_IsDfsShare
-    case NERR_IsDfsShare:                   return "The share must be removed from the Distributed File System before it can be deleted.";
+
+    case NERR_IsDfsShare:
+      return "The share must be removed from the Distributed File System before it can be deleted.";
 #endif
-    case NERR_DevInvalidOpCode:             return "The operation is invalid for this device.";
-    case NERR_DevNotFound:                  return "This device cannot be shared.";
-    case NERR_DevNotOpen:                   return "This device was not open.";
-    case NERR_BadQueueDevString:            return "This device name list is invalid.";
-    case NERR_BadQueuePriority:             return "The queue priority is invalid.";
-    case NERR_NoCommDevs:                   return "There are no shared communication devices.";
-    case NERR_QueueNotFound:                return "The queue you specified does not exist.";
-    case NERR_BadDevString:                 return "This list of devices is invalid.";
-    case NERR_BadDev:                       return "The requested device is invalid.";
-    case NERR_InUseBySpooler:               return "This device is already in use by the spooler.";
-    case NERR_CommDevInUse:                 return "This device is already in use as a communication device.";
-    case NERR_InvalidComputer:              return "This computer name is invalid.";
-    case NERR_MaxLenExceeded:               return "The string and prefix specified are too long.";
-    case NERR_BadComponent:                 return "This path component is invalid.";
-    case NERR_CantType:                     return "Could not determine the type of input.";
-    case NERR_TooManyEntries:               return "The buffer for types is not big enough.";
-    case NERR_ProfileFileTooBig:            return "Profile files cannot exceed 64K.";
-    case NERR_ProfileOffset:                return "The start offset is out of range.";
-    case NERR_ProfileCleanup:               return "The system cannot delete current connections to network resources.";
-    case NERR_ProfileUnknownCmd:            return "The system was unable to parse the command line in this file.";
-    case NERR_ProfileLoadErr:               return "An error occurred while loading the profile file.";
-    case NERR_ProfileSaveErr:               return "@W Errors occurred while saving the profile file. The profile was partially saved.";
-    case NERR_LogOverflow:                  return "Log file %1 is full.";
-    case NERR_LogFileChanged:               return "This log file has changed between reads.";
-    case NERR_LogFileCorrupt:               return "Log file %1 is corrupt.";
-    case NERR_SourceIsDir:                  return "The source path cannot be a directory.";
-    case NERR_BadSource:                    return "The source path is illegal.";
-    case NERR_BadDest:                      return "The destination path is illegal.";
-    case NERR_DifferentServers:             return "The source and destination paths are on different servers.";
-    case NERR_RunSrvPaused:                 return "The Run server you requested is paused.";
-    case NERR_ErrCommRunSrv:                return "An error occurred when communicating with a Run server.";
-    case NERR_ErrorExecingGhost:            return "An error occurred when starting a background process.";
-    case NERR_ShareNotFound:                return "The shared resource you are connected to could not be found.";
-    case NERR_InvalidLana:                  return "The LAN adapter number is invalid.";
-    case NERR_OpenFiles:                    return "There are open files on the connection.";
-    case NERR_ActiveConns:                  return "Active connections still exist.";
-    case NERR_BadPasswordCore:              return "This share name or password is invalid.";
-    case NERR_DevInUse:                     return "The device is being accessed by an active process.";
-    case NERR_LocalDrive:                   return "The drive letter is in use locally.";
-    case NERR_AlertExists:                  return "The specified client is already registered for the specified event.";
-    case NERR_TooManyAlerts:                return "The alert table is full.";
-    case NERR_NoSuchAlert:                  return "An invalid or nonexistent alert name was raised.";
-    case NERR_BadRecipient:                 return "The alert recipient is invalid.";
-    case NERR_AcctLimitExceeded:            return "A user's session with this server has been deleted.";
-    case NERR_InvalidLogSeek:               return "The log file does not contain the requested record number.";
-    case NERR_BadUasConfig:                 return "The user accounts database is not configured correctly.";
-    case NERR_InvalidUASOp:                 return "This operation is not permitted when the Netlogon service is running.";
-    case NERR_LastAdmin:                    return "This operation is not allowed on the last administrative account.";
-    case NERR_DCNotFound:                   return "Could not find domain controller for this domain.";
-    case NERR_LogonTrackingError:           return "Could not set logon information for this user.";
-    case NERR_NetlogonNotStarted:           return "The Netlogon service has not been started.";
-    case NERR_CanNotGrowUASFile:            return "Unable to add to the user accounts database.";
-    case NERR_TimeDiffAtDC:                 return "This server's clock is not synchronized with the primary domain controller's clock.";
-    case NERR_PasswordMismatch:             return "A password mismatch has been detected.";
-    case NERR_NoSuchServer:                 return "The server identification does not specify a valid server.";
-    case NERR_NoSuchSession:                return "The session identification does not specify a valid session.";
-    case NERR_NoSuchConnection:             return "The connection identification does not specify a valid connection.";
-    case NERR_TooManyServers:               return "There is no space for another entry in the table of available servers.";
-    case NERR_TooManySessions:              return "The server has reached the maximum number of sessions it supports.";
-    case NERR_TooManyConnections:           return "The server has reached the maximum number of connections it supports.";
-    case NERR_TooManyFiles:                 return "The server cannot open more files because it has reached its maximum number.";
-    case NERR_NoAlternateServers:           return "There are no alternate servers registered on this server.";
-    case NERR_TryDownLevel:                 return "Try down-level (remote admin protocol) version of API instead.";
-    case NERR_UPSDriverNotStarted:          return "The UPS driver could not be accessed by the UPS service.";
-    case NERR_UPSInvalidConfig:             return "The UPS service is not configured correctly.";
-    case NERR_UPSInvalidCommPort:           return "The UPS service could not access the specified Comm Port.";
-    case NERR_UPSSignalAsserted:            return "The UPS indicated a line fail or low battery situation. Service not started.";
-    case NERR_UPSShutdownFailed:            return "The UPS service failed to perform a system shut down.";
-    case NERR_BadDosRetCode:                return "The program below returned an MS-DOS error code:";
-    case NERR_ProgNeedsExtraMem:            return "The program below needs more memory:";                                                      
-    case NERR_BadDosFunction:               return "The program below called an unsupported MS-DOS function:";
-    case NERR_RemoteBootFailed:             return "The workstation failed to boot.";
-    case NERR_BadFileCheckSum:              return "The file below is corrupt.";
-    case NERR_NoRplBootSystem:              return "No loader is specified in the boot-block definition file.";
-    case NERR_RplLoadrNetBiosErr:           return "NetBIOS returned an error:      The NCB and SMB are dumped above.";
-    case NERR_RplLoadrDiskErr:              return "A disk I/O error occurred.";
-    case NERR_ImageParamErr:                return "Image parameter substitution failed.";
-    case NERR_TooManyImageParams:           return "Too many image parameters cross disk sector boundaries.";
-    case NERR_NonDosFloppyUsed:             return "The image was not generated from an MS-DOS diskette formatted with /S.";
-    case NERR_RplBootRestart:               return "Remote boot will be restarted later.";
-    case NERR_RplSrvrCallFailed:            return "The call to the Remoteboot server failed.";
-    case NERR_CantConnectRplSrvr:           return "Cannot connect to the Remoteboot server.";
-    case NERR_CantOpenImageFile:            return "Cannot open image file on the Remoteboot server.";
-    case NERR_CallingRplSrvr:               return "Connecting to the Remoteboot server...";
-    case NERR_StartingRplBoot:              return "Connecting to the Remoteboot server...";
-    case NERR_RplBootServiceTerm:           return "Remote boot service was stopped; check the error log for the cause of the problem.";
-    case NERR_RplBootStartFailed:           return "Remote boot startup failed; check the error log for the cause of the problem.";
-    case NERR_RPL_CONNECTED:                return "A second connection to a Remoteboot resource is not allowed.";
-    case NERR_BrowserConfiguredToNotRun:    return "The browser service was configured with MaintainServerList=No.";
-    case NERR_RplNoAdaptersStarted:         return "Service failed to start since none of the network adapters started with this service.";
-    case NERR_RplBadRegistry:               return "Service failed to start due to bad startup information in the registry.";
-    case NERR_RplBadDatabase:               return "Service failed to start because its database is absent or corrupt.";
-    case NERR_RplRplfilesShare:             return "Service failed to start because RPLFILES share is absent.";
-    case NERR_RplNotRplServer:              return "Service failed to start because RPLUSER group is absent.";
-    case NERR_RplCannotEnum:                return "Cannot enumerate service records.";
-    case NERR_RplWkstaInfoCorrupted:        return "Workstation record information has been corrupted.";
-    case NERR_RplWkstaNotFound:             return "Workstation record was not found.";
-    case NERR_RplWkstaNameUnavailable:      return "Workstation name is in use by some other workstation.";
-    case NERR_RplProfileInfoCorrupted:      return "Profile record information has been corrupted.";
-    case NERR_RplProfileNotFound:           return "Profile record was not found.";
-    case NERR_RplProfileNameUnavailable:    return "Profile name is in use by some other profile.";
-    case NERR_RplProfileNotEmpty:           return "There are workstations using this profile.";
-    case NERR_RplConfigInfoCorrupted:       return "Configuration record information has been corrupted.";
-    case NERR_RplConfigNotFound:            return "Configuration record was not found.";
-    case NERR_RplAdapterInfoCorrupted:      return "Adapter ID record information has been corrupted.";
-    case NERR_RplInternal:                  return "An internal service error has occurred.";
-    case NERR_RplVendorInfoCorrupted:       return "Vendor ID record information has been corrupted.";
-    case NERR_RplBootInfoCorrupted:         return "Boot block record information has been corrupted.";
-    case NERR_RplWkstaNeedsUserAcct:        return "The user account for this workstation record is missing.";
-    case NERR_RplNeedsRPLUSERAcct:          return "The RPLUSER local group could not be found.";
-    case NERR_RplBootNotFound:              return "Boot block record was not found.";
-    case NERR_RplIncompatibleProfile:       return "Chosen profile is incompatible with this workstation.";
-    case NERR_RplAdapterNameUnavailable:    return "Chosen network adapter ID is in use by some other workstation.";
-    case NERR_RplConfigNotEmpty:            return "There are profiles using this configuration.";
-    case NERR_RplBootInUse:                 return "There are workstations, profiles, or configurations using this boot block.";
-    case NERR_RplBackupDatabase:            return "Service failed to backup Remoteboot database.";
-    case NERR_RplAdapterNotFound:           return "Adapter record was not found.";
-    case NERR_RplVendorNotFound:            return "Vendor record was not found.";
-    case NERR_RplVendorNameUnavailable:     return "Vendor name is in use by some other vendor record.";
-    case NERR_RplBootNameUnavailable:       return "(boot name, vendor ID) is in use by some other boot block record.";
-    case NERR_RplConfigNameUnavailable:     return "Configuration name is in use by some other configuration.";
-    case NERR_DfsInternalCorruption:        return "The internal database maintained by the Dfs service is corrupt.";
-    case NERR_DfsVolumeDataCorrupt:         return "One of the records in the internal Dfs database is corrupt.";
-    case NERR_DfsNoSuchVolume:              return "There is no DFS name whose entry path matches the input Entry Path.";
-    case NERR_DfsVolumeAlreadyExists:       return "A root or link with the given name already exists.";
-    case NERR_DfsAlreadyShared:             return "The server share specified is already shared in the Dfs.";
-    case NERR_DfsNoSuchShare:               return "The indicated server share does not support the indicated DFS namespace.";
-    case NERR_DfsNotALeafVolume:            return "The operation is not valid on this portion of the namespace.";
-    case NERR_DfsLeafVolume:                return "The operation is not valid on this portion of the namespace.";
-    case NERR_DfsVolumeHasMultipleServers:  return "The operation is ambiguous because the link has multiple servers.";
-    case NERR_DfsCantCreateJunctionPoint:   return "Unable to create a link.";
-    case NERR_DfsServerNotDfsAware:         return "The server is not Dfs Aware.";
-    case NERR_DfsBadRenamePath:             return "The specified rename target path is invalid.";
-    case NERR_DfsVolumeIsOffline:           return "The specified DFS link is offline.";
-    case NERR_DfsNoSuchServer:              return "The specified server is not a server for this link.";
-    case NERR_DfsCyclicalName:              return "A cycle in the Dfs name was detected.";
-    case NERR_DfsNotSupportedInServerDfs:   return "The operation is not supported on a server-based Dfs.";
-    case NERR_DfsDuplicateService:          return "This link is already supported by the specified server-share.";
-    case NERR_DfsCantRemoveLastServerShare: return "Can't remove the last server-share supporting this root or link.";
-    case NERR_DfsVolumeIsInterDfs:          return "The operation is not supported for an Inter-DFS link.";
-    case NERR_DfsInconsistent:              return "The internal state of the Dfs Service has become inconsistent.";
-    case NERR_DfsServerUpgraded:            return "The Dfs Service has been installed on the specified server.";
-    case NERR_DfsDataIsIdentical:           return "The Dfs data being reconciled is identical.";
-    case NERR_DfsCantRemoveDfsRoot:         return "The DFS root cannot be deleted. Uninstall DFS if required.";
-    case NERR_DfsChildOrParentInDfs:        return "A child or parent directory of the share is already in a Dfs.";
-    case NERR_DfsInternalError:             return "Dfs internal error.";
-/* the following are not defined in mingw */
+
+    case NERR_DevInvalidOpCode:
+      return "The operation is invalid for this device.";
+    case NERR_DevNotFound:
+      return "This device cannot be shared.";
+    case NERR_DevNotOpen:
+      return "This device was not open.";
+    case NERR_BadQueueDevString:
+      return "This device name list is invalid.";
+    case NERR_BadQueuePriority:
+      return "The queue priority is invalid.";
+    case NERR_NoCommDevs:
+      return "There are no shared communication devices.";
+    case NERR_QueueNotFound:
+      return "The queue you specified does not exist.";
+    case NERR_BadDevString:
+      return "This list of devices is invalid.";
+    case NERR_BadDev:
+      return "The requested device is invalid.";
+    case NERR_InUseBySpooler:
+      return "This device is already in use by the spooler.";
+    case NERR_CommDevInUse:
+      return "This device is already in use as a communication device.";
+    case NERR_InvalidComputer:
+      return "This computer name is invalid.";
+    case NERR_MaxLenExceeded:
+      return "The string and prefix specified are too long.";
+    case NERR_BadComponent:
+      return "This path component is invalid.";
+    case NERR_CantType:
+      return "Could not determine the type of input.";
+    case NERR_TooManyEntries:
+      return "The buffer for types is not big enough.";
+    case NERR_ProfileFileTooBig:
+      return "Profile files cannot exceed 64K.";
+    case NERR_ProfileOffset:
+      return "The start offset is out of range.";
+    case NERR_ProfileCleanup:
+      return "The system cannot delete current connections to network resources.";
+    case NERR_ProfileUnknownCmd:
+      return "The system was unable to parse the command line in this file.";
+    case NERR_ProfileLoadErr:
+      return "An error occurred while loading the profile file.";
+    case NERR_ProfileSaveErr:
+      return "@W Errors occurred while saving the profile file. The profile was partially saved.";
+    case NERR_LogOverflow:
+      return "Log file %1 is full.";
+    case NERR_LogFileChanged:
+      return "This log file has changed between reads.";
+    case NERR_LogFileCorrupt:
+      return "Log file %1 is corrupt.";
+    case NERR_SourceIsDir:
+      return "The source path cannot be a directory.";
+    case NERR_BadSource:
+      return "The source path is illegal.";
+    case NERR_BadDest:
+      return "The destination path is illegal.";
+    case NERR_DifferentServers:
+      return "The source and destination paths are on different servers.";
+    case NERR_RunSrvPaused:
+      return "The Run server you requested is paused.";
+    case NERR_ErrCommRunSrv:
+      return "An error occurred when communicating with a Run server.";
+    case NERR_ErrorExecingGhost:
+      return "An error occurred when starting a background process.";
+    case NERR_ShareNotFound:
+      return "The shared resource you are connected to could not be found.";
+    case NERR_InvalidLana:
+      return "The LAN adapter number is invalid.";
+    case NERR_OpenFiles:
+      return "There are open files on the connection.";
+    case NERR_ActiveConns:
+      return "Active connections still exist.";
+    case NERR_BadPasswordCore:
+      return "This share name or password is invalid.";
+    case NERR_DevInUse:
+      return "The device is being accessed by an active process.";
+    case NERR_LocalDrive:
+      return "The drive letter is in use locally.";
+    case NERR_AlertExists:
+      return "The specified client is already registered for the specified event.";
+    case NERR_TooManyAlerts:
+      return "The alert table is full.";
+    case NERR_NoSuchAlert:
+      return "An invalid or nonexistent alert name was raised.";
+    case NERR_BadRecipient:
+      return "The alert recipient is invalid.";
+    case NERR_AcctLimitExceeded:
+      return "A user's session with this server has been deleted.";
+    case NERR_InvalidLogSeek:
+      return "The log file does not contain the requested record number.";
+    case NERR_BadUasConfig:
+      return "The user accounts database is not configured correctly.";
+    case NERR_InvalidUASOp:
+      return "This operation is not permitted when the Netlogon service is running.";
+    case NERR_LastAdmin:
+      return "This operation is not allowed on the last administrative account.";
+    case NERR_DCNotFound:
+      return "Could not find domain controller for this domain.";
+    case NERR_LogonTrackingError:
+      return "Could not set logon information for this user.";
+    case NERR_NetlogonNotStarted:
+      return "The Netlogon service has not been started.";
+    case NERR_CanNotGrowUASFile:
+      return "Unable to add to the user accounts database.";
+    case NERR_TimeDiffAtDC:
+      return "This server's clock is not synchronized with the primary domain controller's clock.";
+    case NERR_PasswordMismatch:
+      return "A password mismatch has been detected.";
+    case NERR_NoSuchServer:
+      return "The server identification does not specify a valid server.";
+    case NERR_NoSuchSession:
+      return "The session identification does not specify a valid session.";
+    case NERR_NoSuchConnection:
+      return "The connection identification does not specify a valid connection.";
+    case NERR_TooManyServers:
+      return "There is no space for another entry in the table of available servers.";
+    case NERR_TooManySessions:
+      return "The server has reached the maximum number of sessions it supports.";
+    case NERR_TooManyConnections:
+      return "The server has reached the maximum number of connections it supports.";
+    case NERR_TooManyFiles:
+      return "The server cannot open more files because it has reached its maximum number.";
+    case NERR_NoAlternateServers:
+      return "There are no alternate servers registered on this server.";
+    case NERR_TryDownLevel:
+      return "Try down-level (remote admin protocol) version of API instead.";
+    case NERR_UPSDriverNotStarted:
+      return "The UPS driver could not be accessed by the UPS service.";
+    case NERR_UPSInvalidConfig:
+      return "The UPS service is not configured correctly.";
+    case NERR_UPSInvalidCommPort:
+      return "The UPS service could not access the specified Comm Port.";
+    case NERR_UPSSignalAsserted:
+      return "The UPS indicated a line fail or low battery situation. Service not started.";
+    case NERR_UPSShutdownFailed:
+      return "The UPS service failed to perform a system shut down.";
+    case NERR_BadDosRetCode:
+      return "The program below returned an MS-DOS error code:";
+    case NERR_ProgNeedsExtraMem:
+      return "The program below needs more memory:";
+    case NERR_BadDosFunction:
+      return "The program below called an unsupported MS-DOS function:";
+    case NERR_RemoteBootFailed:
+      return "The workstation failed to boot.";
+    case NERR_BadFileCheckSum:
+      return "The file below is corrupt.";
+    case NERR_NoRplBootSystem:
+      return "No loader is specified in the boot-block definition file.";
+    case NERR_RplLoadrNetBiosErr:
+      return "NetBIOS returned an error:      The NCB and SMB are dumped above.";
+    case NERR_RplLoadrDiskErr:
+      return "A disk I/O error occurred.";
+    case NERR_ImageParamErr:
+      return "Image parameter substitution failed.";
+    case NERR_TooManyImageParams:
+      return "Too many image parameters cross disk sector boundaries.";
+    case NERR_NonDosFloppyUsed:
+      return "The image was not generated from an MS-DOS diskette formatted with /S.";
+    case NERR_RplBootRestart:
+      return "Remote boot will be restarted later.";
+    case NERR_RplSrvrCallFailed:
+      return "The call to the Remoteboot server failed.";
+    case NERR_CantConnectRplSrvr:
+      return "Cannot connect to the Remoteboot server.";
+    case NERR_CantOpenImageFile:
+      return "Cannot open image file on the Remoteboot server.";
+    case NERR_CallingRplSrvr:
+      return "Connecting to the Remoteboot server...";
+    case NERR_StartingRplBoot:
+      return "Connecting to the Remoteboot server...";
+    case NERR_RplBootServiceTerm:
+      return "Remote boot service was stopped; check the error log for the cause of the problem.";
+    case NERR_RplBootStartFailed:
+      return "Remote boot startup failed; check the error log for the cause of the problem.";
+    case NERR_RPL_CONNECTED:
+      return "A second connection to a Remoteboot resource is not allowed.";
+    case NERR_BrowserConfiguredToNotRun:
+      return "The browser service was configured with MaintainServerList=No.";
+    case NERR_RplNoAdaptersStarted:
+      return "Service failed to start since none of the network adapters started with this service.";
+    case NERR_RplBadRegistry:
+      return "Service failed to start due to bad startup information in the registry.";
+    case NERR_RplBadDatabase:
+      return "Service failed to start because its database is absent or corrupt.";
+    case NERR_RplRplfilesShare:
+      return "Service failed to start because RPLFILES share is absent.";
+    case NERR_RplNotRplServer:
+      return "Service failed to start because RPLUSER group is absent.";
+    case NERR_RplCannotEnum:
+      return "Cannot enumerate service records.";
+    case NERR_RplWkstaInfoCorrupted:
+      return "Workstation record information has been corrupted.";
+    case NERR_RplWkstaNotFound:
+      return "Workstation record was not found.";
+    case NERR_RplWkstaNameUnavailable:
+      return "Workstation name is in use by some other workstation.";
+    case NERR_RplProfileInfoCorrupted:
+      return "Profile record information has been corrupted.";
+    case NERR_RplProfileNotFound:
+      return "Profile record was not found.";
+    case NERR_RplProfileNameUnavailable:
+      return "Profile name is in use by some other profile.";
+    case NERR_RplProfileNotEmpty:
+      return "There are workstations using this profile.";
+    case NERR_RplConfigInfoCorrupted:
+      return "Configuration record information has been corrupted.";
+    case NERR_RplConfigNotFound:
+      return "Configuration record was not found.";
+    case NERR_RplAdapterInfoCorrupted:
+      return "Adapter ID record information has been corrupted.";
+    case NERR_RplInternal:
+      return "An internal service error has occurred.";
+    case NERR_RplVendorInfoCorrupted:
+      return "Vendor ID record information has been corrupted.";
+    case NERR_RplBootInfoCorrupted:
+      return "Boot block record information has been corrupted.";
+    case NERR_RplWkstaNeedsUserAcct:
+      return "The user account for this workstation record is missing.";
+    case NERR_RplNeedsRPLUSERAcct:
+      return "The RPLUSER local group could not be found.";
+    case NERR_RplBootNotFound:
+      return "Boot block record was not found.";
+    case NERR_RplIncompatibleProfile:
+      return "Chosen profile is incompatible with this workstation.";
+    case NERR_RplAdapterNameUnavailable:
+      return "Chosen network adapter ID is in use by some other workstation.";
+    case NERR_RplConfigNotEmpty:
+      return "There are profiles using this configuration.";
+    case NERR_RplBootInUse:
+      return "There are workstations, profiles, or configurations using this boot block.";
+    case NERR_RplBackupDatabase:
+      return "Service failed to backup Remoteboot database.";
+    case NERR_RplAdapterNotFound:
+      return "Adapter record was not found.";
+    case NERR_RplVendorNotFound:
+      return "Vendor record was not found.";
+    case NERR_RplVendorNameUnavailable:
+      return "Vendor name is in use by some other vendor record.";
+    case NERR_RplBootNameUnavailable:
+      return "(boot name, vendor ID) is in use by some other boot block record.";
+    case NERR_RplConfigNameUnavailable:
+      return "Configuration name is in use by some other configuration.";
+    case NERR_DfsInternalCorruption:
+      return "The internal database maintained by the Dfs service is corrupt.";
+    case NERR_DfsVolumeDataCorrupt:
+      return "One of the records in the internal Dfs database is corrupt.";
+    case NERR_DfsNoSuchVolume:
+      return "There is no DFS name whose entry path matches the input Entry Path.";
+    case NERR_DfsVolumeAlreadyExists:
+      return "A root or link with the given name already exists.";
+    case NERR_DfsAlreadyShared:
+      return "The server share specified is already shared in the Dfs.";
+    case NERR_DfsNoSuchShare:
+      return "The indicated server share does not support the indicated DFS namespace.";
+    case NERR_DfsNotALeafVolume:
+      return "The operation is not valid on this portion of the namespace.";
+    case NERR_DfsLeafVolume:
+      return "The operation is not valid on this portion of the namespace.";
+    case NERR_DfsVolumeHasMultipleServers:
+      return "The operation is ambiguous because the link has multiple servers.";
+    case NERR_DfsCantCreateJunctionPoint:
+      return "Unable to create a link.";
+    case NERR_DfsServerNotDfsAware:
+      return "The server is not Dfs Aware.";
+    case NERR_DfsBadRenamePath:
+      return "The specified rename target path is invalid.";
+    case NERR_DfsVolumeIsOffline:
+      return "The specified DFS link is offline.";
+    case NERR_DfsNoSuchServer:
+      return "The specified server is not a server for this link.";
+    case NERR_DfsCyclicalName:
+      return "A cycle in the Dfs name was detected.";
+    case NERR_DfsNotSupportedInServerDfs:
+      return "The operation is not supported on a server-based Dfs.";
+    case NERR_DfsDuplicateService:
+      return "This link is already supported by the specified server-share.";
+    case NERR_DfsCantRemoveLastServerShare:
+      return "Can't remove the last server-share supporting this root or link.";
+    case NERR_DfsVolumeIsInterDfs:
+      return "The operation is not supported for an Inter-DFS link.";
+    case NERR_DfsInconsistent:
+      return "The internal state of the Dfs Service has become inconsistent.";
+    case NERR_DfsServerUpgraded:
+      return "The Dfs Service has been installed on the specified server.";
+    case NERR_DfsDataIsIdentical:
+      return "The Dfs data being reconciled is identical.";
+    case NERR_DfsCantRemoveDfsRoot:
+      return "The DFS root cannot be deleted. Uninstall DFS if required.";
+    case NERR_DfsChildOrParentInDfs:
+      return "A child or parent directory of the share is already in a Dfs.";
+    case NERR_DfsInternalError:
+      return "Dfs internal error.";
+      /* the following are not defined in mingw */
 #if 0
-    case NERR_SetupAlreadyJoined:           return "This machine is already joined to a domain.";
-    case NERR_SetupNotJoined:               return "This machine is not currently joined to a domain.";
-    case NERR_SetupDomainController:        return "This machine is a domain controller and cannot be unjoined from a domain.";
-    case NERR_DefaultJoinRequired:          return "The destination domain controller does not support creating machine accounts in OUs.";
-    case NERR_InvalidWorkgroupName:         return "The specified workgroup name is invalid.";
-    case NERR_NameUsesIncompatibleCodePage: return "The specified computer name is incompatible with the default language used on the domain controller.";
-    case NERR_ComputerAccountNotFound:      return "The specified computer account could not be found.";
-    case NERR_PersonalSku:                  return "This version of Windows cannot be joined to a domain.";
-    case NERR_PasswordMustChange:           return "The password must change at the next logon.";
-    case NERR_AccountLockedOut:             return "The account is locked out.";
-    case NERR_PasswordTooLong:              return "The password is too long.";
-    case NERR_PasswordNotComplexEnough:     return "The password does not meet the complexity policy.";
-    case NERR_PasswordFilterError:          return "The password does not meet the requirements of the password filter DLLs.";
-#endif 
-		}
+
+    case NERR_SetupAlreadyJoined:
+      return "This machine is already joined to a domain.";
+    case NERR_SetupNotJoined:
+      return "This machine is not currently joined to a domain.";
+    case NERR_SetupDomainController:
+      return "This machine is a domain controller and cannot be unjoined from a domain.";
+    case NERR_DefaultJoinRequired:
+      return "The destination domain controller does not support creating machine accounts in OUs.";
+    case NERR_InvalidWorkgroupName:
+      return "The specified workgroup name is invalid.";
+    case NERR_NameUsesIncompatibleCodePage:
+      return "The specified computer name is incompatible with the default language used on the domain controller.";
+    case NERR_ComputerAccountNotFound:
+      return "The specified computer account could not be found.";
+    case NERR_PersonalSku:
+      return "This version of Windows cannot be joined to a domain.";
+    case NERR_PasswordMustChange:
+      return "The password must change at the next logon.";
+    case NERR_AccountLockedOut:
+      return "The account is locked out.";
+    case NERR_PasswordTooLong:
+      return "The password is too long.";
+    case NERR_PasswordNotComplexEnough:
+      return "The password does not meet the complexity policy.";
+    case NERR_PasswordFilterError:
+      return "The password does not meet the requirements of the password filter DLLs.";
+#endif
+
+    }
   msg = strerror (error_number);
   if (msg == NULL)
     msg = "unknown";
@@ -2696,9 +3073,9 @@ _dbus_lm_strerror(int error_number)
 
 
 /******************************************************************************
-
+ 
 Original CVS version of dbus-sysdeps.c
-
+ 
 ******************************************************************************/
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-sysdeps.c Wrappers around system/libc features (internal to D-Bus implementation)
@@ -2731,12 +3108,13 @@ Original CVS version of dbus-sysdeps.c
  * @{
  */
 
-int _dbus_mkdir (const char *path, 
-	             mode_t mode)
+int _dbus_mkdir (const char *path,
+                 mode_t mode)
 {
 #ifdef DBUS_WIN
   return _mkdir(path);
 #else
+
   return mkdir(path, mode);
 #endif
 }
@@ -2772,39 +3150,43 @@ _dbus_connect_tcp_socket (const char     *host,
   struct hostent *he;
   struct in_addr *haddr;
 #ifdef DBUS_WIN
+
   struct in_addr ina;
 #endif
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
 #ifdef DBUS_WIN
+
   _dbus_win_startup_winsock ();
 #endif
 
   fd = socket (AF_INET, SOCK_STREAM, 0);
-  
+
   if (DBUS_SOCKET_IS_INVALID (fd))
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
                       "Failed to create socket: %s",
-                      _dbus_strerror (errno)); 
-      
+                      _dbus_strerror (errno));
+
       return -1;
     }
 
   if (host == NULL)
     {
-    host = "localhost";
+      host = "localhost";
 #ifdef DBUS_WIN
+
       ina.s_addr = htonl (INADDR_LOOPBACK);
       haddr = &ina;
 #endif
+
     }
 
   he = gethostbyname (host);
-  if (he == NULL) 
+  if (he == NULL)
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error,
@@ -2814,26 +3196,26 @@ _dbus_connect_tcp_socket (const char     *host,
       DBUS_CLOSE_SOCKET (fd);
       return -1;
     }
-  
+
   haddr = ((struct in_addr *) (he->h_addr_list)[0]);
 
   _DBUS_ZERO (addr);
   memcpy (&addr.sin_addr, haddr, sizeof(struct in_addr));
   addr.sin_family = AF_INET;
   addr.sin_port = htons (port);
-  
+
   if (DBUS_SOCKET_API_RETURNS_ERROR
-     (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0))
-    {      
+      (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0))
+    {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error,
-                       _dbus_error_from_errno (errno),
+                      _dbus_error_from_errno (errno),
                       "Failed to connect to socket %s:%d %s",
                       host, port, _dbus_strerror (errno));
 
       DBUS_CLOSE_SOCKET (fd);
       fd = -1;
-      
+
       return -1;
     }
 
@@ -2870,18 +3252,20 @@ _dbus_listen_tcp_socket (const char     *host,
   struct hostent *he;
   struct in_addr *haddr;
 #ifdef DBUS_WIN
+
   struct in_addr ina;
 #endif
 
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
 #ifdef DBUS_WIN
+
   _dbus_win_startup_winsock ();
 #endif
 
   listen_fd = socket (AF_INET, SOCK_STREAM, 0);
-  
+
   if (DBUS_SOCKET_IS_INVALID (listen_fd))
     {
       DBUS_SOCKET_SET_ERRNO ();
@@ -2905,21 +3289,22 @@ _dbus_listen_tcp_socket (const char     *host,
   else
     {
 #endif
-  he = gethostbyname (host);
-  if (he == NULL) 
-    {
-      DBUS_SOCKET_SET_ERRNO ();
-      dbus_set_error (error,
-                      _dbus_error_from_errno (errno),
-                      "Failed to lookup hostname: %s",
-                      host);
-      DBUS_CLOSE_SOCKET (listen_fd);
-      return -1;
-    }
-  
-  haddr = ((struct in_addr *) (he->h_addr_list)[0]);
+      he = gethostbyname (host);
+      if (he == NULL)
+        {
+          DBUS_SOCKET_SET_ERRNO ();
+          dbus_set_error (error,
+                          _dbus_error_from_errno (errno),
+                          "Failed to lookup hostname: %s",
+                          host);
+          DBUS_CLOSE_SOCKET (listen_fd);
+          return -1;
+        }
+
+      haddr = ((struct in_addr *) (he->h_addr_list)[0]);
 #ifdef DBUS_WIN
-  }
+
+    }
 #endif
 
   _DBUS_ZERO (addr);
@@ -2940,7 +3325,7 @@ _dbus_listen_tcp_socket (const char     *host,
   if (DBUS_SOCKET_API_RETURNS_ERROR (listen (listen_fd, 30 /* backlog */)))
     {
       DBUS_SOCKET_SET_ERRNO ();
-      dbus_set_error (error, _dbus_error_from_errno (errno),  
+      dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to listen on socket \"%s:%d\": %s",
                       host, port, _dbus_strerror (errno));
       DBUS_CLOSE_SOCKET (listen_fd);
@@ -2954,7 +3339,7 @@ _dbus_listen_tcp_socket (const char     *host,
       _dbus_close_socket (listen_fd, NULL);
       return -1;
     }
-  
+
   return listen_fd;
 }
 
@@ -2975,23 +3360,28 @@ _dbus_accept  (int listen_fd)
   listen_fd = _dbus_handle_to_socket (listen_fd);
 
   addrlen = sizeof (addr);
-  
+
 #ifndef DBUS_WIN
- retry:
+
+retry:
 #endif
+
   client_fd = accept (listen_fd, &addr, &addrlen);
-  
+
   if (DBUS_SOCKET_IS_INVALID (client_fd))
     {
       DBUS_SOCKET_SET_ERRNO ();
 #ifndef DBUS_WIN
+
       if (errno == EINTR)
         goto retry;
 #else
+
       client_fd = -1;
 #endif
+
     }
-  
+
   return _dbus_socket_to_handle (client_fd);
 }
 
@@ -3031,15 +3421,19 @@ write_credentials_byte (int             server_fd,
   int bytes_written;
   char buf[1] = { '\0' };
 #if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
-  struct {
-	  struct cmsghdr hdr;
-	  struct cmsgcred cred;
-  } cmsg;
+
+  struct
+    {
+      struct cmsghdr hdr;
+      struct cmsgcred cred;
+    }
+  cmsg;
   struct iovec iov;
   struct msghdr msg;
 #endif
 
 #if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
+
   iov.iov_base = buf;
   iov.iov_len = 1;
 
@@ -3056,12 +3450,14 @@ write_credentials_byte (int             server_fd,
 #endif
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
- again:
+
+again:
 
 #if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
+
   bytes_written = sendmsg (server_fd, &msg, 0);
 #else
+
   bytes_written = write (server_fd, buf, 1);
 #endif
 
@@ -3072,7 +3468,7 @@ write_credentials_byte (int             server_fd,
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to write credentials byte: %s",
-                     _dbus_strerror (errno));
+                      _dbus_strerror (errno));
       return FALSE;
     }
   else if (bytes_written == 0)
@@ -3120,15 +3516,18 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
   struct iovec iov;
   char buf;
 
-#ifdef HAVE_CMSGCRED 
-  struct {
-	  struct cmsghdr hdr;
-	  struct cmsgcred cred;
-  } cmsg;
+#ifdef HAVE_CMSGCRED
+
+  struct
+    {
+      struct cmsghdr hdr;
+      struct cmsgcred cred;
+    }
+  cmsg;
 #endif
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   /* The POSIX spec certainly doesn't promise this, but
    * we need these assertions to fail as soon as we're wrong about
    * it so we can do the porting fixups
@@ -3145,8 +3544,8 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
     int on = 1;
     if (setsockopt (client_fd, 0, LOCAL_CREDS, &on, sizeof (on)) < 0)
       {
-	_dbus_verbose ("Unable to set LOCAL_CREDS socket option\n");
-	return FALSE;
+        _dbus_verbose ("Unable to set LOCAL_CREDS socket option\n");
+        return FALSE;
       }
   }
 #endif
@@ -3159,16 +3558,17 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
   msg.msg_iovlen = 1;
 
 #ifdef HAVE_CMSGCRED
+
   memset (&cmsg, 0, sizeof (cmsg));
   msg.msg_control = &cmsg;
   msg.msg_controllen = sizeof (cmsg);
 #endif
 
- again:
+again:
   if (recvmsg (client_fd, &msg, 0) < 0)
     {
       if (errno == EINTR)
-	goto again;
+        goto again;
 
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to read credentials byte: %s",
@@ -3196,26 +3596,27 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
 
   {
 #ifdef SO_PEERCRED
-    struct ucred cr;   
+    struct ucred cr;
     int cr_len = sizeof (cr);
-   
+
     if (getsockopt (client_fd, SOL_SOCKET, SO_PEERCRED, &cr, &cr_len) == 0 &&
-	cr_len == sizeof (cr))
+        cr_len == sizeof (cr))
       {
-	credentials->pid = cr.pid;
-	credentials->uid = cr.uid;
-	credentials->gid = cr.gid;
+        credentials->pid = cr.pid;
+        credentials->uid = cr.uid;
+        credentials->gid = cr.gid;
       }
     else
       {
-	_dbus_verbose ("Failed to getsockopt() credentials, returned len %d/%d: %s\n",
-		       cr_len, (int) sizeof (cr), _dbus_strerror (errno));
+        _dbus_verbose ("Failed to getsockopt() credentials, returned len %d/%d: %s\n",
+                       cr_len, (int) sizeof (cr), _dbus_strerror (errno));
       }
 #elif defined(HAVE_CMSGCRED)
     credentials->pid = cmsg.cred.cmcred_pid;
     credentials->uid = cmsg.cred.cmcred_euid;
     credentials->gid = cmsg.cred.cmcred_groups[0];
 #elif defined(HAVE_GETPEEREID)
+
     uid_t euid;
     gid_t egid;
     if (getpeereid (client_fd, &euid, &egid) == 0)
@@ -3242,18 +3643,20 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
     if (ucred != NULL)
       ucred_free (ucred);
 #else /* !SO_PEERCRED && !HAVE_CMSGCRED && !HAVE_GETPEEREID && !HAVE_GETPEERUCRED */
+
     _dbus_verbose ("Socket credentials not supported on this OS\n");
 #endif
+
   }
 
   _dbus_verbose ("Credentials:"
                  "  pid "DBUS_PID_FORMAT
                  "  uid "DBUS_UID_FORMAT
                  "  gid "DBUS_GID_FORMAT"\n",
-		 credentials->pid,
-		 credentials->uid,
-		 credentials->gid);
-    
+                 credentials->pid,
+                 credentials->uid,
+                 credentials->gid);
+
   return TRUE;
 
 #else
@@ -3279,28 +3682,29 @@ _dbus_check_dir_is_private_to_user (DBusString *dir, DBusError *error)
 {
   const char *directory;
   struct stat sb;
-	
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-    
-#ifndef DBUS_WIN    
+
+#ifndef DBUS_WIN
+
   directory = _dbus_string_get_const_data (dir);
-	
+
   if (stat (directory, &sb) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "%s", _dbus_strerror (errno));
-   
+
       return FALSE;
     }
-    
+
   if ((S_IROTH & sb.st_mode) || (S_IWOTH & sb.st_mode) ||
       (S_IRGRP & sb.st_mode) || (S_IWGRP & sb.st_mode))
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-                     "%s directory is not private to the user", directory);
+                      "%s directory is not private to the user", directory);
       return FALSE;
     }
-#endif    
+#endif
   return TRUE;
 }
 
@@ -3320,12 +3724,12 @@ fill_user_info_from_passwd (struct passwd *p,
 {
   _dbus_assert (p->pw_name != NULL);
   _dbus_assert (p->pw_dir != NULL);
-  
+
   info->uid = p->pw_uid;
   info->primary_gid = p->pw_gid;
   info->username = _dbus_strdup (p->pw_name);
   info->homedir = _dbus_strdup (p->pw_dir);
-  
+
   if (info->username == NULL ||
       info->homedir == NULL)
     {
@@ -3379,7 +3783,7 @@ fill_user_info (DBusUserInfo       *info,
                 DBusError          *error)
 {
   const char *username_c;
-  
+
   /* exactly one of username/uid provided */
   _dbus_assert (username != NULL || uid != DBUS_UID_UNSET);
   _dbus_assert (username == NULL || uid == DBUS_UID_UNSET);
@@ -3390,7 +3794,7 @@ fill_user_info (DBusUserInfo       *info,
   info->n_group_ids = 0;
   info->username = NULL;
   info->homedir = NULL;
-  
+
   if (username != NULL)
     username_c = _dbus_string_get_const_data (username);
   else
@@ -3401,8 +3805,9 @@ fill_user_info (DBusUserInfo       *info,
    * are always symmetrical, if not we have to add more configure
    * checks
    */
-  
+
 #if defined (HAVE_POSIX_GETPWNAM_R) || defined (HAVE_NONPOSIX_GETPWNAM_R)
+
   {
     struct passwd *p;
     int result;
@@ -3411,6 +3816,7 @@ fill_user_info (DBusUserInfo       *info,
 
     p = NULL;
 #ifdef HAVE_POSIX_GETPWNAM_R
+
     if (uid != DBUS_UID_UNSET)
       result = getpwuid_r (uid, &p_str, buf, sizeof (buf),
                            &p);
@@ -3418,12 +3824,14 @@ fill_user_info (DBusUserInfo       *info,
       result = getpwnam_r (username_c, &p_str, buf, sizeof (buf),
                            &p);
 #else
+
     if (uid != DBUS_UID_UNSET)
       p = getpwuid_r (uid, &p_str, buf, sizeof (buf));
     else
       p = getpwnam_r (username_c, &p_str, buf, sizeof (buf));
     result = 0;
 #endif /* !HAVE_POSIX_GETPWNAM_R */
+
     if (result == 0 && p == &p_str)
       {
         if (!fill_user_info_from_passwd (p, info, error))
@@ -3439,6 +3847,7 @@ fill_user_info (DBusUserInfo       *info,
       }
   }
 #else /* ! HAVE_GETPWNAM_R */
+
   {
     /* I guess we're screwed on thread safety here */
     struct passwd *p;
@@ -3466,13 +3875,14 @@ fill_user_info (DBusUserInfo       *info,
 
   /* Fill this in so we can use it to get groups */
   username_c = info->username;
-  
+
 #ifdef HAVE_GETGROUPLIST
+
   {
     gid_t *buf;
     int buf_count;
     int i;
-    
+
     buf_count = 17;
     buf = dbus_new (gid_t, buf_count);
     if (buf == NULL)
@@ -3480,7 +3890,7 @@ fill_user_info (DBusUserInfo       *info,
         dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
         goto failed;
       }
-    
+
     if (getgrouplist (username_c,
                       info->primary_gid,
                       buf, &buf_count) < 0)
@@ -3492,7 +3902,7 @@ fill_user_info (DBusUserInfo       *info,
             dbus_free (buf);
             goto failed;
           }
-        
+
         buf = new;
 
         errno = 0;
@@ -3516,12 +3926,12 @@ fill_user_info (DBusUserInfo       *info,
         dbus_free (buf);
         goto failed;
       }
-    
+
     for (i = 0; i < buf_count; ++i)
       info->group_ids[i] = buf[i];
 
     info->n_group_ids = buf_count;
-    
+
     dbus_free (buf);
   }
 #else  /* HAVE_GETGROUPLIST */
@@ -3541,10 +3951,10 @@ fill_user_info (DBusUserInfo       *info,
 #endif /* HAVE_GETGROUPLIST */
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   return TRUE;
-  
- failed:
+
+failed:
   _DBUS_ASSERT_ERROR_IS_SET (error);
   return FALSE;
 
@@ -3552,24 +3962,25 @@ fill_user_info (DBusUserInfo       *info,
 
   if (uid != DBUS_UID_UNSET)
     {
-      if (!fill_win_user_info_from_uid (uid, info, error)) {
-      	_dbus_verbose("%s after fill_win_user_info_from_uid\n",__FUNCTION__);
-      return FALSE;
-    }
+      if (!fill_win_user_info_from_uid (uid, info, error))
+        {
+          _dbus_verbose("%s after fill_win_user_info_from_uid\n",__FUNCTION__);
+          return FALSE;
+        }
     }
   else
     {
       wchar_t *wname = _dbus_win_utf8_to_utf16 (username_c, error);
-      
+
       if (!wname)
-	return FALSE;
-      
-    if (!fill_win_user_info_from_name (wname, info, error))
-	  {
-	    dbus_free (wname);
-	    return FALSE;
-	  }
-    dbus_free (wname);
+        return FALSE;
+
+      if (!fill_win_user_info_from_name (wname, info, error))
+        {
+          dbus_free (wname);
+          return FALSE;
+        }
+      dbus_free (wname);
     }
 
   return TRUE;
@@ -3597,10 +4008,11 @@ _dbus_concat_dir_and_file (DBusString       *dir,
   if (_dbus_string_get_length (dir) == 0 ||
       _dbus_string_get_length (next_component) == 0)
     return TRUE;
-  
+
 #ifndef DBUS_WIN
+
   dir_ends_in_slash = '/' == _dbus_string_get_byte (dir,
-                                                    _dbus_string_get_length (dir) - 1);
+                      _dbus_string_get_length (dir) - 1);
 
   file_starts_with_slash = '/' == _dbus_string_get_byte (next_component, 0);
 
@@ -3619,8 +4031,8 @@ _dbus_concat_dir_and_file (DBusString       *dir,
      '\\' == _dbus_string_get_byte (dir, _dbus_string_get_length (dir) - 1));
 
   file_starts_with_slash =
-     ('/' == _dbus_string_get_byte (next_component, 0) ||
-      '\\' == _dbus_string_get_byte (next_component, 0));
+    ('/' == _dbus_string_get_byte (next_component, 0) ||
+     '\\' == _dbus_string_get_byte (next_component, 0));
 
   if (dir_ends_in_slash && file_starts_with_slash)
     {
@@ -3650,6 +4062,7 @@ _dbus_getpid (void)
 #ifndef DBUS_WIN
   return getpid ();
 #else
+
   return GetCurrentProcessId ();
 #endif
 }
@@ -3685,11 +4098,14 @@ _dbus_sleep_milliseconds (int milliseconds)
   while (nanosleep (&req, &rem) < 0 && errno == EINTR)
     req = rem;
 #elif defined (HAVE_USLEEP)
+
   usleep (milliseconds * MICROSECONDS_PER_MILLISECOND);
 #else /* ! HAVE_USLEEP */
+
   sleep (MAX (milliseconds / 1000, 1));
 #endif
 #else  /* DBUS_WIN */
+
   Sleep (milliseconds);
 #endif /* !DBUS_WIN */
 }
@@ -3715,14 +4131,15 @@ _dbus_get_current_time (long *tv_sec,
   if (tv_usec)
     *tv_usec = t.tv_usec;
 #else
+
   FILETIME ft;
   dbus_uint64_t *time64 = (dbus_uint64_t *) &ft;
 
   GetSystemTimeAsFileTime (&ft);
 
   /* Convert from 100s of nanoseconds since 1601-01-01
-   * to Unix epoch. Yes, this is Y2038 unsafe.
-   */
+  * to Unix epoch. Yes, this is Y2038 unsafe.
+  */
   *time64 -= DBUS_INT64_CONSTANT (116444736000000000);
   *time64 /= 10;
 
@@ -3806,9 +4223,9 @@ _dbus_file_get_contents (DBusString       *str,
   const char *filename_c;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   filename_c = _dbus_string_get_const_data (filename);
-  
+
   /* O_BINARY useful on Cygwin and Win32 */
   if (!_dbus_open_file (&file, filename_c, O_RDONLY | O_BINARY, -1))
     {
@@ -3828,9 +4245,9 @@ _dbus_file_get_contents (DBusString       *str,
 
       _dbus_verbose ("fstat() failed: %s",
                      _dbus_strerror (errno));
-      
+
       _dbus_close_file (&file, NULL);
-      
+
       return FALSE;
     }
 
@@ -3842,7 +4259,7 @@ _dbus_file_get_contents (DBusString       *str,
       _dbus_close_file (&file, NULL);
       return FALSE;
     }
-  
+
   total = 0;
   orig_len = _dbus_string_get_length (str);
   if (sb.st_size > 0 && S_ISREG (sb.st_mode))
@@ -3852,7 +4269,7 @@ _dbus_file_get_contents (DBusString       *str,
       while (total < (int) sb.st_size)
         {
           bytes_read = _dbus_read_file (&file, str,
-                                   sb.st_size - total);
+                                        sb.st_size - total);
           if (bytes_read <= 0)
             {
               dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -3862,7 +4279,7 @@ _dbus_file_get_contents (DBusString       *str,
 
               _dbus_verbose ("read() failed: %s",
                              _dbus_strerror (errno));
-              
+
               _dbus_close_file (&file, NULL);
               _dbus_string_set_length (str, orig_len);
               return FALSE;
@@ -3914,10 +4331,10 @@ _dbus_string_save_to_file (const DBusString *str,
   dbus_bool_t retval;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   retval = FALSE;
   need_unlink = FALSE;
-  
+
   if (!_dbus_string_init (&tmp_filename))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -3930,7 +4347,7 @@ _dbus_string_save_to_file (const DBusString *str,
       _dbus_string_free (&tmp_filename);
       return FALSE;
     }
-  
+
   if (!_dbus_string_append (&tmp_filename, "."))
     {
       dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
@@ -3945,12 +4362,12 @@ _dbus_string_save_to_file (const DBusString *str,
       _dbus_string_free (&tmp_filename);
       return FALSE;
     }
-    
+
   filename_c = _dbus_string_get_const_data (filename);
   tmp_filename_c = _dbus_string_get_const_data (&tmp_filename);
 
   if (!_dbus_open_file (&file, tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-             0600))
+                        0600))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not create %s: %s", tmp_filename_c,
@@ -3959,7 +4376,7 @@ _dbus_string_save_to_file (const DBusString *str,
     }
 
   need_unlink = TRUE;
-  
+
   total = 0;
   bytes_to_write = _dbus_string_get_length (str);
 
@@ -3968,14 +4385,14 @@ _dbus_string_save_to_file (const DBusString *str,
       int bytes_written;
 
       bytes_written = _dbus_write_file (&file, str, total,
-                                   bytes_to_write - total);
+                                        bytes_to_write - total);
 
       if (bytes_written <= 0)
         {
           dbus_set_error (error, _dbus_error_from_errno (errno),
                           "Could not write to %s: %s", tmp_filename_c,
                           _dbus_strerror (errno));
-          
+
           goto out;
         }
 
@@ -3991,12 +4408,12 @@ _dbus_string_save_to_file (const DBusString *str,
       goto out;
     }
 
-  
+
   if (
 #ifdef DBUS_WIN
-      (unlink (filename_c) == -1 && errno != ENOENT) ||
+    (unlink (filename_c) == -1 && errno != ENOENT) ||
 #endif
-      rename (tmp_filename_c, filename_c) < 0)
+    rename (tmp_filename_c, filename_c) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not rename %s to %s: %s",
@@ -4007,17 +4424,17 @@ _dbus_string_save_to_file (const DBusString *str,
     }
 
   need_unlink = FALSE;
-  
+
   retval = TRUE;
-  
- out:
+
+out:
   /* close first, then unlink, to prevent ".nfs34234235" garbage
    * files
    */
 
   if (_dbus_is_valid_file(&file))
     _dbus_close_file (&file, NULL);
-        
+
   if (need_unlink && unlink (tmp_filename_c) < 0)
     _dbus_verbose ("Failed to unlink temp file %s: %s\n",
                    tmp_filename_c, _dbus_strerror (errno));
@@ -4026,7 +4443,7 @@ _dbus_string_save_to_file (const DBusString *str,
 
   if (!retval)
     _DBUS_ASSERT_ERROR_IS_SET (error);
-  
+
   return retval;
 }
 
@@ -4045,11 +4462,11 @@ _dbus_create_file_exclusively (const DBusString *filename,
   const char *filename_c;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   filename_c = _dbus_string_get_const_data (filename);
-  
+
   if (!_dbus_open_file (&file, filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
-             0600))
+                        0600))
     {
       dbus_set_error (error,
                       DBUS_ERROR_FAILED,
@@ -4068,7 +4485,7 @@ _dbus_create_file_exclusively (const DBusString *filename,
                       _dbus_strerror (errno));
       return FALSE;
     }
-  
+
   return TRUE;
 }
 
@@ -4088,14 +4505,14 @@ _dbus_create_directory (const DBusString *filename,
   const char *filename_c;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   filename_c = _dbus_string_get_const_data (filename);
 
   if (_dbus_mkdir (filename_c, 0700) < 0)
     {
       if (errno == EEXIST)
         return TRUE;
-      
+
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "Failed to create directory %s: %s\n",
                       filename_c, _dbus_strerror (errno));
@@ -4108,24 +4525,24 @@ _dbus_create_directory (const DBusString *filename,
 
 static void
 pseudorandom_generate_random_bytes_buffer (char *buffer,
-                                           int   n_bytes)
+    int   n_bytes)
 {
   unsigned long tv_usec;
   int i;
-  
+
   /* fall back to pseudorandom */
   _dbus_verbose ("Falling back to pseudorandom for %d bytes\n",
                  n_bytes);
-  
+
   _dbus_get_current_time (NULL, &tv_usec);
   srand (tv_usec);
-  
+
   i = 0;
   while (i < n_bytes)
     {
       double r;
       unsigned int b;
-          
+
       r = rand ();
       b = (r / (double) RAND_MAX) * 255.0;
 
@@ -4141,7 +4558,7 @@ pseudorandom_generate_random_bytes (DBusString *str,
 {
   int old_len;
   char *p;
-  
+
   old_len = _dbus_string_get_length (str);
 
   if (!_dbus_string_lengthen (str, n_bytes))
@@ -4186,9 +4603,9 @@ _dbus_get_tmpdir(void)
       if (tmpdir == NULL)
         tmpdir = "/tmp";
     }
-  
+
   _dbus_assert(tmpdir != NULL);
-  
+
   return tmpdir;
 }
 
@@ -4208,7 +4625,7 @@ _dbus_delete_file (const DBusString *filename,
   const char *filename_c;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   filename_c = _dbus_string_get_const_data (filename);
 
   if (unlink (filename_c) < 0)
@@ -4242,7 +4659,7 @@ _dbus_generate_random_bytes (DBusString *str,
    * a DBusError. So we always fall back to pseudorandom
    * if the I/O fails.
    */
-  
+
   old_len = _dbus_string_get_length (str);
   fd = -1;
 
@@ -4250,10 +4667,12 @@ _dbus_generate_random_bytes (DBusString *str,
   /* note, urandom on linux will fall back to pseudorandom */
   fd = open ("/dev/urandom", O_RDONLY);
 #endif
+
   if (fd < 0)
     return pseudorandom_generate_random_bytes (str, n_bytes);
-	
+
 #ifndef DBUS_WIN
+
   if (_dbus_read (fd, str, n_bytes) != n_bytes)
     {
       _dbus_close_socket (fd, NULL);
@@ -4263,12 +4682,13 @@ _dbus_generate_random_bytes (DBusString *str,
 
   _dbus_verbose ("Read %d bytes from /dev/urandom\n",
                  n_bytes);
-  
+
   _dbus_close_socket (fd, NULL);
-  
+
   return TRUE;
 #else
- _dbus_assert_not_reached ("_dbus_generate_random_bytes fails");
+
+  _dbus_assert_not_reached ("_dbus_generate_random_bytes fails");
   return FALSE;
 #endif
 }
@@ -4287,11 +4707,11 @@ _dbus_print_backtrace (void)
   int bt_size;
   int i;
   char **syms;
-  
+
   bt_size = backtrace (bt, 500);
 
   syms = backtrace_symbols (bt, bt_size);
-  
+
   i = 0;
   while (i < bt_size)
     {
@@ -4301,6 +4721,7 @@ _dbus_print_backtrace (void)
 
   free (syms);
 #else
+
   _dbus_verbose ("  D-Bus not compiled with backtrace support\n");
 #endif
 }
@@ -4328,7 +4749,7 @@ _dbus_send_credentials_unix_socket  (int              server_fd,
                                      DBusError       *error)
 {
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   if (write_credentials_byte (server_fd, error))
     return TRUE;
   else

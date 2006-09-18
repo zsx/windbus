@@ -32,7 +32,7 @@
 #define STRICT
 #include <winsock2.h>
 #undef STRICT
-#endif 
+#endif
 #include <winsock2.h>
 
 #undef interface

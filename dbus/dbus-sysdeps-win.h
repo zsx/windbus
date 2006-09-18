@@ -54,25 +54,26 @@ typedef enum
   DBUS_WIN_FD_UNUSED,
   DBUS_WIN_FD_BEING_OPENED,
   DBUS_WIN_FD_C_LIB,           /* Unix-style file descriptor
-                                * (implemented by the C runtime)
-                                */
+                                  * (implemented by the C runtime)
+                                  */
   DBUS_WIN_FD_SOCKET,            /* Winsock SOCKET */
   DBUS_WIN_FD_NAMED_PIPE_HANDLE /* HANDLE for a named pipe */
 } DBusWin32FDType;
 
-#define DBUS_CONSOLE_DIR "/var/run/console/"     
+#define DBUS_CONSOLE_DIR "/var/run/console/"
 
 typedef struct
-{
-  DBusWin32FDType type;
-  int fd;               /* File descriptor, SOCKET or file HANDLE */
-  int port_file_fd;        /* File descriptor for file containing
-                         * port number for "pseudo-unix" sockets
-                         */
-  DBusString port_file; /* File name for said file */
-  dbus_bool_t close_on_exec;
-  dbus_bool_t non_blocking;
-} DBusWin32FD;
+  {
+    DBusWin32FDType type;
+    int fd;               /* File descriptor, SOCKET or file HANDLE */
+    int port_file_fd;        /* File descriptor for file containing
+                             * port number for "pseudo-unix" sockets
+                             */
+    DBusString port_file; /* File name for said file */
+    dbus_bool_t close_on_exec;
+    dbus_bool_t non_blocking;
+  }
+DBusWin32FD;
 
 extern DBusWin32FD *win_fds;
 extern int win32_n_fds;
@@ -97,24 +98,24 @@ dbus_bool_t _dbus_win_account_to_sid (const wchar_t *waccount,
                                       void         **ppsid,
                                       DBusError     *error);
 
-dbus_bool_t 
+dbus_bool_t
 _dbus_win32_sid_to_name_and_domain (dbus_uid_t  uid,
                                     wchar_t   **wname,
                                     wchar_t   **wdomain,
                                     DBusError  *error);
 
 
-/* Don't define DBUS_CONSOLE_DIR on Win32 */                                                                                       
-                                                                                                                                  
-wchar_t    *_dbus_win_utf8_to_utf16 (const char  *str, 
-                                     DBusError   *error);
-char       *_dbus_win_utf16_to_utf8 (const wchar_t *str, 
-                                     DBusError *error);                                                                                              
-                                                                                                                                  
-void        _dbus_win_set_error_from_win_error (DBusError *error, int code); 
+/* Don't define DBUS_CONSOLE_DIR on Win32 */
 
-dbus_uid_t  _dbus_win_sid_to_uid_t (void        *psid);        
-dbus_bool_t _dbus_uid_t_to_win_sid (dbus_uid_t   uid, 
+wchar_t    *_dbus_win_utf8_to_utf16 (const char  *str,
+                                     DBusError   *error);
+char       *_dbus_win_utf16_to_utf8 (const wchar_t *str,
+                                     DBusError *error);
+
+void        _dbus_win_set_error_from_win_error (DBusError *error, int code);
+
+dbus_uid_t  _dbus_win_sid_to_uid_t (void        *psid);
+dbus_bool_t _dbus_uid_t_to_win_sid (dbus_uid_t   uid,
                                     void       **ppsid);
 dbus_bool_t
 _dbus_account_to_win_sid (const wchar_t  *waccount,
@@ -129,17 +130,17 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
 typedef struct DBusFile DBusFile;
 
 dbus_bool_t _dbus_open_file (DBusFile   *file,
-							 const char *filename,
-							 int         oflag,
-							 int         pmode);
+                             const char *filename,
+                             int         oflag,
+                             int         pmode);
 
 dbus_bool_t _dbus_close_file (DBusFile  *file,
-							  DBusError *error);
+                              DBusError *error);
 
 
 int _dbus_read_file  (DBusFile   *file,
-					  DBusString *buffer,
-					  int         count);
+                      DBusString *buffer,
+                      int         count);
 
 int _dbus_write_file (DBusFile         *file,
                       const DBusString *buffer,
@@ -148,9 +149,9 @@ int _dbus_write_file (DBusFile         *file,
 
 #define FDATA private_data
 struct DBusFile
-{
-	int FDATA;
-};
+  {
+    int FDATA;
+  };
 
 
 int _dbus_handle_to_socket (int handle);

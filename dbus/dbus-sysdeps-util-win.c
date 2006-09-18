@@ -49,7 +49,7 @@
  */
 dbus_bool_t
 _dbus_become_daemon (const DBusString *pidfile,
-		     int               print_pid_fd,
+                     int               print_pid_fd,
                      DBusError        *error)
 {
   return TRUE;
@@ -66,14 +66,14 @@ _dbus_become_daemon (const DBusString *pidfile,
 dbus_bool_t
 _dbus_write_pid_file (const DBusString *filename,
                       unsigned long     pid,
-		      DBusError        *error)
+                      DBusError        *error)
 {
   const char *cfilename;
   DBusFile file;
   FILE *f;
 
   cfilename = _dbus_string_get_const_data (filename);
-  
+
   if (!_dbus_open_file(&file, cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -89,13 +89,13 @@ _dbus_write_pid_file (const DBusString *filename,
       _dbus_close_file (&file, NULL);
       return FALSE;
     }
-  
+
   if (fprintf (f, "%lu\n", pid) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to write to \"%s\": %s", cfilename,
                       _dbus_strerror (errno));
-      
+
       fclose (f);
       return FALSE;
     }
@@ -107,7 +107,7 @@ _dbus_write_pid_file (const DBusString *filename,
                       _dbus_strerror (errno));
       return FALSE;
     }
-  
+
   return TRUE;
 }
 
@@ -133,9 +133,9 @@ _dbus_change_identity  (dbus_uid_t     uid,
 * @param error return location for errors
 * @returns #TRUE is the user is at the consolei and there are no errors
 */
-dbus_bool_t 
+dbus_bool_t
 _dbus_user_at_console(const char *username,
-                       DBusError  *error)
+                      DBusError  *error)
 {
   dbus_bool_t retval = FALSE;
   wchar_t *wusername;
@@ -161,13 +161,13 @@ _dbus_user_at_console(const char *username,
 
   sid_length = 0;
   GetUserObjectInformation (winsta, UOI_USER_SID,
-			    NULL, 0, &sid_length);
+                            NULL, 0, &sid_length);
   if (sid_length == 0)
     {
       /* Nobody is logged on */
       goto out2;
     }
-  
+
   if (sid_length < 0 || sid_length > 1000)
     {
       dbus_set_error_const (error, DBUS_ERROR_FAILED, "Invalid SID length");
@@ -182,7 +182,7 @@ _dbus_user_at_console(const char *username,
     }
 
   if (!GetUserObjectInformation (winsta, UOI_USER_SID,
-				 console_user_sid, sid_length, &sid_length))
+                                 console_user_sid, sid_length, &sid_length))
     {
       _dbus_win_set_error_from_win_error (error, GetLastError ());
       goto out4;
@@ -196,13 +196,13 @@ _dbus_user_at_console(const char *username,
 
   retval = EqualSid (user_sid, console_user_sid);
 
- out4:
+out4:
   dbus_free (console_user_sid);
- out3:
+out3:
   CloseWindowStation (winsta);
- out2:
+out2:
   dbus_free (user_sid);
- out0:
+out0:
   dbus_free (wusername);
 
   return retval;
@@ -217,10 +217,10 @@ _dbus_user_at_console(const char *username,
  */
 dbus_bool_t
 _dbus_delete_directory (const DBusString *filename,
-			DBusError        *error)
+                        DBusError        *error)
 {
   const char *filename_c;
-  
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   filename_c = _dbus_string_get_const_data (filename);
@@ -228,11 +228,11 @@ _dbus_delete_directory (const DBusString *filename,
   if (rmdir (filename_c) != 0)
     {
       dbus_set_error (error, DBUS_ERROR_FAILED,
-		      "Failed to remove directory %s: %s\n",
-		      filename_c, _dbus_strerror (errno));
+                      "Failed to remove directory %s: %s\n",
+                      filename_c, _dbus_strerror (errno));
       return FALSE;
     }
-  
+
   return TRUE;
 }
 
@@ -258,13 +258,15 @@ _dbus_set_signal_handler (int               sig,
  */
 dbus_bool_t
 _dbus_stat(const DBusString *filename,
-            DBusStat         *statbuf,
-            DBusError        *error)
+           DBusStat         *statbuf,
+           DBusError        *error)
 {
   const char *filename_c;
 #ifndef DBUS_WIN
+
   struct stat sb;
 #else
+
   WIN32_FILE_ATTRIBUTE_DATA wfad;
   char *lastdot;
   DWORD rc;
@@ -273,7 +275,7 @@ _dbus_stat(const DBusString *filename,
 #endif
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   filename_c = _dbus_string_get_const_data (filename);
 
   if (!GetFileAttributesEx (filename_c, GetFileExInfoStandard, &wfad))
@@ -299,19 +301,19 @@ _dbus_stat(const DBusString *filename,
   statbuf->mode |= (statbuf->mode & 0700) >> 6;
 
   statbuf->nlink = 1;
-    
+
   sd = NULL;
   rc = GetNamedSecurityInfo ((char *) filename_c, SE_FILE_OBJECT,
-			     OWNER_SECURITY_INFORMATION |
-			     GROUP_SECURITY_INFORMATION,
-			     &owner_sid, &group_sid,
-			     NULL, NULL,
-			     &sd);
+                             OWNER_SECURITY_INFORMATION |
+                             GROUP_SECURITY_INFORMATION,
+                             &owner_sid, &group_sid,
+                             NULL, NULL,
+                             &sd);
   if (rc != ERROR_SUCCESS)
     {
       _dbus_win_set_error_from_win_error (error, rc);
       if (sd != NULL)
-	LocalFree (sd);
+        LocalFree (sd);
       return FALSE;
     }
 
@@ -319,14 +321,14 @@ _dbus_stat(const DBusString *filename,
   statbuf->gid = _dbus_win_sid_to_uid_t (group_sid);
 
   LocalFree (sd);
-			
+
   statbuf->size = ((dbus_int64_t) wfad.nFileSizeHigh << 32) + wfad.nFileSizeLow;
-  
+
   statbuf->atime =
     (((dbus_int64_t) wfad.ftLastAccessTime.dwHighDateTime << 32) +
      wfad.ftLastAccessTime.dwLowDateTime) / 10000000 - DBUS_INT64_CONSTANT (116444736000000000);
 
-  statbuf->mtime = 
+  statbuf->mtime =
     (((dbus_int64_t) wfad.ftLastWriteTime.dwHighDateTime << 32) +
      wfad.ftLastWriteTime.dwLowDateTime) / 10000000 - DBUS_INT64_CONSTANT (116444736000000000);
 
@@ -356,24 +358,24 @@ _dbus_stat(const DBusString *filename,
 #include <stdlib.h>
 
 /* This file is part of the KDE project
-   Copyright (C) 2000 Werner Almesberger
+Copyright (C) 2000 Werner Almesberger
 
-   libc/sys/linux/sys/dirent.h - Directory entry as returned by readdir
+libc/sys/linux/sys/dirent.h - Directory entry as returned by readdir
 
-   This program is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU Library General Public
+License as published by the Free Software Foundation; either
+version 2 of the License, or (at your option) any later version.
 
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+Library General Public License for more details.
 
-   You should have received a copy of the GNU Library General Public License
-   along with this program; see the file COPYING.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
+You should have received a copy of the GNU Library General Public License
+along with this program; see the file COPYING.  If not, write to
+the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+Boston, MA 02110-1301, USA.
 */
 #define HAVE_NO_D_NAMLEN	/* no struct dirent->d_namlen */
 #define HAVE_DD_LOCK  		/* have locking mechanism */
@@ -383,79 +385,86 @@ _dbus_stat(const DBusString *filename,
 #define __dirfd(dir) (dir)->dd_fd
 
 /* struct dirent - same as Unix */
-struct dirent {
+struct dirent
+  {
     long d_ino;                    /* inode (always 1 in WIN32) */
     off_t d_off;                /* offset to this dirent */
     unsigned short d_reclen;    /* length of d_name */
     char d_name[_MAX_FNAME+1];    /* filename (null terminated) */
-};
+  };
 
 /* typedef DIR - not the same as Unix */
-typedef struct {
+typedef struct
+  {
     long handle;                /* _findfirst/_findnext handle */
     short offset;                /* offset into directory */
     short finished;             /* 1 if there are not more files */
     struct _finddata_t fileinfo;  /* from _findfirst/_findnext */
     char *dir;                  /* the dir we are reading */
     struct dirent dent;         /* the dirent to return */
-} DIR;
+  }
+DIR;
 
 /**********************************************************************
- * Implement dirent-style opendir/readdir/closedir on Window 95/NT
- *
- * Functions defined are opendir(), readdir() and closedir() with the
- * same prototypes as the normal dirent.h implementation.
- *
- * Does not implement telldir(), seekdir(), rewinddir() or scandir(). 
- * The dirent struct is compatible with Unix, except that d_ino is 
- * always 1 and d_off is made up as we go along.
- *
- * The DIR typedef is not compatible with Unix.
- **********************************************************************/
+* Implement dirent-style opendir/readdir/closedir on Window 95/NT
+*
+* Functions defined are opendir(), readdir() and closedir() with the
+* same prototypes as the normal dirent.h implementation.
+*
+* Does not implement telldir(), seekdir(), rewinddir() or scandir().
+* The dirent struct is compatible with Unix, except that d_ino is
+* always 1 and d_off is made up as we go along.
+*
+* The DIR typedef is not compatible with Unix.
+**********************************************************************/
 
 DIR * _dbus_opendir(const char *dir)
 {
-    DIR *dp;
-    char *filespec;
-    long handle;
-    int index;
+  DIR *dp;
+  char *filespec;
+  long handle;
+  int index;
 
-    filespec = malloc(strlen(dir) + 2 + 1);
-    strcpy(filespec, dir);
-    index = strlen(filespec) - 1;
-    if (index >= 0 && (filespec[index] == '/' || filespec[index] == '\\'))
-        filespec[index] = '\0';
-    strcat(filespec, "\\*");
+  filespec = malloc(strlen(dir) + 2 + 1);
+  strcpy(filespec, dir);
+  index = strlen(filespec) - 1;
+  if (index >= 0 && (filespec[index] == '/' || filespec[index] == '\\'))
+    filespec[index] = '\0';
+  strcat(filespec, "\\*");
 
-    dp = (DIR *)malloc(sizeof(DIR));
-    dp->offset = 0;
-    dp->finished = 0;
-    dp->dir = strdup(dir);
+  dp = (DIR *)malloc(sizeof(DIR));
+  dp->offset = 0;
+  dp->finished = 0;
+  dp->dir = strdup(dir);
 
-    if ((handle = _findfirst(filespec, &(dp->fileinfo))) < 0) {
-        if (errno == ENOENT)
-            dp->finished = 1;
-        else
+  if ((handle = _findfirst(filespec, &(dp->fileinfo))) < 0)
+    {
+      if (errno == ENOENT)
+        dp->finished = 1;
+      else
         return NULL;
     }
 
-    dp->handle = handle;
-    free(filespec);
+  dp->handle = handle;
+  free(filespec);
 
-    return dp;
+  return dp;
 }
 
 struct dirent * _dbus_readdir(DIR *dp)
-{
-    if (!dp || dp->finished) return NULL;
+  {
+    if (!dp || dp->finished)
+      return NULL;
 
-    if (dp->offset != 0) {
-        if (_findnext(dp->handle, &(dp->fileinfo)) < 0) {
+    if (dp->offset != 0)
+      {
+        if (_findnext(dp->handle, &(dp->fileinfo)) < 0)
+          {
             dp->finished = 1;
-			errno = 0;
+            errno = 0;
             return NULL;
-        }
-    }
+          }
+      }
     dp->offset++;
 
     strncpy(dp->dent.d_name, dp->fileinfo.name, _MAX_FNAME);
@@ -464,17 +473,20 @@ struct dirent * _dbus_readdir(DIR *dp)
     dp->dent.d_off = dp->offset;
 
     return &(dp->dent);
-}
+  }
 
 
 int _dbus_closedir(DIR *dp)
 {
-    if (!dp) return 0;
-    _findclose(dp->handle);
-    if (dp->dir) free(dp->dir);
-    if (dp) free(dp);
-
+  if (!dp)
     return 0;
+  _findclose(dp->handle);
+  if (dp->dir)
+    free(dp->dir);
+  if (dp)
+    free(dp);
+
+  return 0;
 }
 
 #endif //#ifdef HAVE_DIRENT_H
@@ -483,10 +495,10 @@ int _dbus_closedir(DIR *dp)
  * Internals of directory iterator
  */
 struct DBusDirIter
-{
-  DIR *d; /**< The DIR* from opendir() */
-  
-};
+  {
+    DIR *d; /**< The DIR* from opendir() */
+
+  };
 
 /**
  * Open a directory to iterate over.
@@ -504,7 +516,7 @@ _dbus_directory_open (const DBusString *filename,
   const char *filename_c;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
+
   filename_c = _dbus_string_get_const_data (filename);
 
   d = _dbus_opendir (filename_c);
@@ -551,8 +563,8 @@ _dbus_directory_get_next_file (DBusDirIter      *iter,
   struct dirent *ent;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  
- again:
+
+again:
   errno = 0;
   ent = _dbus_readdir (iter->d);
   if (ent == NULL)
@@ -601,9 +613,9 @@ dbus_bool_t
 _dbus_path_is_absolute (const DBusString *filename)
 {
   if (_dbus_string_get_length (filename) > 0)
-    return _dbus_string_get_byte (filename, 1) == ':' 
-    		|| _dbus_string_get_byte (filename, 0) == '\\' 
-    		|| _dbus_string_get_byte (filename, 0) == '/';
+    return _dbus_string_get_byte (filename, 1) == ':'
+           || _dbus_string_get_byte (filename, 0) == '\\'
+           || _dbus_string_get_byte (filename, 0) == '/';
   else
     return FALSE;
 }
@@ -611,9 +623,9 @@ _dbus_path_is_absolute (const DBusString *filename)
 
 static dbus_bool_t
 fill_group_info(DBusGroupInfo    *info,
-                 dbus_gid_t        gid,
-                 const DBusString *groupname,
-                 DBusError        *error)
+                dbus_gid_t        gid,
+                const DBusString *groupname,
+                DBusError        *error)
 {
   const char *group_c_str;
 
@@ -624,20 +636,20 @@ fill_group_info(DBusGroupInfo    *info,
     group_c_str = _dbus_string_get_const_data (groupname);
   else
     group_c_str = NULL;
-  
+
   if (group_c_str)
     {
       PSID group_sid;
       wchar_t *wgroupname = _dbus_win_utf8_to_utf16 (group_c_str, error);
 
       if (!wgroupname)
-	return FALSE;
+        return FALSE;
 
       if (!_dbus_win_account_to_sid (wgroupname, &group_sid, error))
-	{
-	  dbus_free (wgroupname);
-	  return FALSE;
-	}
+        {
+          dbus_free (wgroupname);
+          return FALSE;
+        }
 
       info->gid = _dbus_win_sid_to_uid_t (group_sid);
       info->groupname = _dbus_strdup (group_c_str);
@@ -656,15 +668,15 @@ fill_group_info(DBusGroupInfo    *info,
       info->gid = gid;
 
       if (!_dbus_win_sid_to_name_and_domain (gid, &wname, &wdomain, error))
-	return FALSE;
+        return FALSE;
 
       name = _dbus_win_utf16_to_utf8 (wname, error);
       if (!name)
-	goto out0;
-      
+        goto out0;
+
       domain = _dbus_win_utf16_to_utf8 (wdomain, error);
       if (!domain)
-	goto out1;
+        goto out1;
 
       info->groupname = dbus_malloc (strlen (domain) + 1 + strlen (name) + 1);
 
@@ -675,9 +687,9 @@ fill_group_info(DBusGroupInfo    *info,
       retval = TRUE;
 
       dbus_free (domain);
-    out1:
+out1:
       dbus_free (name);
-    out0:
+out0:
       dbus_free (wname);
       dbus_free (wdomain);
 
@@ -714,7 +726,7 @@ _dbus_group_info_fill_gid (DBusGroupInfo *info,
 dbus_bool_t
 _dbus_group_info_fill (DBusGroupInfo    *info,
                        const DBusString *groupname,
-            DBusError        *error)
+                       DBusError        *error)
 {
   return fill_group_info (info, DBUS_GID_UNSET,
                           groupname, error);
@@ -735,10 +747,10 @@ _dbus_group_info_fill (DBusGroupInfo    *info,
  */
 dbus_bool_t
 _dbus_string_get_dirname(const DBusString *filename,
-                           DBusString       *dirname)
+                         DBusString       *dirname)
 {
   int sep;
-  
+
   _dbus_assert (filename != dirname);
   _dbus_assert (filename != NULL);
   _dbus_assert (dirname != NULL);
@@ -747,20 +759,20 @@ _dbus_string_get_dirname(const DBusString *filename,
   sep = _dbus_string_get_length (filename);
   if (sep == 0)
     return _dbus_string_append (dirname, "."); /* empty string passed in */
-    
+
   while (sep > 0 &&
-	 (_dbus_string_get_byte (filename, sep - 1) == '/' ||
-	  _dbus_string_get_byte (filename, sep - 1) == '\\'))
+         (_dbus_string_get_byte (filename, sep - 1) == '/' ||
+          _dbus_string_get_byte (filename, sep - 1) == '\\'))
     --sep;
 
   _dbus_assert (sep >= 0);
-  
+
   if (sep == 0 ||
       (sep == 2 &&
        _dbus_string_get_byte (filename, 1) == ':' &&
        isalpha (_dbus_string_get_byte (filename, 0))))
     return _dbus_string_copy_len (filename, 0, sep + 1,
-				  dirname, _dbus_string_get_length (dirname));
+                                  dirname, _dbus_string_get_length (dirname));
 
   {
     int sep1, sep2;
@@ -771,23 +783,23 @@ _dbus_string_get_dirname(const DBusString *filename,
   }
   if (sep < 0)
     return _dbus_string_append (dirname, ".");
-  
+
   while (sep > 0 &&
-	 (_dbus_string_get_byte (filename, sep - 1) == '/' ||
-	  _dbus_string_get_byte (filename, sep - 1) == '\\'))
+         (_dbus_string_get_byte (filename, sep - 1) == '/' ||
+          _dbus_string_get_byte (filename, sep - 1) == '\\'))
     --sep;
 
   _dbus_assert (sep >= 0);
-  
+
   if ((sep == 0 ||
        (sep == 2 &&
-	_dbus_string_get_byte (filename, 1) == ':' &&
-	isalpha (_dbus_string_get_byte (filename, 0))))
+        _dbus_string_get_byte (filename, 1) == ':' &&
+        isalpha (_dbus_string_get_byte (filename, 0))))
       &&
       (_dbus_string_get_byte (filename, sep) == '/' ||
        _dbus_string_get_byte (filename, sep) == '\\'))
     return _dbus_string_copy_len (filename, 0, sep + 1,
-				  dirname, _dbus_string_get_length (dirname));
+                                  dirname, _dbus_string_get_length (dirname));
   else
     return _dbus_string_copy_len (filename, 0, sep - 0,
                                   dirname, _dbus_string_get_length (dirname));
