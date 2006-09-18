@@ -601,22 +601,15 @@ Havoc
 
 
 
-
-bin\bus-test: Running message dispatch test
-Did not get the expected org.freedesktop.DBus.TestSuiteEchoService from ListActivatableNames
-File "C:\Daten\windbus\trunk\bus\dispatch.c" line 3972 process 3096 should not have been reached: ListActivatableNames message failed
-
-There are two names 
-	bin\dbus-send  --dest=org.freedesktop.DBus --print-reply --type=method_call / org.freedesktop.DBus.ListActivatableNames
-	method return sender=org.freedesktop.DBus -> dest=:1.2
-   array [
-      string "org.freedesktop.DBus"
-      string "org.freedesktop.DBus.TestSuiteEchoService"
-   ]
-but bus/dispatch.c:check_get_services() does only return the first name
+- dbus_string.c:_dbus_string_pop_line() does not remove trailing '\r', which results in dbus-test compare error in sha test. 
 
 
-dbus_string.c:_dbus_string_pop_line() does not remove trailing '\r', which results in dbus-test compare error in sha test. 
+-  Havoc: "This is exactly what I meant would break - it's upset that dbus_connection_get_unix_user doesn't work anymore."
+   TODO: "This error should be changed so it isn't a fatal error, instead the bus should apply any default policies 
+       (user=* instead of user=someone) and continue normally. It's probably very simple, grep for that error message 
+       to find the relevant code." 
+       http://svn.sourceforge.net/windbus/?rev=328&view=rev
+
 
 
 
