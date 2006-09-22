@@ -78,3 +78,49 @@ else(SIZEOF_INT EQUAL 2)
         set (DBUS_INT16_TYPE "short")
     endif(SIZEOF_SHORT EQUAL 2)
 endif(SIZEOF_INT EQUAL 2)
+
+find_program(DOXYGEN doxygen)
+find_program(XMLTO xmlto)
+
+write_file("${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/cmake_try_compile.c" "#include <stdarg.h>
+	void f (int i, ...) {
+	va_list args1, args2;
+	va_start (args1, i);
+	va_copy (args2, args1);
+	if (va_arg (args2, int) != 42 || va_arg (args1, int) != 42)
+	  exit (1);
+	va_end (args1); va_end (args2);
+	}
+	int main() {
+	  f (0, 42);
+	  return 0;
+	}
+")
+try_compile(DBUS_HAVE_VA_COPY
+            ${CMAKE_BINARY_DIR}
+            ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/cmake_try_compile.c)
+
+if(DBUS_HAVE_VA_COPY)
+  SET(DBUS_VA_COPY va_copy CACHE STRING "va_copy function")
+else(DBUS_HAVE_VA_COPY)
+  write_file("${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/cmake_try_compile.c" "#include <stdarg.h>
+	  void f (int i, ...) {
+	  va_list args1, args2;
+	  va_start (args1, i);
+	  __va_copy (args2, args1);
+	  if (va_arg (args2, int) != 42 || va_arg (args1, int) != 42)
+	    exit (1);
+	  va_end (args1); va_end (args2);
+	  }
+	  int main() {
+	    f (0, 42);
+	    return 0;
+	  }
+  ")
+  try_compile(DBUS_HAVE_VA_COPY
+              ${CMAKE_BINARY_DIR}
+              ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/cmake_try_compile.c)
+  if(DBUS_HAVE___VA_COPY)
+    SET(DBUS_VA_COPY __va_copy CACHE STRING "va_copy function")
+  endif(DBUS_HAVE___VA_COPY)
+endif(DBUS_HAVE_VA_COPY)

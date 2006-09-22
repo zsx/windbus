@@ -164,6 +164,8 @@ if (WIN32)
 
 else (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
+		${DBUS_DIR}/dbus-sysdeps-unix.c
+		${DBUS_DIR}/dbus-sysdeps-util-unix.c
 		${DBUS_DIR}/dbus-spawn.c
 	)
 endif (WIN32)

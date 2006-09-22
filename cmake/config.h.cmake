@@ -14,7 +14,21 @@
 #cmakedefine DBUS_SYSTEM_BUS_DEFAULT_ADDRESS  "@DBUS_SYSTEM_BUS_DEFAULT_ADDRESS@"
 #cmakedefine DBUS_SESSION_BUS_DEFAULT_ADDRESS "@DBUS_SESSION_BUS_DEFAULT_ADDRESS@"
 #cmakedefine PACKAGE "@PACKAGE@"
+/* Version number of package */
 #cmakedefine VERSION "@VERSION@"
+// test binaries
+/* Full path to test file test/test-exit in builddir */
+#define TEST_EXIT_BINARY          "@TEST_EXIT_BINARY@"
+/* Full path to test file test/test-segfault in builddir */
+#define TEST_SEGFAULT_BINARY      "@TEST_SEGFAULT_BINARY@"
+/* Full path to test file test/test-service in builddir */
+#define TEST_SERVICE_BINARY       "@TEST_SERVICE_BINARY@"
+/* Full path to test file test/data/valid-service-files in builddir */
+#define TEST_SERVICE_DIR          "@TEST_SERVICE_DIR@"
+/* Full path to test file test/test-shell-service in builddir */
+#define TEST_SHELL_SERVICE_BINARY "@TEST_SHELL_SERVICE_BINARY@"
+/* Full path to test file test/test-sleep-forever in builddir */
+#define TEST_SLEEP_FOREVER_BINARY "@TEST_SLEEP_FOREVER_BINARY@"
 
 /* Some dbus features */
 #cmakedefine DBUS_BUILD_TESTS 1
@@ -40,6 +54,8 @@
 #endif
 
 #cmakedefine DBUS_BUILD_X11 1
+
+#cmakedefine DBUS_VA_COPY @DBUS_VA_COPY_FUNC@
 
 // headers
 /* Define to 1 if you have dirent.h */
@@ -102,23 +118,22 @@
 #cmakedefine    HAVE_CMSGCRED 1
 
 #if defined(_WIN32) || defined(_WIN64)
-#define DBUS_WIN
-#define DBUS_WIN_FIXME 1
+# define DBUS_WIN
+# define DBUS_WIN_FIXME 1
 // mingw mode_t
-#ifdef HAVE_STDIO_H
-#include <stdio.h>
-#endif
-#endif
-
-#ifndef _MSC_VER
-#define uid_t int
-#define gid_t int
-#else
-#define snprintf _snprintf
-#define strtoll _strtoi64
-#define strtoull _strtoui64
-typedef int mode_t;
-#endif
+# ifdef HAVE_STDIO_H
+#  include <stdio.h>
+# endif
+# ifndef _MSC_VER
+#  define uid_t int
+#  define gid_t int
+# else
+#  define snprintf _snprintf
+#  define strtoll _strtoi64
+#  define strtoull _strtoui64
+   typedef int mode_t;
+# endif
+#endif	// defined(_WIN32) || defined(_WIN64)
 
 #ifdef interface
 #undef interface

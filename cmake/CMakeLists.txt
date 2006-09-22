@@ -96,6 +96,13 @@ if (WIN32)
 	set(EXPANDED_SYSCONFDIR      ${CMAKE_INSTALL_PREFIX}/etc)
 	set(EXPANDED_DATADIR         ${CMAKE_INSTALL_PREFIX}/data)
 else (WIN32)
+	set(prefix                   ${CMAKE_INSTALL_PREFIX})
+	set(exec_prefix              ${prefix})
+	set(EXPANDED_LIBDIR          ${CMAKE_INSTALL_PREFIX}/lib)
+	set(EXPANDED_INCLUDEDIR      ${CMAKE_INSTALL_PREFIX}/include)
+	set(EXPANDED_BINDIR          ${CMAKE_INSTALL_PREFIX}/bin)
+	set(EXPANDED_SYSCONFDIR      ${CMAKE_INSTALL_PREFIX}/etc)
+	set(EXPANDED_DATADIR         ${CMAKE_INSTALL_PREFIX}/data)
 endif (WIN32)
 
 ########### command line options ###############
@@ -132,7 +139,9 @@ OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)
 #xmldocs missing
 
 #AC_ARG_ENABLE(doxygen-docs, AS_HELP_STRING([--enable-doxygen-docs],[build DOXYGEN documentation (requires Doxygen)]),enable_doxygen_docs=$enableval,enable_doxygen_docs=auto)
-#doxygen missing
+if(DOXYGEN)
+  OPTION(DBUS_ENABLE_DOXYGEN_DOCS "build DOXYGEN documentation (requires Doxygen)" ON)
+endif(DOXYGEN)
 
 #AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
 OPTION(DBUS_GCOV_ENABLED "compile with coverage profiling instrumentation (gcc only)" OFF)
@@ -230,6 +239,26 @@ OPTION(DBUS_USE_ATOMIC_INT_486 "Use atomic integer implementation for 486" ${ato
 if(X11_FOUND)
   OPTION(DBUS_BUILD_X11 "Build X11-dependent code " ON)
 endif(X11_FOUND)
+
+# test binary names
+set(TEST_EXIT_BINARY
+    ${EXPANDED_BINDIR}/test-exit
+    CACHE STRING "Full path to test file test/test-exit in builddir")
+set(TEST_SEGFAULT_BINARY
+    ${EXPANDED_BINDIR}/test-segfault
+    CACHE STRING "Full path to test file test/test-segfault in builddir")
+set(TEST_SERVICE_BINARY
+    ${EXPANDED_BINDIR}/test-service
+    CACHE STRING "Full path to test file test/test-service in builddir")
+set(TEST_SERVICE_DIR
+    ${CMAKE_SOURCE_DIR}/../test/data/valid-service-files
+    CACHE STRING "Full path to test file test/data/valid-service-files in builddir")
+set(TEST_SHELL_SERVICE_BINARY
+    ${EXPANDED_BINDIR}/test-shell-service
+    CACHE STRING "Full path to test file test/test-shell-service in builddir")
+set(TEST_SLEEP_FOREVER_BINARY
+    ${EXPANDED_BINDIR}/test-sleep-forever
+    CACHE STRING "Full path to test file test/test-sleep-forever in builddir")
 
 #### Find socket directories
 #if ! test -z "$TMPDIR" ; then
@@ -348,19 +377,19 @@ message("        sysconfdir:               ${EXPANDED_SYSCONFDIR}              "
 message("        localstatedir:            ${EXPANDED_LOCALSTATEDIR}           ")
 message("        datadir:                  ${EXPANDED_DATADIR}                 ")
 message("        source code location:     ${DBUS_SOURCE_DIR}                  ")
-message("        c compiler:               ${C_COMPILER}                       ")       
-message("        cflags:                   ${CMAKE_C_FLAGS}                    ") 
-message("        cflags debug:             ${CMAKE_C_FLAGS_DEBUG}              ") 
-message("        cflags release:           ${CMAKE_C_FLAGS_RELEASE}            ") 
-message("        cxx compiler:             ${CXX_COMPILER}                     ")       
-message("        cxxflags:                 ${CMAKE_CXX_FLAGS}                  ")       
-message("        cxxflags debug:           ${CMAKE_CXX_FLAGS_DEBUG}            ")       
-message("        cxxflags release:         ${CMAKE_CXX_FLAGS_RELEASE}          ")       
-message("        64-bit int:               ${DBUS_INT64_TYPE}                  ")     
-message("        32-bit int:               ${DBUS_INT32_TYPE}                  ")     
-message("        16-bit int:               ${DBUS_INT16_TYPE}                  ")     
-#message("        Doxygen:                  ${DOXYGEN}                          ")
-#message("        xmlto:                    ${XMLTO}                            ")
+message("        c compiler:               ${C_COMPILER}                       ")
+message("        cflags:                   ${CMAKE_C_FLAGS}                    ")
+message("        cflags debug:             ${CMAKE_C_FLAGS_DEBUG}              ")
+message("        cflags release:           ${CMAKE_C_FLAGS_RELEASE}            ")
+message("        cxx compiler:             ${CXX_COMPILER}                     ")
+message("        cxxflags:                 ${CMAKE_CXX_FLAGS}                  ")
+message("        cxxflags debug:           ${CMAKE_CXX_FLAGS_DEBUG}            ")
+message("        cxxflags release:         ${CMAKE_CXX_FLAGS_RELEASE}          ")
+message("        64-bit int:               ${DBUS_INT64_TYPE}                  ")
+message("        32-bit int:               ${DBUS_INT32_TYPE}                  ")
+message("        16-bit int:               ${DBUS_INT16_TYPE}                  ")
+message("        Doxygen:                  ${DOXYGEN}                          ")
+message("        xmlto:                    ${XMLTO}                            ")
 
 
 #message("        Maintainer mode:          ${USE_MAINTAINER_MODE}              ")
@@ -369,16 +398,16 @@ message("        Building unit tests:      ${DBUS_BUILD_TESTS}                 "
 message("        Building verbose mode:    ${DBUS_ENABLE_VERBOSE_MODE}         ")
 message("        Building w/o assertions:  ${DBUS_DISABLE_ASSERTS}             ")
 message("        Building w/o checks:      ${DBUS_DISABLE_CHECKS}              ")
-message("        installing system libs:   ${DBUS_INSTALL_SYSTEM_LIBS}          ")
+message("        installing system libs:   ${DBUS_INSTALL_SYSTEM_LIBS}         ")
 #message("        Building SELinux support: ${have_selinux}                     ")
 #message("        Building dnotify support: ${have_dnotify}                     ")
-#message("        Building Doxygen docs:    ${enable_doxygen_docs}              ")
+message("        Building Doxygen docs:    ${DBUS_ENABLE_DOXYGEN_DOCS}         ")
 #message("        Building XML docs:        ${enable_xml_docs}                  ")
 #message("        Gettext libs (empty OK):  ${INTLLIBS}                         ")
-message("        Using XML parser:         ${XML_LIB}                         ")
+message("        Using XML parser:         ${XML_LIB}                          ")
 if (WIN32)
 message("        System bus address:       ${DBUS_SYSTEM_BUS_DEFAULT_ADDRESS}  ")
-message("        Session bus address:      ${DBUS_SESSION_BUS_DEFAULT_ADDRESS}  ")
+message("        Session bus address:      ${DBUS_SESSION_BUS_DEFAULT_ADDRESS} ")
 message("        Session bus services dir: ${DBUS_SERVICE_DIR}                 ")
 else (WIN32)
 #message("        Init scripts style:       ${with_init_scripts}                ")
