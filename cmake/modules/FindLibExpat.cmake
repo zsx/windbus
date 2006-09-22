@@ -14,7 +14,6 @@ if (LIBEXPAT_INCLUDE_DIR AND LIBEXPAT_LIBRARIES)
 else (LIBEXPAT_INCLUDE_DIR AND LIBEXPAT_LIBRARIES)
 
     IF (NOT WIN32)
-        MESSAGE(FATAL_ERROR "Please set this to the correct values!")
         # use pkg-config to get the directories and then use these values
         # in the FIND_PATH() and FIND_LIBRARY() calls
         INCLUDE(UsePkgConfig)

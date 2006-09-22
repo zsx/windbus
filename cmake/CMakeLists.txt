@@ -1,5 +1,5 @@
 set (PACKAGE dbus)
-set (VERSION 0.92)
+set (VERSION 0.94)
 project(${PACKAGE})
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
@@ -14,7 +14,7 @@ if (WIN32)
 	find_package(GNUWIN32)
 	find_package(LibIconv)
 endif (WIN32)
-find_package(LibXML2)
+find_package(LibXml2)
 find_package(LibExpat)
 find_package(X11)
 
@@ -135,15 +135,15 @@ OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)
 #doxygen missing
 
 #AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
-OPTION(DBUS_ENABLE_GCOV "compile with coverage profiling instrumentation (gcc only)" OFF)
-if(DBUS_ENABLE_GCOV)
+OPTION(DBUS_GCOV_ENABLED "compile with coverage profiling instrumentation (gcc only)" OFF)
+if(DBUS_GCOV_ENABLED)
    if(NOT MSVC)
         add_definitions(-fprofile-arcs -ftest-coverage)
         # FIXME!!!!
         ## remove optimization
 #        CFLAGS=`echo "$CFLAGS" | sed -e 's/-O[0-9]*//g'`
    endif(NOT MSVC) 
-endif(DBUS_ENABLE_GCOV)
+endif(DBUS_GCOV_ENABLED)
 
 #AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use abstract socket namespace (linux only)]),enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
 #abstract sockets missing
@@ -152,9 +152,9 @@ endif(DBUS_ENABLE_GCOV)
 #selinux missing
 
 #AC_ARG_ENABLE(dnotify, AS_HELP_STRING([--enable-dnotify],[build with dnotify support (linux only)]),enable_dnotify=$enableval,enable_dnotify=auto)
-if(LINUX)
-    OPTION(DBUS_ENABLE_DNOTIFY "build with dnotify support (linux only)" ON) # add a check !
-endif(LINUX)
+if("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
+    OPTION(DBUS_BUS_ENABLE_DNOTIFY_ON_LINUX "build with dnotify support (linux only)" ON) # add a check !
+endif("${CMAKE_SYSTEM_NAME}" STREQUAL "Linux")
 
 #AC_ARG_ENABLE(kqueue, AS_HELP_STRING([--enable-kqueue],[build with kqueue support (FreeBSD only)]),enable_kqueue=$enableval,enable_kqueue=auto)
 #missing
@@ -202,33 +202,34 @@ endif(DBUS_USE_EXPAT)
 # all missing or hardcoded for now
 
 # 'hidden' ones
-set(atomic_int "OFF")
-set(atomic_int486 "OFF")
-if(GCC AND NOT DBUS_ENABLE_ANSI)
+set(atomic_int OFF)
+set(atomic_int486 OFF)
+if(CMAKE_COMPILER_IS_GNUCC AND NOT DBUS_ENABLE_ANSI)
     FIND_PROGRAM(UNAME_EXECUTABLE
                     NAMES uname
                     PATHS /bin /usr/bin /usr/local/bin c:/Programme/MSys/bin d:/Programme/MSys/bin)
 
     if(UNAME_EXECUTABLE)
         EXECUTE_PROCESS(COMMAND ${UNAME_EXECUTABLE} "-m"
-                        OUTPUT_VARIABLE UNMAE_OUTPUT)
+                        OUTPUT_VARIABLE UNAME_OUTPUT)
 
-        if("UNMAE_OUTPUT" MATCHES "^.*i[0123]86.*$")
-            set(atomic_int "ON")
-        else("UNMAE_OUTPUT" MATCHES "^.*i[0123]86.*$")
-            if("UNMAE_OUTPUT" MATCHES "^.*i?86.*$")
-                set(atomic_int_486 "ON")
-            endif("UNMAE_OUTPUT" MATCHES "^.*i?86.*$")
-        endif("UNMAE_OUTPUT" MATCHES "^.*i[0123]86.*$")
+        if("UNAME_OUTPUT" MATCHES "^.*i[0123]86.*$")
+            set(atomic_int ON)
+        else("UNAME_OUTPUT" MATCHES "^.*i[0123]86.*$")
+            if("UNAME_OUTPUT" MATCHES "^.*i?86.*$")
+                set(atomic_int ON)
+                set(atomic_int_486 ON)
+            endif("UNAME_OUTPUT" MATCHES "^.*i?86.*$")
+        endif("UNAME_OUTPUT" MATCHES "^.*i[0123]86.*$")
     endif(UNAME_EXECUTABLE)
-endif(GCC AND NOT DBUS_ENABLE_ANSI)
+endif(CMAKE_COMPILER_IS_GNUCC AND NOT DBUS_ENABLE_ANSI)
 
 OPTION(DBUS_HAVE_ATOMIC_INT    "Some atomic integer implementation present" ${atomic_int})
 OPTION(DBUS_USE_ATOMIC_INT_486 "Use atomic integer implementation for 486" ${atomic_int_486})
 
-if(HAVE_X11)
+if(X11_FOUND)
   OPTION(DBUS_BUILD_X11 "Build X11-dependent code " ON)
-endif(HAVE_X11)
+endif(X11_FOUND)
 
 #### Find socket directories
 #if ! test -z "$TMPDIR" ; then
@@ -363,7 +364,7 @@ message("        16-bit int:               ${DBUS_INT16_TYPE}                  "
 
 
 #message("        Maintainer mode:          ${USE_MAINTAINER_MODE}              ")
-message("        gcc coverage profiling:   ${DBUS_ENABLE_GCOV}                 ")
+message("        gcc coverage profiling:   ${DBUS_GCOV_ENABLED}                ")
 message("        Building unit tests:      ${DBUS_BUILD_TESTS}                 ")
 message("        Building verbose mode:    ${DBUS_ENABLE_VERBOSE_MODE}         ")
 message("        Building w/o assertions:  ${DBUS_DISABLE_ASSERTS}             ")
@@ -400,9 +401,9 @@ if (DBUS_BUILD_TESTS AND DBUS_DISABLE_ASSERTS)
     message("NOTE: building with unit tests but without assertions means tests may not properly report failures (this configuration is only useful when doing something like profiling the tests)")
 endif(DBUS_BUILD_TESTS AND DBUS_DISABLE_ASSERTS)
 
-if (DBUS_ENABLE_GCOV)
+if (DBUS_GCOV_ENABLED)
     message("NOTE: building with coverage profiling is definitely for developers only.")
-endif(DBUS_ENABLE_GCOV)
+endif(DBUS_GCOV_ENABLED)
 
 if (DBUS_ENABLE_VERBOSE_MODE)
     message("NOTE: building with verbose mode increases library size, may slightly increase security risk, and decreases performance.")
