@@ -2108,7 +2108,9 @@ _dbus_poll (DBusPollFD *fds,
             int         n_fds,
             int         timeout_milliseconds)
 {
-  char msg[200], *msgp;
+#define DBUS_POLL_CHAR_BUFFER_SIZE 2000
+  char msg[DBUS_POLL_CHAR_BUFFER_SIZE];
+  char *msgp;
 
   fd_set read_set, write_set, err_set;
   int max_fd = 0;
@@ -2150,6 +2152,13 @@ _dbus_poll (DBusPollFD *fds,
         msgp += sprintf (msgp, "W:%d ", sock);
 
       msgp += sprintf (msgp, "E:%d ", sock);
+
+      // FIXME: more robust code for long  msg
+      //        create on heap when msg[] becomes too small
+      if (msgp >= msg + DBUS_POLL_CHAR_BUFFER_SIZE)
+        {
+          _dbus_assert_not_reached ("buffer overflow in _dbus_poll");
+        }
     }
 
   msgp += sprintf (msgp, "\n");
