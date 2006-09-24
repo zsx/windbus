@@ -50,7 +50,7 @@ if(MSVC)
 						")
  
 	SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG} ${MSVC_WARNINGS}")
-	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_DEBUG} ${MSVC_WARNINGS}")
+	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${MSVC_WARNINGS}")
 endif(MSVC)
 
 ENABLE_TESTING()
@@ -86,20 +86,10 @@ set(DBUS_INCLUDES)
 
 ENABLE_TESTING()
 
-########### basic vars ###############
 
-if (WIN32)
-	set(prefix                   ${CMAKE_INSTALL_PREFIX})
-	set(EXPANDED_LIBDIR          ${CMAKE_INSTALL_PREFIX}/lib)
-	set(EXPANDED_INCLUDEDIR      ${CMAKE_INSTALL_PREFIX}/include)
-	if (BUILD_DEBUG AND MSVC)
-		set(EXPANDED_BINDIR      ${CMAKE_BINARY_DIR}/bin/debug)
-	else (MSVC)
-		set(EXPANDED_BINDIR      ${CMAKE_INSTALL_PREFIX}/bin)
-	endif (BUILD_DEBUG AND MSVC)								 
-	set(EXPANDED_SYSCONFDIR      ${CMAKE_INSTALL_PREFIX}/etc)
-	set(EXPANDED_DATADIR         ${CMAKE_INSTALL_PREFIX}/data)
-else (WIN32)
+########### basic vars ###############
+	
+if (DBUS_INSTALL_SYSTEM_LIBS)
 	set(prefix                   ${CMAKE_INSTALL_PREFIX})
 	set(exec_prefix              ${prefix})
 	set(EXPANDED_LIBDIR          ${CMAKE_INSTALL_PREFIX}/lib)
@@ -107,7 +97,15 @@ else (WIN32)
 	set(EXPANDED_BINDIR          ${CMAKE_INSTALL_PREFIX}/bin)
 	set(EXPANDED_SYSCONFDIR      ${CMAKE_INSTALL_PREFIX}/etc)
 	set(EXPANDED_DATADIR         ${CMAKE_INSTALL_PREFIX}/data)
-endif (WIN32)
+else (DBUS_INSTALL_SYSTEM_LIBS)
+	set(EXPANDED_INCLUDEDIR      ${CMAKE_SOURCE_DIR}/include)
+	set(EXPANDED_DATADIR         ${CMAKE_BINARY_DIR}/test/data)
+	if (MSVC)
+		set(EXPANDED_BINDIR      ${CMAKE_BINARY_DIR}/bin/debug)
+	else (MSVC)
+		set(EXPANDED_BINDIR      ${CMAKE_BINARY_DIR}/bin)	
+	endif (MSVC)
+endif (DBUS_INSTALL_SYSTEM_LIBS)
 
 ########### command line options ###############
 # TODO: take check from configure.in 
@@ -366,7 +364,8 @@ add_subdirectory( tools )
 OPTION(DBUS_INSTALL_SYSTEM_LIBS "install required system libraries" OFF)
 MESSAGE(" ")
 MESSAGE("set -DDBUS_INSTALL_SYSTEM_LIBS=1 to install runtime libraries too")
-
+MESSAGE(" ")
+MESSAGE(" ")
 GET_FILENAME_COMPONENT(C_COMPILER ${CMAKE_C_COMPILER} NAME)
 GET_FILENAME_COMPONENT(CXX_COMPILER ${CMAKE_CXX_COMPILER} NAME)
 
@@ -425,7 +424,7 @@ message("        System bus user:          ${DBUS_USER}                        "
 message("        Session bus services dir: ${DBUS_SERVICE_DIR}                 ")
 message("        'make check' socket dir:  ${TEST_SOCKET_DIR}                  ")
 endif (WIN32)
-
+MESSAGE(" ")
 if (DBUS_BUILD_TESTS)
     message("NOTE: building with unit tests increases the size of the installed library and renders it insecure.")
 endif(DBUS_BUILD_TESTS)
@@ -449,5 +448,6 @@ endif(NOT DBUS_DISABLE_ASSERTS)
 if (DBUS_DISABLE_CHECKS)
     message("NOTE: building without checks for arguments passed to public API makes it harder to debug apps using D-BUS, but will slightly decrease D-BUS library size and _very_ slightly improve performance.")
 endif(DBUS_DISABLE_CHECKS)
+MESSAGE(" ")
 
 INCLUDE(modules/CPackInstallConfig.cmake)
