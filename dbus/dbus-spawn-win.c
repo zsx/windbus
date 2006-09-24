@@ -4,10 +4,6 @@
 #define PING() fprintf (stderr, "%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__); fflush (stderr)
 #endif
 
-#define TEST_SEGFAULT_BINARY "test-segfault"
-#define TEST_EXIT_BINARY "test-exit"
-#define TEST_SLEEP_FOREVER_BINARY "test-sleep-forever"
-
 #include <stdio.h>
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-spawn-win32.c Wrapper around g_spawn
