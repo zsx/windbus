@@ -133,6 +133,9 @@
 #  define strtoull _strtoui64
    typedef int mode_t;
 # endif
+# ifdef DBUS_VA_COPY
+#  undef DBUS_VA_COPY // DBUS_VA_COPY kills mingw's bus-test
+# endif
 #endif	// defined(_WIN32) || defined(_WIN64)
 
 #ifdef interface
