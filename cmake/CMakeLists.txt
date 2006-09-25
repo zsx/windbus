@@ -36,18 +36,7 @@ if(MSVC)
 	endif(NOT GROUP_CODE)
     ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
     
-	SET(MSVC_WARNINGS	"
-						/we4013
-						/we4133
-						/we4047
-						/we4031
-						/we4002
-						/we4003
-						/FIconfig.h
-						/wd4090
-						/wd4101
-						/wd4244
-						")
+	SET(MSVC_WARNINGS  "/FIconfig.h /we4013 /we4133 /we4047 /we4031 /we4002 /we4003 /wd4090 /wd4101 /wd4244")
  
 	SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG} ${MSVC_WARNINGS}")
 	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} ${MSVC_WARNINGS}")
