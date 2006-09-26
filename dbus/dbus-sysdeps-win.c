@@ -351,6 +351,7 @@ _dbus_socket_to_handle (DBusSocket *sock)
 
   // check: parameter must be a valid value
   _dbus_assert(socket != NULL);
+  _dbus_assert(sock->fd != -1);
   _dbus_assert(!IS_HANDLE(sock->fd));
 
   _DBUS_LOCK (win_fds);
@@ -383,15 +384,17 @@ _dbus_socket_to_handle (DBusSocket *sock)
   return handle;
 }
 
-int
-_dbus_handle_to_socket(int handle)
+
+void 
+_dbus_handle_to_socket (int         handle,
+                        DBusSocket *sock)
 {
   int i;
-  int value;
 
   // check: parameter must be a valid handle
   _dbus_assert(handle != -1);
   _dbus_assert(IS_HANDLE(handle));
+  _dbus_assert(sock != NULL);
 
   // map from handle to index: handle->index
   i = FROM_HANDLE (handle);
@@ -403,11 +406,12 @@ _dbus_handle_to_socket(int handle)
   _dbus_assert (win_fds[i].is_used == 1);
 
   // get value from index: index->value
-  value = win_fds[i].fd;
+  // TODO: or should we return a set a pointer to the struct?
+  sock->fd = win_fds[i].fd;
+  sock->is_used = win_fds[i].is_used;
+  sock->port_file_fd = win_fds[i].port_file_fd;
 
-  _dbus_verbose ("deencapsulated C value fd=%d i=%d dfd=%x\n", value, i, handle);
-
-  return value;
+  _dbus_verbose ("deencapsulated C value fd=%d i=%d dfd=%x\n", sock->fd, i, handle);
 }
 
 
@@ -3314,35 +3318,33 @@ _dbus_listen_tcp_socket (const char     *host,
  * @returns the connection fd of the client, or -1 on error
  */
 int
-_dbus_accept  (int listen_fd)
+_dbus_accept  (int listen_handle)
 {
+  DBusSocket slisten;
   DBusSocket sclient;
   struct sockaddr addr;
   socklen_t addrlen;
 
-  listen_fd = _dbus_handle_to_socket (listen_fd);
+  _dbus_handle_to_socket (listen_handle, &slisten);
 
   addrlen = sizeof (addr);
 
+  //FIXME:  why do we not try it again on Windows?
 #ifndef DBUS_WIN
-
 retry:
 #endif
 
-  sclient.fd = accept (listen_fd, &addr, &addrlen);
+  sclient.fd = accept (slisten.fd, &addr, &addrlen);
 
   if (DBUS_SOCKET_IS_INVALID (sclient.fd))
     {
       DBUS_SOCKET_SET_ERRNO ();
 #ifndef DBUS_WIN
-
       if (errno == EINTR)
         goto retry;
 #else
-
-      sclient.fd = -1;
+      return -1;
 #endif
-
     }
 
   return _dbus_socket_to_handle (&sclient);

@@ -144,8 +144,9 @@ struct DBusFile
   };
 
 
-int _dbus_handle_to_socket (int handle);
-int _dbus_socket_to_handle (DBusSocket *socket);
+void _dbus_handle_to_socket (int         handle,
+                             DBusSocket *sock);
+int  _dbus_socket_to_handle (DBusSocket *sock);
 
 dbus_bool_t
 fill_user_info (DBusUserInfo       *info,
