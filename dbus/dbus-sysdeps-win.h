@@ -53,9 +53,6 @@ typedef enum
 {
   DBUS_WIN_FD_UNUSED,
   DBUS_WIN_FD_BEING_OPENED,
-  DBUS_WIN_FD_C_LIB,           /* Unix-style file descriptor
-                                  * (implemented by the C runtime)
-                                  */
   DBUS_WIN_FD_SOCKET,            /* Winsock SOCKET */
   DBUS_WIN_FD_NAMED_PIPE_HANDLE /* HANDLE for a named pipe */
 } DBusWin32FDType;
@@ -155,9 +152,7 @@ struct DBusFile
 
 
 int _dbus_handle_to_socket (int handle);
-int _dbus_handle_to_fd     (int handle);
 int _dbus_socket_to_handle (int socket);
-int _dbus_fd_to_handle     (int fd);
 
 dbus_bool_t
 fill_user_info (DBusUserInfo       *info,

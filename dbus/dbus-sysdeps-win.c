@@ -78,8 +78,6 @@ static int  win_encap_randomizer;
 static DBusHashTable *sid_atom_cache = NULL;
 
 
-int _dbus_fd_to_handle (int);
-
 /**
  * File interface
  *
@@ -356,6 +354,9 @@ _dbus_value_to_handle (DBusWin32FDType type, int value)
   _dbus_assert(value != -1);
   _dbus_assert(!IS_HANDLE(value));
 
+  // no files any more
+  _dbus_assert(type==DBUS_WIN_FD_SOCKET);
+
   _DBUS_LOCK (win_fds);
 
   // at the first call there is no win_fds
@@ -393,12 +394,6 @@ _dbus_socket_to_handle (int socket)
   return _dbus_value_to_handle (DBUS_WIN_FD_SOCKET, socket);
 }
 
-int
-_dbus_fd_to_handle (int fd)
-{
-  return _dbus_value_to_handle (DBUS_WIN_FD_C_LIB, fd);
-}
-
 
 static
 int
@@ -434,11 +429,6 @@ _dbus_handle_to_socket (int handle)
   return _dbus_handle_to_value (DBUS_WIN_FD_SOCKET, handle);
 }
 
-int
-_dbus_handle_to_fd (int handle)
-{
-  return _dbus_handle_to_value (DBUS_WIN_FD_C_LIB, handle);
-}
 
 #undef TO_HANDLE
 #undef IS_HANDLE
@@ -737,10 +727,6 @@ _dbus_set_fd_nonblocking (int             fd,
         }
       break;
 
-    case DBUS_WIN_FD_C_LIB:
-      _dbus_assert_not_reached ("only sockets can be set to nonblocking");
-      break;
-
     default:
       _dbus_assert_not_reached ("unhandled fd type");
     }
@@ -837,18 +823,6 @@ _dbus_write_socket_two (int               fd,
       else
         _dbus_verbose ("WSASend: = %ld\n", bytes_written);
       return bytes_written;
-
-    case DBUS_WIN_FD_C_LIB:
-      ret1 = _dbus_write_socket (fd, buffer1, start1, len1);
-      if (ret1 == len1 && buffer2 != NULL)
-        {
-          int ret2 = _dbus_write_socket (fd, buffer2, start2, len2);
-          if (ret2 < 0)
-            ret2 = 0; /* we can't report an error as the first write was OK */
-          return ret1 + ret2;
-        }
-      else
-        return ret1;
 
     default:
       _dbus_assert_not_reached ("unhandled fd type");
