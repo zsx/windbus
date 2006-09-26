@@ -49,30 +49,23 @@
 extern BOOL WINAPI ConvertStringSidToSidA (LPCSTR  StringSid, PSID *Sid);
 extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
 
-typedef enum
-{
-  DBUS_WIN_FD_UNUSED,
-  DBUS_WIN_FD_BEING_OPENED,
-  DBUS_WIN_FD_SOCKET,            /* Winsock SOCKET */
-  DBUS_WIN_FD_NAMED_PIPE_HANDLE /* HANDLE for a named pipe */
-} DBusWin32FDType;
 
 #define DBUS_CONSOLE_DIR "/var/run/console/"
 
 typedef struct
   {
-    DBusWin32FDType type;
     int fd;               /* File descriptor, SOCKET or file HANDLE */
-    int port_file_fd;        /* File descriptor for file containing
-                             * port number for "pseudo-unix" sockets
-                             */
+    int port_file_fd;     /* File descriptor for file containing
+                           * port number for "pseudo-unix" sockets
+                           */
     DBusString port_file; /* File name for said file */
     dbus_bool_t close_on_exec;
     dbus_bool_t non_blocking;
+    int is_used; 
   }
-DBusWin32FD;
+DBusSocket;
 
-extern DBusWin32FD *win_fds;
+extern DBusSocket *win_fds;
 extern int win32_n_fds;
 
 

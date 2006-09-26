@@ -230,7 +230,7 @@ dbus_bool_t _dbus_fstat (DBusFile    *file,
  
  ************************************************************************/
 
-static DBusWin32FD *win_fds = NULL;
+static DBusSocket *win_fds = NULL;
 static int win_n_fds = 0; // is this the size? rename to win_fds_size? #
 
 #if 0
@@ -251,7 +251,7 @@ void
 _dbus_win_deallocate_fd (int fd)
 {
   _DBUS_LOCK (win_fds);
-  win_fds[FROM_HANDLE (fd)].type = DBUS_WIN_FD_UNUSED;
+  win_fds[FROM_HANDLE (fd)].is_used = 0;
   _DBUS_UNLOCK (win_fds);
 }
 
@@ -276,7 +276,7 @@ _dbus_win_allocate_fd (void)
       _dbus_assert (win_fds != NULL);
 
       for (i = 0; i < win_n_fds; i++)
-        win_fds[i].type = DBUS_WIN_FD_UNUSED;
+        win_fds[i].is_used = 0;
 
 #ifdef _DBUS_WIN_USE_RANDOMIZER
 
@@ -289,7 +289,7 @@ _dbus_win_allocate_fd (void)
 
     }
 
-  for (i = 0; i < win_n_fds && win_fds[i].type != DBUS_WIN_FD_UNUSED; i++)
+  for (i = 0; i < win_n_fds && win_fds[i].is_used != 0; i++)
     ;
 
   if (i == win_n_fds)
@@ -303,10 +303,10 @@ _dbus_win_allocate_fd (void)
       _dbus_assert (win_fds != NULL);
 
       for (j = oldn; j < win_n_fds; j++)
-        win_fds[i].type = DBUS_WIN_FD_UNUSED;
+        win_fds[i].is_used = 0;
     }
 
-  win_fds[i].type = DBUS_WIN_FD_BEING_OPENED;
+  win_fds[i].is_used = 1;
   win_fds[i].fd = -1;
   win_fds[i].port_file_fd = -1;
   win_fds[i].close_on_exec = FALSE;
@@ -319,7 +319,7 @@ _dbus_win_allocate_fd (void)
 
 static
 int
-_dbus_create_handle_from_value (DBusWin32FDType type, int value)
+_dbus_create_handle_from_value (int value)
 {
   int i;
   int handle = -1;
@@ -333,7 +333,7 @@ _dbus_create_handle_from_value (DBusWin32FDType type, int value)
 
   // fill new posiiton in the map: value->index
   win_fds[i].fd = value;
-  win_fds[i].type = type;
+  win_fds[i].is_used = 1;
 
   // create handle from the index: index->handle
   handle = TO_HANDLE (i);
@@ -343,9 +343,8 @@ _dbus_create_handle_from_value (DBusWin32FDType type, int value)
   return handle;
 }
 
-static
 int
-_dbus_value_to_handle (DBusWin32FDType type, int value)
+_dbus_socket_to_handle (int value)
 {
   int i;
   int handle = -1;
@@ -353,9 +352,6 @@ _dbus_value_to_handle (DBusWin32FDType type, int value)
   // check: parameter must be a valid value
   _dbus_assert(value != -1);
   _dbus_assert(!IS_HANDLE(value));
-
-  // no files any more
-  _dbus_assert(type==DBUS_WIN_FD_SOCKET);
 
   _DBUS_LOCK (win_fds);
 
@@ -367,7 +363,7 @@ _dbus_value_to_handle (DBusWin32FDType type, int value)
       // search for the value in the map
       // find the index of the value: value->index
       for (i = 0; i < win_n_fds; i++)
-        if (win_fds[i].type == type && win_fds[i].fd == value)
+        if (win_fds[i].is_used == 1 && win_fds[i].fd == value)
           {
             // create handle from the index: index->handle
             handle = TO_HANDLE (i);
@@ -379,7 +375,7 @@ _dbus_value_to_handle (DBusWin32FDType type, int value)
 
   if (handle == -1)
     {
-      handle = _dbus_create_handle_from_value(type, value);
+      handle = _dbus_create_handle_from_value(value);
     }
 
   _dbus_assert(handle != -1);
@@ -387,17 +383,8 @@ _dbus_value_to_handle (DBusWin32FDType type, int value)
   return handle;
 }
 
-
 int
-_dbus_socket_to_handle (int socket)
-{
-  return _dbus_value_to_handle (DBUS_WIN_FD_SOCKET, socket);
-}
-
-
-static
-int
-_dbus_handle_to_value (DBusWin32FDType type, int handle)
+_dbus_handle_to_socket(int handle)
 {
   int i;
   int value;
@@ -412,8 +399,8 @@ _dbus_handle_to_value (DBusWin32FDType type, int handle)
   _dbus_assert (win_fds != NULL);
   _dbus_assert (i >= 0 && i < win_n_fds);
 
-  // check for correct type
-  _dbus_assert (win_fds[i].type == type);
+  // check for if fd is valid
+  _dbus_assert (win_fds[i].is_used == 1);
 
   // get value from index: index->value
   value = win_fds[i].fd;
@@ -421,12 +408,6 @@ _dbus_handle_to_value (DBusWin32FDType type, int handle)
   _dbus_verbose ("deencapsulated C value fd=%d i=%d dfd=%x\n", value, i, handle);
 
   return value;
-}
-
-int
-_dbus_handle_to_socket (int handle)
-{
-  return _dbus_handle_to_value (DBUS_WIN_FD_SOCKET, handle);
 }
 
 
@@ -474,7 +455,7 @@ _dbus_read_socket (int               fd,
                    DBusString       *buffer,
                    int               count)
 {
-  DBusWin32FDType type;
+  int is_used;
   int bytes_read;
   int start;
   char *data;
@@ -498,14 +479,13 @@ _dbus_read_socket (int               fd,
   _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
 
-  type = win_fds[fd].type;
+  is_used = win_fds[fd].is_used;
   fd = win_fds[fd].fd;
 
   _DBUS_UNLOCK (win_fds);
 
-  switch (type)
+  if(is_used)
     {
-    case DBUS_WIN_FD_SOCKET:
       _dbus_verbose ("recv: count=%d socket=%d\n", count, fd);
       bytes_read = recv (fd, data, count, 0);
       if (bytes_read == SOCKET_ERROR)
@@ -516,10 +496,10 @@ _dbus_read_socket (int               fd,
         }
       else
         _dbus_verbose ("recv: = %d\n", bytes_read);
-      break;
-
-    default:
-      _dbus_assert_not_reached ("unhandled fd type");
+    }
+  else
+    {
+      _dbus_assert_not_reached ("no valid socket");
     }
 
   if (bytes_read < 0)
@@ -559,7 +539,7 @@ _dbus_write_socket (int               fd,
                     int               start,
                     int               len)
 {
-  DBusWin32FDType type;
+  int is_used;
   const char *data;
   int bytes_written;
 
@@ -572,14 +552,13 @@ _dbus_write_socket (int               fd,
   _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
 
-  type = win_fds[fd].type;
+  is_used = win_fds[fd].is_used;
   fd = win_fds[fd].fd;
 
   _DBUS_UNLOCK (win_fds);
 
-  switch (type)
+  if (is_used)
     {
-    case DBUS_WIN_FD_SOCKET:
       _dbus_verbose ("send: len=%d socket=%d\n", len, fd);
       bytes_written = send (fd, data, len, 0);
       if (bytes_written == SOCKET_ERROR)
@@ -590,9 +569,9 @@ _dbus_write_socket (int               fd,
         }
       else
         _dbus_verbose ("send: = %d\n", bytes_written);
-      break;
-
-    default:
+    }
+  else
+    {
       _dbus_assert_not_reached ("unhandled fd type");
     }
 
@@ -627,9 +606,8 @@ _dbus_close_socket (int        fd,
   _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
 
-  switch (win_fds[fd].type)
+  if (win_fds[fd].is_used)
     {
-    case DBUS_WIN_FD_SOCKET:
       if (win_fds[fd].port_file_fd >= 0)
         {
           _chsize (win_fds[fd].port_file_fd, 0);
@@ -651,9 +629,9 @@ _dbus_close_socket (int        fd,
         }
       _dbus_verbose ("closed socket %d:%d:%d\n",
                      encapsulated_fd, fd, win_fds[fd].fd);
-      break;
-
-    default:
+    }
+  else
+    {
       _dbus_assert_not_reached ("unhandled fd type");
     }
 
@@ -713,9 +691,8 @@ _dbus_set_fd_nonblocking (int             fd,
   _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
 
-  switch (win_fds[fd].type)
+  if (win_fds[fd].is_used)
     {
-    case DBUS_WIN_FD_SOCKET:
       if (ioctlsocket (win_fds[fd].fd, FIONBIO, &one) == SOCKET_ERROR)
         {
           dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
@@ -725,9 +702,9 @@ _dbus_set_fd_nonblocking (int             fd,
           _DBUS_UNLOCK (win_fds);
           return FALSE;
         }
-      break;
-
-    default:
+    }
+  else
+    {
       _dbus_assert_not_reached ("unhandled fd type");
     }
 
@@ -766,7 +743,7 @@ _dbus_write_socket_two (int               fd,
                         int               start2,
                         int               len2)
 {
-  DBusWin32FDType type;
+  int is_used;
   WSABUF vectors[2];
   const char *data1;
   const char *data2;
@@ -787,7 +764,7 @@ _dbus_write_socket_two (int               fd,
   _dbus_assert (fd >= 0 && fd < win_n_fds);
   _dbus_assert (win_fds != NULL);
 
-  type = win_fds[fd].type;
+  is_used = win_fds[fd].is_used;
   fd = win_fds[fd].fd;
 
   _DBUS_UNLOCK (win_fds);
@@ -803,9 +780,8 @@ _dbus_write_socket_two (int               fd,
       len2 = 0;
     }
 
-  switch (type)
+  if (is_used)
     {
-    case DBUS_WIN_FD_SOCKET:
       vectors[0].buf = (char*) data1;
       vectors[0].len = len1;
       vectors[1].buf = (char*) data2;
@@ -823,8 +799,9 @@ _dbus_write_socket_two (int               fd,
       else
         _dbus_verbose ("WSASend: = %ld\n", bytes_written);
       return bytes_written;
-
-    default:
+    }
+  else
+    {
       _dbus_assert_not_reached ("unhandled fd type");
     }
   return 0;
@@ -2111,12 +2088,12 @@ _dbus_poll (DBusPollFD *fds,
 
       _dbus_assert (fd >= 0 && fd < win_n_fds);
 
-      if (!warned &&
-          win_fds[fd].type != DBUS_WIN_FD_SOCKET)
+      if (win_fds[fd].is_used == 0)
         {
-          _dbus_warn ("Can poll only sockets on Win32");
+          _dbus_warn ("no valid socket");
           warned = TRUE;
         }
+
       sock = _dbus_decapsulate_quick (fdp->fd);
 
       if (fdp->events & _DBUS_POLLIN)
@@ -2143,7 +2120,7 @@ _dbus_poll (DBusPollFD *fds,
       DBusPollFD *fdp = &fds[i];
       int sock = _dbus_decapsulate_quick (fdp->fd);
 
-      if (win_fds[FROM_HANDLE (fdp->fd)].type != DBUS_WIN_FD_SOCKET)
+      if (win_fds[FROM_HANDLE (fdp->fd)].is_used != 1)
         continue;
 
       if (fdp->events & _DBUS_POLLIN)
