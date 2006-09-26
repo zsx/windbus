@@ -224,11 +224,10 @@ dbus_bool_t _dbus_fstat (DBusFile    *file,
 
 
 
-/************************************************************************
- 
- handle <-> fd/socket functions
- 
- ************************************************************************/
+/**
+ * Socket interface
+ *
+ */
 
 static DBusSocket *win_fds = NULL;
 static int win_n_fds = 0; // is this the size? rename to win_fds_size? #
@@ -242,9 +241,6 @@ static int win_n_fds = 0; // is this the size? rename to win_fds_size? #
 #define IS_HANDLE(n)   ((n)&0x10000000)
 #endif
 
-// do we need this?
-// doesn't the compiler optimize within one file?
-#define _dbus_decapsulate_quick(i) win_fds[FROM_HANDLE (i)].fd
 
 static
 void
@@ -319,52 +315,52 @@ _dbus_win_allocate_fd (void)
 
 static
 int
-_dbus_create_handle_from_value (int value)
+_dbus_create_handle_from_socket (int s)
 {
   int i;
   int handle = -1;
 
   // check: parameter must be a valid value
-  _dbus_assert(value != -1);
-  _dbus_assert(!IS_HANDLE(value));
+  _dbus_assert(s != -1);
+  _dbus_assert(!IS_HANDLE(s));
 
   // get index of a new position in the map
   i = _dbus_win_allocate_fd ();
 
   // fill new posiiton in the map: value->index
-  win_fds[i].fd = value;
+  win_fds[i].fd = s;
   win_fds[i].is_used = 1;
 
   // create handle from the index: index->handle
   handle = TO_HANDLE (i);
 
-  _dbus_verbose ("_dbus_create_handle_from_value, value: %d, handle: %d\n", value, handle);
+  _dbus_verbose ("_dbus_create_handle_from_value, value: %d, handle: %d\n", s, handle);
 
   return handle;
 }
 
 int
-_dbus_socket_to_handle (DBusSocket *sock)
+_dbus_socket_to_handle (DBusSocket *s)
 {
   int i;
   int handle = -1;
 
-  // check: parameter must be a valid value
-  _dbus_assert(socket != NULL);
-  _dbus_assert(sock->fd != -1);
-  _dbus_assert(!IS_HANDLE(sock->fd));
+  // check: parameter must be a valid socket
+  _dbus_assert(s != NULL);
+  _dbus_assert(s->fd != -1);
+  _dbus_assert(!IS_HANDLE(s->fd));
 
   _DBUS_LOCK (win_fds);
 
   // at the first call there is no win_fds
-  // will be constructed  _dbus_create_handle_from_value
+  // will be constructed  _dbus_create_handle_from_socket
   // because handle = -1
   if (win_fds != NULL)
     {
       // search for the value in the map
       // find the index of the value: value->index
       for (i = 0; i < win_n_fds; i++)
-        if (win_fds[i].is_used == 1 && win_fds[i].fd == sock->fd)
+        if (win_fds[i].is_used == 1 && win_fds[i].fd == s->fd)
           {
             // create handle from the index: index->handle
             handle = TO_HANDLE (i);
@@ -376,7 +372,7 @@ _dbus_socket_to_handle (DBusSocket *sock)
 
   if (handle == -1)
     {
-      handle = _dbus_create_handle_from_value(sock->fd);
+      handle = _dbus_create_handle_from_socket(s->fd);
     }
 
   _dbus_assert(handle != -1);
@@ -386,15 +382,15 @@ _dbus_socket_to_handle (DBusSocket *sock)
 
 
 void 
-_dbus_handle_to_socket (int         handle,
-                        DBusSocket *sock)
+_dbus_handle_to_socket (int          handle,
+                        DBusSocket **ptr)
 {
   int i;
 
   // check: parameter must be a valid handle
   _dbus_assert(handle != -1);
   _dbus_assert(IS_HANDLE(handle));
-  _dbus_assert(sock != NULL);
+  _dbus_assert(ptr != NULL);
 
   // map from handle to index: handle->index
   i = FROM_HANDLE (handle);
@@ -405,27 +401,18 @@ _dbus_handle_to_socket (int         handle,
   // check for if fd is valid
   _dbus_assert (win_fds[i].is_used == 1);
 
-  // get value from index: index->value
-  // TODO: or should we return a set a pointer to the struct?
-  sock->fd = win_fds[i].fd;
-  sock->is_used = win_fds[i].is_used;
-  sock->port_file_fd = win_fds[i].port_file_fd;
+  // get socket from index: index->socket
+  *ptr = &win_fds[i];
 
-  _dbus_verbose ("deencapsulated C value fd=%d i=%d dfd=%x\n", sock->fd, i, handle);
+  _dbus_verbose ("_dbus_socket_to_handle: socket=%d, handle=%d, index=%d\n", (*ptr)->fd, handle, i);
 }
 
 
 #undef TO_HANDLE
 #undef IS_HANDLE
 #undef FROM_HANDLE
-
-#ifdef DBUS_WIN_FIXME
-#define FROM_HANDLE(n) ((n)-0x10000000)
-#else
-// FIXME: don't use FROM_HANDLE directly,
-// use _handle_to functions
-#define FROM_HANDLE(n) 1==DBUS_WIN_FIXME__FROM_HANDLE
-#endif
+#define FROM_HANDLE(n) 1==DBUS_WIN_DONT_USE__FROM_HANDLE__DIRECTLY
+#define win_fds 1==DBUS_WIN_DONT_USE_win_fds_DIRECTLY
 
 
 
@@ -455,11 +442,11 @@ _dbus_handle_to_socket (int         handle,
  * @returns the number of bytes read or -1
  */
 int
-_dbus_read_socket (int               fd,
+_dbus_read_socket (int               handle,
                    DBusString       *buffer,
                    int               count)
 {
-  int is_used;
+  DBusSocket *s;
   int bytes_read;
   int start;
   char *data;
@@ -477,21 +464,13 @@ _dbus_read_socket (int               fd,
   data = _dbus_string_get_data_len (buffer, start, count);
 
   _DBUS_LOCK (win_fds);
-
-  fd = FROM_HANDLE (fd);
-
-  _dbus_assert (fd >= 0 && fd < win_n_fds);
-  _dbus_assert (win_fds != NULL);
-
-  is_used = win_fds[fd].is_used;
-  fd = win_fds[fd].fd;
-
+  _dbus_handle_to_socket(handle, &s);
   _DBUS_UNLOCK (win_fds);
 
-  if(is_used)
+  if(s->is_used)
     {
-      _dbus_verbose ("recv: count=%d socket=%d\n", count, fd);
-      bytes_read = recv (fd, data, count, 0);
+      _dbus_verbose ("recv: count=%d socket=%d\n", count, s->fd);
+      bytes_read = recv (s->fd, data, count, 0);
       if (bytes_read == SOCKET_ERROR)
         {
           DBUS_SOCKET_SET_ERRNO();
@@ -538,11 +517,12 @@ _dbus_read_socket (int               fd,
  * @returns the number of bytes written or -1 on error
  */
 int
-_dbus_write_socket (int               fd,
+_dbus_write_socket (int               handle,
                     const DBusString *buffer,
                     int               start,
                     int               len)
 {
+  DBusSocket *s;
   int is_used;
   const char *data;
   int bytes_written;
@@ -550,21 +530,13 @@ _dbus_write_socket (int               fd,
   data = _dbus_string_get_const_data_len (buffer, start, len);
 
   _DBUS_LOCK (win_fds);
-
-  fd = FROM_HANDLE (fd);
-
-  _dbus_assert (fd >= 0 && fd < win_n_fds);
-  _dbus_assert (win_fds != NULL);
-
-  is_used = win_fds[fd].is_used;
-  fd = win_fds[fd].fd;
-
+  _dbus_handle_to_socket(handle, &s);
   _DBUS_UNLOCK (win_fds);
 
-  if (is_used)
+  if (s->is_used)
     {
-      _dbus_verbose ("send: len=%d socket=%d\n", len, fd);
-      bytes_written = send (fd, data, len, 0);
+      _dbus_verbose ("send: len=%d socket=%d\n", len, s->fd);
+      bytes_written = send (s->fd, data, len, 0);
       if (bytes_written == SOCKET_ERROR)
         {
           DBUS_SOCKET_SET_ERRNO();
@@ -596,43 +568,40 @@ _dbus_write_socket (int               fd,
  * @returns #FALSE if error set
  */
 dbus_bool_t
-_dbus_close_socket (int        fd,
+_dbus_close_socket (int        handle,
                     DBusError *error)
 {
-  const int encapsulated_fd = fd;
+  DBusSocket *s;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   _DBUS_LOCK (win_fds);
 
-  fd = FROM_HANDLE (fd);
+  _dbus_handle_to_socket (handle, &s);
 
-  _dbus_assert (fd >= 0 && fd < win_n_fds);
-  _dbus_assert (win_fds != NULL);
 
-  if (win_fds[fd].is_used)
+  if (s->is_used)
     {
-      if (win_fds[fd].port_file_fd >= 0)
+      if (s->port_file_fd >= 0)
         {
-          _chsize (win_fds[fd].port_file_fd, 0);
-          close (win_fds[fd].port_file_fd);
-          win_fds[fd].port_file_fd = -1;
-          unlink (_dbus_string_get_const_data (&win_fds[fd].port_file));
-          free ((char *) _dbus_string_get_const_data (&win_fds[fd].port_file));
+          _chsize (s->port_file_fd, 0);
+          close (s->port_file_fd);
+          s->port_file_fd = -1;
+          unlink (_dbus_string_get_const_data (&s->port_file));
+          free ((char *) _dbus_string_get_const_data (&s->port_file));
         }
 
-      if (closesocket (win_fds[fd].fd) == SOCKET_ERROR)
+      if (closesocket (s->fd) == SOCKET_ERROR)
         {
           DBUS_SOCKET_SET_ERRNO ();
           dbus_set_error (error, _dbus_error_from_errno (errno),
-                          "Could not close socket %d:%d:%d %s",
-                          encapsulated_fd, fd, win_fds[fd].fd,
-                          _dbus_strerror (errno));
+              "Could not close socket: socket=%d, handle=%d, %s",
+                          s->fd, handle, _dbus_strerror (errno));
           _DBUS_UNLOCK (win_fds);
           return FALSE;
         }
-      _dbus_verbose ("closed socket %d:%d:%d\n",
-                     encapsulated_fd, fd, win_fds[fd].fd);
+      _dbus_verbose ("_dbus_close_socket: socket=%d, handle=%d\n",
+                     s->fd, handle);
     }
   else
     {
@@ -641,7 +610,7 @@ _dbus_close_socket (int        fd,
 
   _DBUS_UNLOCK (win_fds);
 
-  _dbus_win_deallocate_fd (encapsulated_fd);
+  _dbus_win_deallocate_fd (handle);
 
   return TRUE;
 
@@ -655,19 +624,16 @@ _dbus_close_socket (int        fd,
  * @param fd the file descriptor
  */
 void
-_dbus_fd_set_close_on_exec (int fd)
+_dbus_fd_set_close_on_exec (int handle)
 {
-  int fd2;
-  if (fd < 0)
+  DBusSocket *s;
+  if (handle < 0)
     return;
+
   _DBUS_LOCK (win_fds);
 
-  fd2 = FROM_HANDLE (fd);
-  _dbus_verbose("fd %d %d %d\n",fd,fd2,win_n_fds);
-  _dbus_assert (fd2 >= 0 && fd2 < win_n_fds);
-  _dbus_assert (win_fds != NULL);
-
-  win_fds[fd2].close_on_exec = TRUE;
+  _dbus_handle_to_socket (handle, &s);
+  s->close_on_exec = TRUE;
 
   _DBUS_UNLOCK (win_fds);
 }
@@ -680,28 +646,24 @@ _dbus_fd_set_close_on_exec (int fd)
  * @returns #TRUE on success.
  */
 dbus_bool_t
-_dbus_set_fd_nonblocking (int             fd,
+_dbus_set_fd_nonblocking (int             handle,
                           DBusError      *error)
 {
+  DBusSocket *s;
   u_long one = 1;
-  const int encapsulated_fd = fd;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
   _DBUS_LOCK (win_fds);
 
-  fd = FROM_HANDLE (fd);
+  _dbus_handle_to_socket(handle, &s);
 
-  _dbus_assert (fd >= 0 && fd < win_n_fds);
-  _dbus_assert (win_fds != NULL);
-
-  if (win_fds[fd].is_used)
+  if (s->is_used)
     {
-      if (ioctlsocket (win_fds[fd].fd, FIONBIO, &one) == SOCKET_ERROR)
+      if (ioctlsocket (s->fd, FIONBIO, &one) == SOCKET_ERROR)
         {
           dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
-                          "Failed to set socket %d:%d to nonblocking: %s",
-                          encapsulated_fd, win_fds[fd].fd,
+                          "Failed to set socket %d:%d to nonblocking: %s", s->fd,
                           _dbus_strerror (WSAGetLastError ()));
           _DBUS_UNLOCK (win_fds);
           return FALSE;
@@ -739,7 +701,7 @@ _dbus_set_fd_nonblocking (int             fd,
  * @returns total bytes written from both buffers, or -1 on error
  */
 int
-_dbus_write_socket_two (int               fd,
+_dbus_write_socket_two (int               handle,
                         const DBusString *buffer1,
                         int               start1,
                         int               len1,
@@ -747,7 +709,7 @@ _dbus_write_socket_two (int               fd,
                         int               start2,
                         int               len2)
 {
-  int is_used;
+  DBusSocket *s;
   WSABUF vectors[2];
   const char *data1;
   const char *data2;
@@ -762,15 +724,7 @@ _dbus_write_socket_two (int               fd,
   _dbus_assert (len2 >= 0);
 
   _DBUS_LOCK (win_fds);
-
-  fd = FROM_HANDLE (fd);
-
-  _dbus_assert (fd >= 0 && fd < win_n_fds);
-  _dbus_assert (win_fds != NULL);
-
-  is_used = win_fds[fd].is_used;
-  fd = win_fds[fd].fd;
-
+  _dbus_handle_to_socket(handle, &s);
   _DBUS_UNLOCK (win_fds);
 
   data1 = _dbus_string_get_const_data_len (buffer1, start1, len1);
@@ -784,15 +738,15 @@ _dbus_write_socket_two (int               fd,
       len2 = 0;
     }
 
-  if (is_used)
+  if (s->is_used)
     {
       vectors[0].buf = (char*) data1;
       vectors[0].len = len1;
       vectors[1].buf = (char*) data2;
       vectors[1].len = len2;
 
-      _dbus_verbose ("WSASend: len1+2=%d+%d socket=%d\n", len1, len2, fd);
-      rc = WSASend (fd, vectors, data2 ? 2 : 1, &bytes_written,
+      _dbus_verbose ("WSASend: len1+2=%d+%d socket=%d\n", len1, len2, s->fd);
+      rc = WSASend (s->fd, vectors, data2 ? 2 : 1, &bytes_written,
                     0, NULL, NULL);
       if (rc < 0)
         {
@@ -918,8 +872,8 @@ _dbus_listen_unix_socket (const char     *path,
                           dbus_bool_t     abstract,
                           DBusError      *error)
 {
-  int listen_fd;
-  SOCKET sock;
+  DBusSocket *s;
+  int listen_handle;
   struct sockaddr sa;
   int addr_len;
   int filefd;
@@ -938,21 +892,23 @@ _dbus_listen_unix_socket (const char     *path,
       return -1;
     }
 
-  listen_fd = _dbus_listen_tcp_socket (NULL, 0, error);
+  listen_handle = _dbus_listen_tcp_socket (NULL, 0, error);
 
-  if (listen_fd == -1)
+  if (listen_handle == -1)
     return -1;
 
-  sock = win_fds[FROM_HANDLE (listen_fd)].fd;
+  _DBUS_LOCK (win_fds);
+  _dbus_handle_to_socket(listen_handle, &s);
+  _DBUS_UNLOCK (win_fds);  
 
   addr_len = sizeof (sa);
-  if (getsockname (sock, &sa, &addr_len) == SOCKET_ERROR)
+  if (getsockname (s->fd, &sa, &addr_len) == SOCKET_ERROR)
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "getsockname failed: %s",
                       _dbus_strerror (errno));
-      _dbus_close_socket (listen_fd, NULL);
+      _dbus_close_socket (listen_handle, NULL);
       return -1;
     }
 
@@ -965,34 +921,37 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to create pseudo-unix socket port number file %s: %s",
                       path, _dbus_strerror (errno));
-      _dbus_close_socket (listen_fd, NULL);
+      _dbus_close_socket (listen_handle, NULL);
       return -1;
     }
 
-  win_fds[FROM_HANDLE (listen_fd)].port_file_fd = filefd;
+  _DBUS_LOCK (win_fds);
+  _dbus_handle_to_socket(listen_handle, &s);
+  s->port_file_fd = filefd;
+  _DBUS_UNLOCK (win_fds);
 
   /* Use strdup() to avoid memory leak in dbus-test */
   path = strdup (path);
   if (!path)
     {
       _DBUS_SET_OOM (error);
-      _dbus_close_socket (listen_fd, NULL);
+      _dbus_close_socket (listen_handle, NULL);
       return -1;
     }
 
-  _dbus_string_init_const (&win_fds[FROM_HANDLE (listen_fd)].port_file, path);
+  _dbus_string_init_const (&s->port_file, path);
 
   if (!_dbus_string_init (&portstr))
     {
       _DBUS_SET_OOM (error);
-      _dbus_close_socket (listen_fd, NULL);
+      _dbus_close_socket (listen_handle, NULL);
       return -1;
     }
 
   if (!_dbus_string_append_int (&portstr, ntohs (((struct sockaddr_in*) &sa)->sin_port)))
     {
       _DBUS_SET_OOM (error);
-      _dbus_close_socket (listen_fd, NULL);
+      _dbus_close_socket (listen_handle, NULL);
       return -1;
     }
 
@@ -1005,7 +964,7 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to write port number to file %s: %s",
                       path, _dbus_strerror (errno));
-      _dbus_close_socket (listen_fd, NULL);
+      _dbus_close_socket (listen_handle, NULL);
       return -1;
     }
   else if (n < l)
@@ -1013,11 +972,11 @@ _dbus_listen_unix_socket (const char     *path,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to write port number to file %s",
                       path);
-      _dbus_close_socket (listen_fd, NULL);
+      _dbus_close_socket (listen_handle, NULL);
       return -1;
     }
 
-  return listen_fd;
+  return listen_handle;
 }
 
 #if 0
@@ -2082,34 +2041,30 @@ _dbus_poll (DBusPollFD *fds,
 
   _DBUS_LOCK (win_fds);
 
-  _dbus_assert (win_fds != NULL);
 
   msgp = msg;
   msgp += sprintf (msgp, "select: to=%d ", timeout_milliseconds);
   for (i = 0; i < n_fds; i++)
     {
       static dbus_bool_t warned = FALSE;
+      DBusSocket *s;
       DBusPollFD *fdp = &fds[i];
-      int sock;
-      int fd = FROM_HANDLE (fdp->fd);
 
-      _dbus_assert (fd >= 0 && fd < win_n_fds);
+      _dbus_handle_to_socket(fdp->fd, &s);  
 
-      if (win_fds[fd].is_used == 0)
+      if (s->is_used == 0)
         {
           _dbus_warn ("no valid socket");
           warned = TRUE;
         }
 
-      sock = _dbus_decapsulate_quick (fdp->fd);
-
       if (fdp->events & _DBUS_POLLIN)
-        msgp += sprintf (msgp, "R:%d ", sock);
+        msgp += sprintf (msgp, "R:%d ", s->fd);
 
       if (fdp->events & _DBUS_POLLOUT)
-        msgp += sprintf (msgp, "W:%d ", sock);
+        msgp += sprintf (msgp, "W:%d ", s->fd);
 
-      msgp += sprintf (msgp, "E:%d ", sock);
+      msgp += sprintf (msgp, "E:%d ", s->fd);
 
       // FIXME: more robust code for long  msg
       //        create on heap when msg[] becomes too small
@@ -2124,21 +2079,23 @@ _dbus_poll (DBusPollFD *fds,
 
   for (i = 0; i < n_fds; i++)
     {
+      DBusSocket *s;
       DBusPollFD *fdp = &fds[i];
-      int sock = _dbus_decapsulate_quick (fdp->fd);
 
-      if (win_fds[FROM_HANDLE (fdp->fd)].is_used != 1)
+      _dbus_handle_to_socket(fdp->fd, &s); 
+
+      if (s->is_used != 1)
         continue;
 
       if (fdp->events & _DBUS_POLLIN)
-        FD_SET (sock, &read_set);
+        FD_SET (s->fd, &read_set);
 
       if (fdp->events & _DBUS_POLLOUT)
-        FD_SET (sock, &write_set);
+        FD_SET (s->fd, &write_set);
 
-      FD_SET (sock, &err_set);
+      FD_SET (s->fd, &err_set);
 
-      max_fd = MAX (max_fd, sock);
+      max_fd = MAX (max_fd, s->fd);
     }
 
   _DBUS_UNLOCK (win_fds);
@@ -2165,35 +2122,39 @@ _dbus_poll (DBusPollFD *fds,
         _DBUS_LOCK (win_fds);
         for (i = 0; i < n_fds; i++)
           {
+            DBusSocket *s;
             DBusPollFD *fdp = &fds[i];
-            int sock = _dbus_decapsulate_quick (fdp->fd);
 
-            if (FD_ISSET (sock, &read_set))
-              msgp += sprintf (msgp, "R:%d ", sock);
+            _dbus_handle_to_socket(fdp->fd, &s); 
 
-            if (FD_ISSET (sock, &write_set))
-              msgp += sprintf (msgp, "W:%d ", sock);
+            if (FD_ISSET (s->fd, &read_set))
+              msgp += sprintf (msgp, "R:%d ", s->fd);
 
-            if (FD_ISSET (sock, &err_set))
-              msgp += sprintf (msgp, "E:%d ", sock);
+            if (FD_ISSET (s->fd, &write_set))
+              msgp += sprintf (msgp, "W:%d ", s->fd);
+
+            if (FD_ISSET (s->fd, &err_set))
+              msgp += sprintf (msgp, "E:%d ", s->fd);
           }
         msgp += sprintf (msgp, "\n");
         _dbus_verbose ("%s",msg);
 
         for (i = 0; i < n_fds; i++)
           {
+            DBusSocket *s;
             DBusPollFD *fdp = &fds[i];
-            int sock = _dbus_decapsulate_quick (fdp->fd);
+
+            _dbus_handle_to_socket(fdp->fd, &s); 
 
             fdp->revents = 0;
 
-            if (FD_ISSET (sock, &read_set))
+            if (FD_ISSET (s->fd, &read_set))
               fdp->revents |= _DBUS_POLLIN;
 
-            if (FD_ISSET (sock, &write_set))
+            if (FD_ISSET (s->fd, &write_set))
               fdp->revents |= _DBUS_POLLOUT;
 
-            if (FD_ISSET (sock, &err_set))
+            if (FD_ISSET (s->fd, &err_set))
               fdp->revents |= _DBUS_POLLERR;
           }
         _DBUS_UNLOCK (win_fds);
@@ -3125,7 +3086,6 @@ _dbus_connect_tcp_socket (const char     *host,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
 #ifdef DBUS_WIN
-
   _dbus_win_startup_winsock ();
 #endif
 
@@ -3146,7 +3106,6 @@ _dbus_connect_tcp_socket (const char     *host,
     {
       host = "localhost";
 #ifdef DBUS_WIN
-
       ina.s_addr = htonl (INADDR_LOOPBACK);
       haddr = &ina;
 #endif
@@ -3320,12 +3279,14 @@ _dbus_listen_tcp_socket (const char     *host,
 int
 _dbus_accept  (int listen_handle)
 {
-  DBusSocket slisten;
+  DBusSocket *slisten;
   DBusSocket sclient;
   struct sockaddr addr;
   socklen_t addrlen;
 
-  _dbus_handle_to_socket (listen_handle, &slisten);
+  _DBUS_LOCK (win_fds);
+  _dbus_handle_to_socket(listen_handle, &slisten);
+  _DBUS_UNLOCK (win_fds);
 
   addrlen = sizeof (addr);
 
@@ -3334,7 +3295,7 @@ _dbus_accept  (int listen_handle)
 retry:
 #endif
 
-  sclient.fd = accept (slisten.fd, &addr, &addrlen);
+  sclient.fd = accept (slisten->fd, &addr, &addrlen);
 
   if (DBUS_SOCKET_IS_INVALID (sclient.fd))
     {

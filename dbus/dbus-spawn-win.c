@@ -431,7 +431,7 @@ static unsigned __stdcall
 babysitter (void *parameter)
 {
   DBusBabysitter *sitter = (DBusBabysitter *) parameter;
-  DBusSocket sock;
+  DBusSocket *sock;
   PING();
   _dbus_babysitter_ref (sitter);
 
@@ -488,7 +488,7 @@ babysitter (void *parameter)
 
   PING();
   _dbus_handle_to_socket (sitter->socket_to_main, &sock);
-  send (sock.fd, " ", 1, 0);
+  send (sock->fd, " ", 1, 0);
 
   _dbus_babysitter_unref (sitter);
 
