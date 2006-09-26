@@ -344,14 +344,14 @@ _dbus_create_handle_from_value (int value)
 }
 
 int
-_dbus_socket_to_handle (int value)
+_dbus_socket_to_handle (DBusSocket *sock)
 {
   int i;
   int handle = -1;
 
   // check: parameter must be a valid value
-  _dbus_assert(value != -1);
-  _dbus_assert(!IS_HANDLE(value));
+  _dbus_assert(socket != NULL);
+  _dbus_assert(!IS_HANDLE(sock->fd));
 
   _DBUS_LOCK (win_fds);
 
@@ -363,7 +363,7 @@ _dbus_socket_to_handle (int value)
       // search for the value in the map
       // find the index of the value: value->index
       for (i = 0; i < win_n_fds; i++)
-        if (win_fds[i].is_used == 1 && win_fds[i].fd == value)
+        if (win_fds[i].is_used == 1 && win_fds[i].fd == sock->fd)
           {
             // create handle from the index: index->handle
             handle = TO_HANDLE (i);
@@ -375,7 +375,7 @@ _dbus_socket_to_handle (int value)
 
   if (handle == -1)
     {
-      handle = _dbus_create_handle_from_value(value);
+      handle = _dbus_create_handle_from_value(sock->fd);
     }
 
   _dbus_assert(handle != -1);
@@ -1897,6 +1897,8 @@ _dbus_full_duplex_pipe (int        *fd1,
   u_long arg;
   fd_set read_set, write_set;
   struct timeval tv;
+  DBusSocket sock;
+
 
   _dbus_win_startup_winsock ();
 
@@ -2021,9 +2023,10 @@ _dbus_full_duplex_pipe (int        *fd1,
         }
     }
 
-
-  *fd1 = _dbus_socket_to_handle (socket1);
-  *fd2 = _dbus_socket_to_handle (socket2);
+  sock.fd = socket1;
+  *fd1 = _dbus_socket_to_handle (&sock);
+  sock.fd = socket2;
+  *fd2 = _dbus_socket_to_handle (&sock);
 
   _dbus_verbose ("full-duplex pipe %d:%d <-> %d:%d\n",
                  *fd1, socket1, *fd2, socket2);
@@ -3105,7 +3108,8 @@ _dbus_connect_tcp_socket (const char     *host,
                           dbus_uint32_t   port,
                           DBusError      *error)
 {
-  int fd;
+  DBusSocket s;
+  int handle;
   struct sockaddr_in addr;
   struct hostent *he;
   struct in_addr *haddr;
@@ -3121,9 +3125,9 @@ _dbus_connect_tcp_socket (const char     *host,
   _dbus_win_startup_winsock ();
 #endif
 
-  fd = socket (AF_INET, SOCK_STREAM, 0);
+  s.fd = socket (AF_INET, SOCK_STREAM, 0);
 
-  if (DBUS_SOCKET_IS_INVALID (fd))
+  if (DBUS_SOCKET_IS_INVALID (s.fd))
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error,
@@ -3153,7 +3157,7 @@ _dbus_connect_tcp_socket (const char     *host,
                       _dbus_error_from_errno (errno),
                       "Failed to lookup hostname: %s",
                       host);
-      DBUS_CLOSE_SOCKET (fd);
+      DBUS_CLOSE_SOCKET (s.fd);
       return -1;
     }
 
@@ -3165,7 +3169,7 @@ _dbus_connect_tcp_socket (const char     *host,
   addr.sin_port = htons (port);
 
   if (DBUS_SOCKET_API_RETURNS_ERROR
-      (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0))
+      (connect (s.fd, (struct sockaddr*) &addr, sizeof (addr)) < 0))
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error,
@@ -3173,23 +3177,23 @@ _dbus_connect_tcp_socket (const char     *host,
                       "Failed to connect to socket %s:%d %s",
                       host, port, _dbus_strerror (errno));
 
-      DBUS_CLOSE_SOCKET (fd);
-      fd = -1;
+      DBUS_CLOSE_SOCKET (s.fd);
+      s.fd = -1;
 
       return -1;
     }
 
-  fd = _dbus_socket_to_handle (fd);
+  handle = _dbus_socket_to_handle (&s);
 
-  if (!_dbus_set_fd_nonblocking (fd, error))
+  if (!_dbus_set_fd_nonblocking (handle, error))
     {
-      _dbus_close_socket (fd, NULL);
-      fd = -1;
+      _dbus_close_socket (handle, NULL);
+      handle = -1;
 
       return -1;
     }
 
-  return fd;
+  return handle;
 }
 
 /**
@@ -3207,12 +3211,12 @@ _dbus_listen_tcp_socket (const char     *host,
                          dbus_uint32_t   port,
                          DBusError      *error)
 {
-  int listen_fd;
+  DBusSocket slisten;
+  int handle;
   struct sockaddr_in addr;
   struct hostent *he;
   struct in_addr *haddr;
 #ifdef DBUS_WIN
-
   struct in_addr ina;
 #endif
 
@@ -3220,13 +3224,12 @@ _dbus_listen_tcp_socket (const char     *host,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
 #ifdef DBUS_WIN
-
   _dbus_win_startup_winsock ();
 #endif
 
-  listen_fd = socket (AF_INET, SOCK_STREAM, 0);
+  slisten.fd = socket (AF_INET, SOCK_STREAM, 0);
 
-  if (DBUS_SOCKET_IS_INVALID (listen_fd))
+  if (DBUS_SOCKET_IS_INVALID (slisten.fd))
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -3257,7 +3260,7 @@ _dbus_listen_tcp_socket (const char     *host,
                           _dbus_error_from_errno (errno),
                           "Failed to lookup hostname: %s",
                           host);
-          DBUS_CLOSE_SOCKET (listen_fd);
+          DBUS_CLOSE_SOCKET (slisten.fd);
           return -1;
         }
 
@@ -3272,35 +3275,35 @@ _dbus_listen_tcp_socket (const char     *host,
   addr.sin_family = AF_INET;
   addr.sin_port = htons (port);
 
-  if (bind (listen_fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
+  if (bind (slisten.fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s:%d\": %s",
                       host, port, _dbus_strerror (errno));
-      DBUS_CLOSE_SOCKET (listen_fd);
+      DBUS_CLOSE_SOCKET (slisten.fd);
       return -1;
     }
 
-  if (DBUS_SOCKET_API_RETURNS_ERROR (listen (listen_fd, 30 /* backlog */)))
+  if (DBUS_SOCKET_API_RETURNS_ERROR (listen (slisten.fd, 30 /* backlog */)))
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to listen on socket \"%s:%d\": %s",
                       host, port, _dbus_strerror (errno));
-      DBUS_CLOSE_SOCKET (listen_fd);
+      DBUS_CLOSE_SOCKET (slisten.fd);
       return -1;
     }
 
-  listen_fd = _dbus_socket_to_handle (listen_fd);
+  handle = _dbus_socket_to_handle (&slisten);
 
-  if (!_dbus_set_fd_nonblocking (listen_fd, error))
+  if (!_dbus_set_fd_nonblocking (handle, error))
     {
-      _dbus_close_socket (listen_fd, NULL);
+      _dbus_close_socket (handle, NULL);
       return -1;
     }
 
-  return listen_fd;
+  return handle;
 }
 
 /**
@@ -3313,7 +3316,7 @@ _dbus_listen_tcp_socket (const char     *host,
 int
 _dbus_accept  (int listen_fd)
 {
-  int client_fd;
+  DBusSocket sclient;
   struct sockaddr addr;
   socklen_t addrlen;
 
@@ -3326,9 +3329,9 @@ _dbus_accept  (int listen_fd)
 retry:
 #endif
 
-  client_fd = accept (listen_fd, &addr, &addrlen);
+  sclient.fd = accept (listen_fd, &addr, &addrlen);
 
-  if (DBUS_SOCKET_IS_INVALID (client_fd))
+  if (DBUS_SOCKET_IS_INVALID (sclient.fd))
     {
       DBUS_SOCKET_SET_ERRNO ();
 #ifndef DBUS_WIN
@@ -3337,12 +3340,12 @@ retry:
         goto retry;
 #else
 
-      client_fd = -1;
+      sclient.fd = -1;
 #endif
 
     }
 
-  return _dbus_socket_to_handle (client_fd);
+  return _dbus_socket_to_handle (&sclient);
 }
 
 
