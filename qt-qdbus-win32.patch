@@ -70,3 +70,14 @@ diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/tools.pro
      SUBDIRS		+= assistant/lib \
  			assistant \
  			porting \
+--- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/qdbus.pro	2006-09-29 16:39:38.000000000 +0200
++++ qt-win-opensource-src-4.2.0-snapshot-20060921/tools/qdbus/qdbus.pro	2006-10-08 21:55:12.000000000 +0200
+@@ -1,7 +1,7 @@
+ SOURCES = qdbus.cpp
+ DESTDIR = ../../../../bin
+ TARGET = qdbus
+-QT = core
++QT = core xml
+ CONFIG += qdbus
+ CONFIG -= app_bundle
+ 
