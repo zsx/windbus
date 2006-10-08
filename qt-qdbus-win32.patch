@@ -1,5 +1,6 @@
---- ./demos/dbus-viewer/dbus-viewer.pro.orig	2006-08-26 22:21:06.943126400 +0200
-+++ ./demos/dbus-viewer/dbus-viewer.pro	2006-08-26 22:21:26.080644800 +0200
+diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/demos/dbus-viewer/dbus-viewer.pro qt-win-opensource-src-4.2.0-snapshot-20060921/demos/dbus-viewer/dbus-viewer.pro
+--- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/demos/dbus-viewer/dbus-viewer.pro	2006-09-21 01:24:06.000000000 +0200
++++ qt-win-opensource-src-4.2.0-snapshot-20060921/demos/dbus-viewer/dbus-viewer.pro	2006-09-21 16:31:04.000000000 +0200
 @@ -16,6 +16,8 @@
  CONFIG += qdbus
  QT += xml
@@ -9,19 +10,9 @@
  # install
  target.path = $$[QT_INSTALL_DEMOS]/dbus-viewer
  sources.files = $$SOURCES $$HEADERS *.pro *.html *.doc images
---- ./demos/demos.pro.orig	2006-08-26 22:23:30.108988800 +0200
-+++ ./demos/demos.pro	2006-08-26 22:23:32.923035200 +0200
-@@ -13,7 +13,7 @@
-         demos_textedit \
- 	demos_chip
- 
--unix:!embedded:contains(QT_CONFIG, qdbus):SUBDIRS += dbus-viewer
-+!embedded:contains(QT_CONFIG, qdbus):SUBDIRS += dbus-viewer
- !contains(QT_EDITION, Console):!cross_compile:SUBDIRS += demos_arthurplugin
- 
- !cross_compile:SUBDIRS += demos_sqlbrowser
---- ./mkspecs/features/qdbus.prf.orig	2006-08-26 22:13:16.296369600 +0200
-+++ ./mkspecs/features/qdbus.prf	2006-08-26 22:12:42.918374400 +0200
+diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/mkspecs/features/qdbus.prf qt-win-opensource-src-4.2.0-snapshot-20060921/mkspecs/features/qdbus.prf
+--- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/mkspecs/features/qdbus.prf	2006-09-21 01:23:30.000000000 +0200
++++ qt-win-opensource-src-4.2.0-snapshot-20060921/mkspecs/features/qdbus.prf	2006-09-21 16:31:04.000000000 +0200
 @@ -1,6 +1,10 @@
  
  qtAddLibrary(QtDBus)
@@ -31,12 +22,21 @@
 +}
 +
  isEmpty(QMAKE_QDBUSXML2CPP) {
-     win32:QMAKE_QDBUSXML2CPP = $$[QT_INSTALL_BINS]\dbusxml2cpp.exe
-     else:QMAKE_QDBUSXML2CPP = $$[QT_INSTALL_BINS]/dbusxml2cpp
-$ diff -ubB  src/gui/painting/painting.pri.orig src/gui/painting/painting.pri
---- src/gui/painting/painting.pri.orig  2006-08-26 01:23:41.000000000 +0200
-+++ src/gui/painting/painting.pri       2006-08-26 22:54:41.921875000 +0200
-@@ -141,7 +141,7 @@
+     win32:QMAKE_QDBUSXML2CPP = $$[QT_INSTALL_BINS]\qdbusxml2cpp.exe
+     else:QMAKE_QDBUSXML2CPP = $$[QT_INSTALL_BINS]/qdbusxml2cpp
+diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/README-qdbus.txt qt-win-opensource-src-4.2.0-snapshot-20060921/README-qdbus.txt
+--- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/README-qdbus.txt	1970-01-01 01:00:00.000000000 +0100
++++ qt-win-opensource-src-4.2.0-snapshot-20060921/README-qdbus.txt	2006-09-21 16:32:40.000000000 +0200
+@@ -0,0 +1,5 @@
++to activate qdbus support add the line 
++
++QT_CONFIG = qdbus
++
++to .qmake.cache after configuring and run your make tool
+diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/src/gui/painting/painting.pri qt-win-opensource-src-4.2.0-snapshot-20060921/src/gui/painting/painting.pri
+--- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/src/gui/painting/painting.pri	2006-09-21 01:23:40.000000000 +0200
++++ qt-win-opensource-src-4.2.0-snapshot-20060921/src/gui/painting/painting.pri	2006-09-21 16:31:04.000000000 +0200
+@@ -152,7 +152,7 @@
      SOURCES += painting/qdrawhelper_x86.cpp
      DEFINES += QT_HAVE_IWMMXT
      DEFINES += QT_HAVE_SSE
@@ -45,9 +45,10 @@ $ diff -ubB  src/gui/painting/painting.pri.orig src/gui/painting/painting.pri
      SOURCES += painting/qdrawhelper_x86.cpp
      DEFINES += QT_HAVE_SSE
  }
---- ./tools/qdbus/src/src.pro.orig	2006-08-26 21:08:54.112822400 +0200
-+++ ./tools/qdbus/src/src.pro	2006-08-26 21:22:58.717304000 +0200
-@@ -44,6 +44,9 @@
+diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src/src.pro qt-win-opensource-src-4.2.0-snapshot-20060921/tools/qdbus/src/src.pro
+--- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src/src.pro	2006-09-21 01:23:54.000000000 +0200
++++ qt-win-opensource-src-4.2.0-snapshot-20060921/tools/qdbus/src/src.pro	2006-09-21 16:31:04.000000000 +0200
+@@ -45,6 +45,9 @@
     LIBS += -lws2_32 -ladvapi32 -lnetapi32
     CONFIG(debug, debug|release):LIBS += -ldbus-1d
     else:LIBS += -ldbus-1
@@ -57,39 +58,9 @@ $ diff -ubB  src/gui/painting/painting.pri.orig src/gui/painting/painting.pri
  }
  
  #load up the headers info
-$ diff -ubB tools/qdbus/tools/dbus/dbus.pro.orig tools/qdbus/tools/dbus/dbus.pro
---- tools/qdbus/tools/dbus/dbus.pro.orig        2006-08-26 01:24:15.000000000 +0200
-+++ tools/qdbus/tools/dbus/dbus.pro     2006-08-26 22:59:41.859375000 +0200
-@@ -1,7 +1,7 @@
- SOURCES = dbus.cpp
--DESTDIR = ../../../bin
-+DESTDIR = ../../../../bin
- TARGET = dbus
--QT = core
-+QT = core xml
- CONFIG += qdbus
-
- target.path=$$[QT_INSTALL_BINS]
---- ./tools/qdbus/tools/dbuscpp2xml/dbuscpp2xml.pro.orig	2006-08-26 21:42:27.497928000 +0200
-+++ ./tools/qdbus/tools/dbuscpp2xml/dbuscpp2xml.pro	2006-08-26 22:11:20.640064000 +0200
-@@ -1,5 +1,5 @@
- SOURCES = dbuscpp2xml.cpp
--DESTDIR = ../../../bin
-+DESTDIR = ../../../../bin
- TARGET = dbuscpp2xml
- QT = core xml
- CONFIG += qdbus
---- ./tools/qdbus/tools/dbusxml2cpp/dbusxml2cpp.pro.orig	2006-08-26 21:42:43.811385600 +0200
-+++ ./tools/qdbus/tools/dbusxml2cpp/dbusxml2cpp.pro	2006-08-26 22:11:24.125075200 +0200
-@@ -1,5 +1,5 @@
- SOURCES = dbusxml2cpp.cpp
--DESTDIR = ../../../bin
-+DESTDIR = ../../../../bin
- TARGET = dbusxml2cpp
- QT = core xml
- CONFIG += qdbus
---- ./tools/tools.pro.orig	2006-08-26 21:11:11.961038400 +0200
-+++ ./tools/tools.pro	2006-08-26 21:11:00.554636800 +0200
+diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/tools.pro qt-win-opensource-src-4.2.0-snapshot-20060921/tools/tools.pro
+--- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/tools.pro	2006-09-21 01:24:00.000000000 +0200
++++ qt-win-opensource-src-4.2.0-snapshot-20060921/tools/tools.pro	2006-09-21 16:33:26.000000000 +0200
 @@ -2,7 +2,7 @@
  no-png {
      message("Tools not available without PNG support")
@@ -99,13 +70,3 @@ $ diff -ubB tools/qdbus/tools/dbus/dbus.pro.orig tools/qdbus/tools/dbus/dbus.pro
      SUBDIRS		+= assistant/lib \
  			assistant \
  			porting \
---- /dev/null	2006-08-26 22:39:57.288483200 +0200
-+++ README-qdbus.txt	2006-08-26 22:39:29.117976000 +0200
-@@ -0,0 +1,7 @@
-+to activate qdbus support add the line 
-+
-+QT_CONFIG = qdbus
-+
-+to .qmake.cache after configuring and run your make tool
-+
-+
