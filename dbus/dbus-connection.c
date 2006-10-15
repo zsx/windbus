@@ -1,7 +1,7 @@
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-connection.c DBusConnection object
  *
- * Copyright (C) 2002, 2003, 2004, 2005  Red Hat Inc.
+ * Copyright (C) 2002-2006  Red Hat Inc.
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -238,14 +238,22 @@ struct DBusConnection
 
   char *server_guid; /**< GUID of server if we are in shared_connections, #NULL if server GUID is unknown or connection is private */
 
-  unsigned int shareable : 1; /**< #TRUE if connection can go in shared_connections once we know the GUID */
- 
-  unsigned int shared : 1; /** < #TRUE if connection is shared and we hold a ref to it */
+  unsigned int shareable : 1; /**< #TRUE if libdbus owns a reference to the connection and can return it from dbus_connection_open() more than once */
 
   unsigned int dispatch_acquired : 1; /**< Someone has dispatch path (can drain incoming queue) */
   unsigned int io_path_acquired : 1;  /**< Someone has transport io path (can use the transport to read/write messages) */
   
   unsigned int exit_on_disconnect : 1; /**< If #TRUE, exit after handling disconnect signal */
+
+  unsigned int route_peer_messages : 1; /**< If #TRUE, if org.freedesktop.DBus.Peer messages have a bus name, don't handle them automatically */
+
+  unsigned int disconnected_message_arrived : 1;   /**< We popped or are dispatching the disconnected message.
+                                                    * if the disconnect_message_link is NULL then we queued it, but
+                                                    * this flag is whether it got to the head of the queue.
+                                                    */
+  unsigned int disconnected_message_processed : 1; /**< We did our default handling of the disconnected message,
+                                                    * such as closing the connection.
+                                                    */
   
 #ifndef DBUS_DISABLE_CHECKS
   unsigned int have_connection_lock : 1; /**< Used to check locking */
@@ -263,6 +271,8 @@ static void               _dbus_connection_last_unref                        (DB
 static void               _dbus_connection_acquire_dispatch                  (DBusConnection     *connection);
 static void               _dbus_connection_release_dispatch                  (DBusConnection     *connection);
 static DBusDispatchStatus _dbus_connection_flush_unlocked                    (DBusConnection     *connection);
+static void               _dbus_connection_close_possibly_shared_and_unlock  (DBusConnection     *connection);
+static dbus_bool_t        _dbus_connection_get_is_connected_unlocked         (DBusConnection     *connection);
 
 static DBusMessageFilter *
 _dbus_message_filter_ref (DBusMessageFilter *filter)
@@ -364,11 +374,11 @@ _dbus_connection_queue_received_message (DBusConnection *connection,
  */ 
 void 
 _dbus_connection_test_get_locks (DBusConnection *conn,
-                                 DBusMutex **mutex_loc,
-                                 DBusMutex **dispatch_mutex_loc,
-                                 DBusMutex **io_path_mutex_loc,
-                                 DBusCondVar **dispatch_cond_loc,
-                                 DBusCondVar **io_path_cond_loc)
+                                 DBusMutex     **mutex_loc,
+                                 DBusMutex     **dispatch_mutex_loc,
+                                 DBusMutex     **io_path_mutex_loc,
+                                 DBusCondVar   **dispatch_cond_loc,
+                                 DBusCondVar   **io_path_cond_loc)
 {
   *mutex_loc = conn->mutex;
   *dispatch_mutex_loc = conn->dispatch_mutex;
@@ -1175,6 +1185,10 @@ _dbus_connection_new_for_transport (DBusTransport *transport)
   connection->objects = objects;
   connection->exit_on_disconnect = FALSE;
   connection->shareable = FALSE;
+  connection->route_peer_messages = FALSE;
+  connection->disconnected_message_arrived = FALSE;
+  connection->disconnected_message_processed = FALSE;
+  
 #ifndef DBUS_DISABLE_CHECKS
   connection->generation = _dbus_current_generation;
 #endif
@@ -1361,10 +1375,42 @@ static DBusHashTable *shared_connections = NULL;
 static void
 shared_connections_shutdown (void *data)
 {
+  int n_entries;
+  
   _DBUS_LOCK (shared_connections);
+  
+  /* This is a little bit unpleasant... better ideas? */
+  while ((n_entries = _dbus_hash_table_get_n_entries (shared_connections)) > 0)
+    {
+      DBusConnection *connection;
+      DBusMessage *message;
+      DBusHashIter iter;
+      
+      _dbus_hash_iter_init (shared_connections, &iter);
+      _dbus_hash_iter_next (&iter);
+       
+      connection = _dbus_hash_iter_get_value (&iter);
+
+      _DBUS_UNLOCK (shared_connections);
+
+      dbus_connection_ref (connection);
+      _dbus_connection_close_possibly_shared (connection);
+
+      /* Churn through to the Disconnected message */
+      while ((message = dbus_connection_pop_message (connection)))
+        {
+          dbus_message_unref (message);
+        }
+      dbus_connection_unref (connection);
+      
+      _DBUS_LOCK (shared_connections);
+
+      /* The connection should now be dead and not in our hash ... */
+      _dbus_assert (_dbus_hash_table_get_n_entries (shared_connections) < n_entries);
+    }
 
   _dbus_assert (_dbus_hash_table_get_n_entries (shared_connections) == 0);
-
+  
   _dbus_hash_table_unref (shared_connections);
   shared_connections = NULL;
   
@@ -1415,23 +1461,41 @@ connection_lookup_shared (DBusAddressEntry  *entry,
       
       if (guid != NULL)
         {
-          *result = _dbus_hash_table_lookup_string (shared_connections,
-                                                    guid);
+          DBusConnection *connection;
+          
+          connection = _dbus_hash_table_lookup_string (shared_connections,
+                                                       guid);
 
-          if (*result)
+          if (connection)
             {
-              /* The DBusConnection can't have been disconnected
-               * between the lookup and this code, because the
-               * disconnection will take the shared_connections lock to
-               * remove the connection. It can't have been finalized
-               * since you have to disconnect prior to finalize.
+              /* The DBusConnection can't be finalized without taking
+               * the shared_connections lock to remove it from the
+               * hash.  So it's safe to ref the connection here.
+               * However, it may be disconnected if the Disconnected
+               * message hasn't been processed yet, in which case we
+               * want to pretend it isn't in the hash and avoid
+               * returning it.
                *
-               * Thus it's safe to ref the connection.
+               * The idea is to avoid ever returning a disconnected connection
+               * from dbus_connection_open(). We could just synchronously
+               * drop our shared ref to the connection on connection disconnect,
+               * and then assert here that the connection is connected, but
+               * that causes reentrancy headaches.
                */
-              dbus_connection_ref (*result);
-
-              _dbus_verbose ("looked up existing connection to server guid %s\n",
-                             guid);
+              CONNECTION_LOCK (connection);
+              if (_dbus_connection_get_is_connected_unlocked (connection))
+                {
+                  _dbus_connection_ref_unlocked (connection);
+                  *result = connection;
+                  _dbus_verbose ("looked up existing connection to server guid %s\n",
+                                 guid);
+                }
+              else
+                {
+                  _dbus_verbose ("looked up existing connection to server guid %s but it was disconnected so ignoring it\n",
+                                 guid);
+                }
+              CONNECTION_UNLOCK (connection);
             }
         }
       
@@ -1447,13 +1511,23 @@ connection_record_shared_unlocked (DBusConnection *connection,
   char *guid_key;
   char *guid_in_connection;
 
+  HAVE_LOCK_CHECK (connection);
+  _dbus_assert (connection->server_guid == NULL);
+  _dbus_assert (connection->shareable);
+
+  /* get a hard ref on this connection, even if
+   * we won't in fact store it in the hash, we still
+   * need to hold a ref on it until it's disconnected.
+   */
+  _dbus_connection_ref_unlocked (connection);
+
+  if (guid == NULL)
+    return TRUE; /* don't store in the hash */
+  
   /* A separate copy of the key is required in the hash table, because
    * we don't have a lock on the connection when we are doing a hash
    * lookup.
    */
-  
-  _dbus_assert (connection->server_guid == NULL);
-  _dbus_assert (connection->shareable);
   
   guid_key = _dbus_strdup (guid);
   if (guid_key == NULL)
@@ -1479,10 +1553,6 @@ connection_record_shared_unlocked (DBusConnection *connection,
     }
 
   connection->server_guid = guid_in_connection;
-  connection->shared = TRUE;
-
-  /* get a hard ref on this connection */
-  dbus_connection_ref (connection);
 
   _dbus_verbose ("stored connection to %s to be shared\n",
                  connection->server_guid);
@@ -1498,25 +1568,28 @@ static void
 connection_forget_shared_unlocked (DBusConnection *connection)
 {
   HAVE_LOCK_CHECK (connection);
- 
-  if (connection->server_guid == NULL)
+
+  if (!connection->shareable)
     return;
-
-  _dbus_verbose ("dropping connection to %s out of the shared table\n",
-                 connection->server_guid);
   
-  _DBUS_LOCK (shared_connections);
-
-  if (!_dbus_hash_table_remove_string (shared_connections,
-                                       connection->server_guid))
-    _dbus_assert_not_reached ("connection was not in the shared table");
+  if (connection->server_guid != NULL)
+    {
+      _dbus_verbose ("dropping connection to %s out of the shared table\n",
+                     connection->server_guid);
+      
+      _DBUS_LOCK (shared_connections);
+      
+      if (!_dbus_hash_table_remove_string (shared_connections,
+                                           connection->server_guid))
+        _dbus_assert_not_reached ("connection was not in the shared table");
+      
+      dbus_free (connection->server_guid);
+      connection->server_guid = NULL;
+      _DBUS_UNLOCK (shared_connections);
+    }
   
-  dbus_free (connection->server_guid);
-  connection->server_guid = NULL;
-
-  /* remove the hash ref */
+  /* remove our reference held on all shareable connections */
   _dbus_connection_unref_unlocked (connection);
-  _DBUS_UNLOCK (shared_connections);
 }
 
 static DBusConnection*
@@ -1599,36 +1672,42 @@ _dbus_connection_open_internal (const char     *address,
         {
           connection = connection_try_from_address_entry (entries[i],
                                                           &tmp_error);
-          
-          if (connection != NULL && shared)
+
+          if (connection != NULL)
             {
-              const char *guid;
-
-              connection->shareable = TRUE;
-              
-              guid = dbus_address_entry_get_value (entries[i], "guid");
-
-              /* we don't have a connection lock but we know nobody
-               * else has a handle to the connection
-               */
-              
-              if (guid &&
-                  !connection_record_shared_unlocked (connection, guid))
+              CONNECTION_LOCK (connection);
+          
+              if (shared)
                 {
-                  _DBUS_SET_OOM (&tmp_error);
-                  _dbus_connection_close_internal (connection);
-                  dbus_connection_unref (connection);
-                  connection = NULL;
+                  const char *guid;
+                  
+                  connection->shareable = TRUE;
+                  
+                  /* guid may be NULL */
+                  guid = dbus_address_entry_get_value (entries[i], "guid");
+                  
+                  if (!connection_record_shared_unlocked (connection, guid))
+                    {
+                      _DBUS_SET_OOM (&tmp_error);
+                      _dbus_connection_close_possibly_shared_and_unlock (connection);
+                      dbus_connection_unref (connection);
+                      connection = NULL;
+                    }
+                  
+                  /* Note: as of now the connection is possibly shared
+                   * since another thread could have pulled it from the table.
+                   * However, we still have it locked so that thread isn't
+                   * doing anything more than blocking on the lock.
+                   */
                 }
-
-              /* but as of now the connection is possibly shared
-               * since another thread could have pulled it from the table
-               */
             }
         }
       
       if (connection)
-	break;
+        {
+          HAVE_LOCK_CHECK (connection);
+          break;
+        }
 
       _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
       
@@ -1637,8 +1716,6 @@ _dbus_connection_open_internal (const char     *address,
       else
         dbus_error_free (&tmp_error);
     }
-
-  /* NOTE we don't have a lock on a possibly-shared connection object */
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
@@ -1651,6 +1728,8 @@ _dbus_connection_open_internal (const char     *address,
   else
     {
       dbus_error_free (&first_error);
+
+      CONNECTION_UNLOCK (connection);
     }
   
   dbus_address_entries_free (entries);
@@ -1679,6 +1758,10 @@ _dbus_connection_open_internal (const char     *address,
  * reason for the failure in the error parameter. Pass #NULL for the
  * error parameter if you aren't interested in the reason for
  * failure.
+ *
+ * Because this connection is shared, no user of the connection
+ * may call dbus_connection_close(). However, when you are done with the
+ * connection you should call dbus_connection_unref().
  * 
  * @param address the address.
  * @param error address where an error can be returned.
@@ -1709,6 +1792,14 @@ dbus_connection_open (const char     *address,
  * reason for the failure in the error parameter. Pass #NULL for the
  * error parameter if you aren't interested in the reason for
  * failure.
+ *
+ * When you are done with this connection, you must
+ * dbus_connection_close() to disconnect it,
+ * and dbus_connection_unref() to free the connection object.
+ * 
+ * (The dbus_connection_close() can be skipped if the
+ * connection is already known to be disconnected, for example
+ * if you are inside a handler for the Disconnected signal.)
  * 
  * @param address the address.
  * @param error address where an error can be returned.
@@ -1865,12 +1956,20 @@ _dbus_connection_last_unref (DBusConnection *connection)
 
 /**
  * Decrements the reference count of a DBusConnection, and finalizes
- * it if the count reaches zero.  It is a bug to drop the last reference
- * to a connection that has not been disconnected.
+ * it if the count reaches zero.
  *
- * @todo in practice it can be quite tricky to never unref a connection
- * that's still connected; maybe there's some way we could avoid
- * the requirement.
+ * Note: it is a bug to drop the last reference to a connection that
+ * is still connected.
+ *
+ * For shared connections, libdbus will own a reference
+ * as long as the connection is connected, so you can know that either
+ * you don't have the last reference, or it's OK to drop the last reference.
+ * Most connections are shared. dbus_connection_open() and dbus_bus_get()
+ * return shared connections.
+ *
+ * For private connections, the creator of the connection must arrange for
+ * dbus_connection_close() to be called prior to dropping the last reference.
+ * Private connections come from dbus_connection_open_private() or dbus_bus_get_private().
  *
  * @param connection the connection.
  */
@@ -1904,51 +2003,117 @@ dbus_connection_unref (DBusConnection *connection)
 #endif
   
   if (last_unref)
-    _dbus_connection_last_unref (connection);
+    {
+#ifndef DBUS_DISABLE_CHECKS
+      if (_dbus_transport_get_is_connected (connection->transport))
+        {
+          _dbus_warn ("The last reference on a connection was dropped without closing the connection. This is a bug. See dbus_connection_unref() documentation for details.\n");
+          if (connection->shareable)
+            _dbus_warn ("Most likely, the application called unref() too many times and removed a reference belonging to libdbus, since this is a shared connection.\n");
+          else
+            _dbus_warn ("Most likely, the application was supposed to call dbus_connection_close(), since this is a private connection.\n");
+          return;
+        }
+#endif
+      _dbus_connection_last_unref (connection);
+    }
 }
 
+/*
+ * Note that the transport can disconnect itself (other end drops us)
+ * and in that case this function never runs. So this function must
+ * not do anything more than disconnect the transport and update the
+ * dispatch status.
+ * 
+ * If the transport self-disconnects, then we assume someone will
+ * dispatch the connection to cause the dispatch status update.
+ */
 static void
-_dbus_connection_close_internal_and_unlock (DBusConnection *connection)
+_dbus_connection_close_possibly_shared_and_unlock (DBusConnection *connection)
 {
   DBusDispatchStatus status;
+
+  HAVE_LOCK_CHECK (connection);
   
   _dbus_verbose ("Disconnecting %p\n", connection);
+
+  /* We need to ref because update_dispatch_status_and_unlock will unref
+   * the connection if it was shared and libdbus was the only remaining
+   * refcount holder.
+   */
+  _dbus_connection_ref_unlocked (connection);
   
   _dbus_transport_disconnect (connection->transport);
 
-  _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
+  /* This has the side effect of queuing the disconnect message link
+   * (unless we don't have enough memory, possibly, so don't assert it).
+   * After the disconnect message link is queued, dbus_bus_get/dbus_connection_open
+   * should never again return the newly-disconnected connection.
+   *
+   * However, we only unref the shared connection and exit_on_disconnect when
+   * the disconnect message reaches the head of the message queue,
+   * NOT when it's first queued.
+   */
   status = _dbus_connection_get_dispatch_status_unlocked (connection);
 
-  /* this calls out to user code */
+  /* This calls out to user code */
   _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+
+  /* Could also call out to user code */
+  dbus_connection_unref (connection);
 }
 
 void
-_dbus_connection_close_internal (DBusConnection *connection)
+_dbus_connection_close_possibly_shared (DBusConnection *connection)
 {
   _dbus_assert (connection != NULL);
   _dbus_assert (connection->generation == _dbus_current_generation);
 
   CONNECTION_LOCK (connection);
-  _dbus_connection_close_internal_and_unlock (connection);
+  _dbus_connection_close_possibly_shared_and_unlock (connection);
 }
 
 /**
- * Closes the connection, so no further data can be sent or received.
- * Any further attempts to send data will result in errors.  This
- * function does not affect the connection's reference count.  It's
- * safe to disconnect a connection more than once; all calls after the
+ * Closes a private connection, so no further data can be sent or received.
+ * This disconnects the transport (such as a socket) underlying the
+ * connection.
+ *
+ * Attempts to send messages after closing a connection are safe, but will result in
+ * error replies generated locally in libdbus.
+ * 
+ * This function does not affect the connection's reference count.  It's
+ * safe to close a connection more than once; all calls after the
  * first do nothing. It's impossible to "reopen" a connection, a
  * new connection must be created. This function may result in a call
  * to the DBusDispatchStatusFunction set with
  * dbus_connection_set_dispatch_status_function(), as the disconnect
  * message it generates needs to be dispatched.
  *
- * If the connection is a shared connection we print out a warning that
- * you can not close shared connection and we return.  Internal calls
- * should use _dbus_connection_close_internal() to close shared connections.
+ * If a connection is dropped by the remote application, it will
+ * close itself. 
+ * 
+ * You must close a connection prior to releasing the last reference to
+ * the connection. If you dbus_connection_unref() for the last time
+ * without closing the connection, the results are undefined; it
+ * is a bug in your program and libdbus will try to print a warning.
  *
- * @param connection the connection.
+ * You may not close a shared connection. Connections created with
+ * dbus_connection_open() or dbus_bus_get() are shared.
+ * These connections are owned by libdbus, and applications should
+ * only unref them, never close them. Applications can know it is
+ * safe to unref these connections because libdbus will be holding a
+ * reference as long as the connection is open. Thus, either the
+ * connection is closed and it is OK to drop the last reference,
+ * or the connection is open and the app knows it does not have the
+ * last reference.
+ *
+ * Connections created with dbus_connection_open_private() or
+ * dbus_bus_get_private() are not kept track of or referenced by
+ * libdbus. The creator of these connections is responsible for
+ * calling dbus_connection_close() prior to releasing the last
+ * reference, if the connection is not already disconnected.
+ *
+ * @param connection the private (unshared) connection to close
  */
 void
 dbus_connection_close (DBusConnection *connection)
@@ -1958,15 +2123,54 @@ dbus_connection_close (DBusConnection *connection)
 
   CONNECTION_LOCK (connection);
 
-  if (connection->shared)
+#ifndef DBUS_DISABLE_CHECKS
+  if (connection->shareable)
     {
       CONNECTION_UNLOCK (connection);
 
-      _dbus_warn ("Applications can not close shared connections.  Please fix this in your app.  Ignoring close request and continuing.");
+      _dbus_warn ("Applications must not close shared connections - see dbus_connection_close() docs. This is a bug in the application.\n");
       return;
     }
+#endif
+  
+  _dbus_connection_close_possibly_shared_and_unlock (connection);
+}
 
-  _dbus_connection_close_internal_and_unlock (connection);
+/**
+ * Used internally to handle the semantics of dbus_server_set_new_connection_function().
+ * If the new connection function does not ref the connection, we want to close it.
+ *
+ * A bit of a hack, probably the new connection function should have returned a value
+ * for whether to close, or should have had to close the connection itself if it
+ * didn't want it.
+ *
+ * But, this works OK as long as the new connection function doesn't do anything
+ * crazy like keep the connection around without ref'ing it.
+ *
+ * We have to lock the connection across refcount check and close in case
+ * the new connection function spawns a thread that closes and unrefs.
+ * In that case, if the app thread
+ * closes and unrefs first, we'll harmlessly close again; if the app thread
+ * still has the ref, we'll close and then the app will close harmlessly.
+ * If the app unrefs without closing, the app is broken since if the
+ * app refs from the new connection function it is supposed to also close.
+ *
+ * If we didn't atomically check the refcount and close with the lock held
+ * though, we could screw this up.
+ * 
+ * @param connection the connection
+ */
+void
+_dbus_connection_close_if_only_one_ref (DBusConnection *connection)
+{
+  CONNECTION_LOCK (connection);
+  
+  _dbus_assert (connection->refcount.value > 0);
+
+  if (connection->refcount.value == 1)
+    _dbus_connection_close_possibly_shared_and_unlock (connection);
+  else
+    CONNECTION_UNLOCK (connection);
 }
 
 static dbus_bool_t
@@ -1977,11 +2181,14 @@ _dbus_connection_get_is_connected_unlocked (DBusConnection *connection)
 }
 
 /**
- * Gets whether the connection is currently connected.  All
- * connections are connected when they are opened.  A connection may
+ * Gets whether the connection is currently open.  A connection may
  * become disconnected when the remote application closes its end, or
  * exits; a connection may also be disconnected with
  * dbus_connection_close().
+ * 
+ * There are not separate states for "closed" and "disconnected," the two
+ * terms are synonymous. This function should really be called
+ * get_is_open() but for historical reasons is not.
  *
  * @param connection the connection.
  * @returns #TRUE if the connection is still alive.
@@ -2412,7 +2619,7 @@ reply_handler_timeout (void *data)
  * 
  * @param connection the connection
  * @param message the message to send
- * @param pending_return return location for a #DBusPendingCall object, or #NULLif connection is disconnected
+ * @param pending_return return location for a #DBusPendingCall object, or #NULL if connection is disconnected
  * @param timeout_milliseconds timeout in milliseconds or -1 for default
  * @returns #FALSE if no memory, #TRUE otherwise.
  *
@@ -2553,7 +2760,7 @@ connection_timeout_and_complete_all_pending_calls_unlocked (DBusConnection *conn
       _dbus_hash_iter_init (connection->pending_replies, &iter);
       _dbus_hash_iter_next (&iter);
        
-      pending = (DBusPendingCall *) _dbus_hash_iter_get_value (&iter);
+      pending = _dbus_hash_iter_get_value (&iter);
       _dbus_pending_call_ref_unlocked (pending);
        
       _dbus_pending_call_queue_timeout_error_unlocked (pending, 
@@ -2783,7 +2990,7 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
 
       error_msg = generate_local_error_message (client_serial,
                                                 DBUS_ERROR_DISCONNECTED, 
-                                                "Connection was dissconnected before a reply was recived"); 
+                                                "Connection was disconnected before a reply was received"); 
 
       /* on OOM error_msg is set to NULL */
       complete_pending_call_and_unlock (connection, pending, error_msg);
@@ -2882,7 +3089,11 @@ dbus_connection_send_with_reply_and_block (DBusConnection     *connection,
       return NULL;
     }
 
-  _dbus_assert (pending != NULL);
+  if (pending == NULL)
+    {
+      dbus_set_error (error, DBUS_ERROR_DISCONNECTED, "Connection is closed");
+      return NULL;
+    }
   
   dbus_pending_call_block (pending);
 
@@ -3112,6 +3323,27 @@ dbus_connection_read_write (DBusConnection *connection,
    return _dbus_connection_read_write_dispatch(connection, timeout_milliseconds, FALSE);
 }
 
+/* We need to call this anytime we pop the head of the queue, and then
+ * update_dispatch_status_and_unlock needs to be called afterward
+ * which will "process" the disconnected message and set
+ * disconnected_message_processed.
+ */
+static void
+check_disconnected_message_arrived_unlocked (DBusConnection *connection,
+                                             DBusMessage    *head_of_queue)
+{
+  HAVE_LOCK_CHECK (connection);
+
+  /* checking that the link is NULL is an optimization to avoid the is_signal call */
+  if (connection->disconnect_message_link == NULL &&
+      dbus_message_is_signal (head_of_queue,
+                              DBUS_INTERFACE_LOCAL,
+                              "Disconnected"))
+    {
+      connection->disconnected_message_arrived = TRUE;
+    }
+}
+
 /**
  * Returns the first-received message from the incoming message queue,
  * leaving it in the queue. If the queue is empty, returns #NULL.
@@ -3159,11 +3391,15 @@ dbus_connection_borrow_message (DBusConnection *connection)
   
   message = connection->message_borrowed;
 
+  check_disconnected_message_arrived_unlocked (connection, message);
+  
   /* Note that we KEEP the dispatch lock until the message is returned */
   if (message == NULL)
     _dbus_connection_release_dispatch (connection);
 
   CONNECTION_UNLOCK (connection);
+
+  /* We don't update dispatch status until it's returned or stolen */
   
   return message;
 }
@@ -3180,6 +3416,8 @@ void
 dbus_connection_return_message (DBusConnection *connection,
 				DBusMessage    *message)
 {
+  DBusDispatchStatus status;
+  
   _dbus_return_if_fail (connection != NULL);
   _dbus_return_if_fail (message != NULL);
   _dbus_return_if_fail (message == connection->message_borrowed);
@@ -3191,9 +3429,10 @@ dbus_connection_return_message (DBusConnection *connection,
   
   connection->message_borrowed = NULL;
 
-  _dbus_connection_release_dispatch (connection);
-  
-  CONNECTION_UNLOCK (connection);
+  _dbus_connection_release_dispatch (connection); 
+
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 }
 
 /**
@@ -3210,6 +3449,7 @@ dbus_connection_steal_borrowed_message (DBusConnection *connection,
 					DBusMessage    *message)
 {
   DBusMessage *pop_message;
+  DBusDispatchStatus status;
 
   _dbus_return_if_fail (connection != NULL);
   _dbus_return_if_fail (message != NULL);
@@ -3231,8 +3471,9 @@ dbus_connection_steal_borrowed_message (DBusConnection *connection,
   connection->message_borrowed = NULL;
 
   _dbus_connection_release_dispatch (connection);
-  
-  CONNECTION_UNLOCK (connection);
+
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 }
 
 /* See dbus_connection_pop_message, but requires the caller to own
@@ -3267,6 +3508,8 @@ _dbus_connection_pop_message_link_unlocked (DBusConnection *connection)
                      dbus_message_get_signature (link->data),
                      connection, connection->n_incoming);
 
+      check_disconnected_message_arrived_unlocked (connection, link->data);
+      
       return link;
     }
   else
@@ -3371,7 +3614,9 @@ dbus_connection_pop_message (DBusConnection *connection)
   _dbus_verbose ("Returning popped message %p\n", message);    
 
   _dbus_connection_release_dispatch (connection);
-  CONNECTION_UNLOCK (connection);
+
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
   
   return message;
 }
@@ -3445,6 +3690,67 @@ _dbus_connection_failed_pop (DBusConnection *connection,
   connection->n_incoming += 1;
 }
 
+/* Note this may be called multiple times since we don't track whether we already did it */
+static void
+notify_disconnected_unlocked (DBusConnection *connection)
+{
+  HAVE_LOCK_CHECK (connection);
+
+  /* Set the weakref in dbus-bus.c to NULL, so nobody will get a disconnected
+   * connection from dbus_bus_get(). We make the same guarantee for
+   * dbus_connection_open() but in a different way since we don't want to
+   * unref right here; we instead check for connectedness before returning
+   * the connection from the hash.
+   */
+  _dbus_bus_notify_shared_connection_disconnected_unlocked (connection);
+
+  /* Dump the outgoing queue, we aren't going to be able to
+   * send it now, and we'd like accessors like
+   * dbus_connection_get_outgoing_size() to be accurate.
+   */
+  if (connection->n_outgoing > 0)
+    {
+      DBusList *link;
+      
+      _dbus_verbose ("Dropping %d outgoing messages since we're disconnected\n",
+                     connection->n_outgoing);
+      
+      while ((link = _dbus_list_get_last_link (&connection->outgoing_messages)))
+        {
+          _dbus_connection_message_sent (connection, link->data);
+        }
+    } 
+}
+
+/* Note this may be called multiple times since we don't track whether we already did it */
+static DBusDispatchStatus
+notify_disconnected_and_dispatch_complete_unlocked (DBusConnection *connection)
+{
+  HAVE_LOCK_CHECK (connection);
+  
+  if (connection->disconnect_message_link != NULL)
+    {
+      _dbus_verbose ("Sending disconnect message from %s\n",
+                     _DBUS_FUNCTION_NAME);
+      
+      /* If we have pending calls, queue their timeouts - we want the Disconnected
+       * to be the last message, after these timeouts.
+       */
+      connection_timeout_and_complete_all_pending_calls_unlocked (connection);
+      
+      /* We haven't sent the disconnect message already,
+       * and all real messages have been queued up.
+       */
+      _dbus_connection_queue_synthesized_message_link (connection,
+                                                       connection->disconnect_message_link);
+      connection->disconnect_message_link = NULL;
+
+      return DBUS_DISPATCH_DATA_REMAINS;
+    }
+
+  return DBUS_DISPATCH_COMPLETE;
+}
+
 static DBusDispatchStatus
 _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
 {
@@ -3467,43 +3773,21 @@ _dbus_connection_get_dispatch_status_unlocked (DBusConnection *connection)
       
       if (!is_connected)
         {
-          if (status == DBUS_DISPATCH_COMPLETE &&
-              connection->disconnect_message_link)
-            {
-              _dbus_verbose ("Sending disconnect message from %s\n",
-                             _DBUS_FUNCTION_NAME);
-
-              connection_forget_shared_unlocked (connection);
-             
-              /* If we have pending calls queued timeouts on disconnect */
-              connection_timeout_and_complete_all_pending_calls_unlocked (connection);
- 
-              /* We haven't sent the disconnect message already,
-               * and all real messages have been queued up.
-               */
-              _dbus_connection_queue_synthesized_message_link (connection,
-                                                               connection->disconnect_message_link);
-              connection->disconnect_message_link = NULL;
-
-              status = DBUS_DISPATCH_DATA_REMAINS;
-            }
-
-          /* Dump the outgoing queue, we aren't going to be able to
-           * send it now, and we'd like accessors like
-           * dbus_connection_get_outgoing_size() to be accurate.
+          /* It's possible this would be better done by having an explicit
+           * notification from _dbus_transport_disconnect() that would
+           * synchronously do this, instead of waiting for the next dispatch
+           * status check. However, probably not good to change until it causes
+           * a problem.
            */
-          if (connection->n_outgoing > 0)
-            {
-              DBusList *link;
-              
-              _dbus_verbose ("Dropping %d outgoing messages since we're disconnected\n",
-                             connection->n_outgoing);
-              
-              while ((link = _dbus_list_get_last_link (&connection->outgoing_messages)))
-                {
-                  _dbus_connection_message_sent (connection, link->data);
-                }
-            }
+          notify_disconnected_unlocked (connection);
+
+          /* I'm not sure this is needed; the idea is that we want to
+           * queue the Disconnected only after we've read all the
+           * messages, but if we're disconnected maybe we are guaranteed
+           * to have read them all ?
+           */
+          if (status == DBUS_DISPATCH_COMPLETE)
+            status = notify_disconnected_and_dispatch_complete_unlocked (connection);
         }
       
       if (status != DBUS_DISPATCH_COMPLETE)
@@ -3534,6 +3818,27 @@ _dbus_connection_update_dispatch_status_and_unlock (DBusConnection    *connectio
   function = connection->dispatch_status_function;
   data = connection->dispatch_status_data;
 
+  if (connection->disconnected_message_arrived &&
+      !connection->disconnected_message_processed)
+    {
+      connection->disconnected_message_processed = TRUE;
+      
+      /* this does an unref, but we have a ref
+       * so we should not run the finalizer here
+       * inside the lock.
+       */
+      connection_forget_shared_unlocked (connection);
+
+      if (connection->exit_on_disconnect)
+        {
+          CONNECTION_UNLOCK (connection);            
+          
+          _dbus_verbose ("Exiting on Disconnected signal\n");
+          _dbus_exit (1);
+          _dbus_assert_not_reached ("Call to exit() returned");
+        }
+    }
+  
   /* We drop the lock */
   CONNECTION_UNLOCK (connection);
   
@@ -3575,15 +3880,20 @@ dbus_connection_get_dispatch_status (DBusConnection *connection)
 }
 
 /**
-* Filter funtion for handling the Peer standard interface
-**/
+ * Filter funtion for handling the Peer standard interface.
+ */
 static DBusHandlerResult
 _dbus_connection_peer_filter_unlocked_no_update (DBusConnection *connection,
                                                  DBusMessage    *message)
 {
-  if (dbus_message_is_method_call (message,
-                                   DBUS_INTERFACE_PEER,
-                                   "Ping"))
+  if (connection->route_peer_messages && dbus_message_get_destination (message) != NULL)
+    {
+      /* This means we're letting the bus route this message */
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
+  else if (dbus_message_is_method_call (message,
+                                        DBUS_INTERFACE_PEER,
+                                        "Ping"))
     {
       DBusMessage *ret;
       dbus_bool_t sent;
@@ -3601,9 +3911,68 @@ _dbus_connection_peer_filter_unlocked_no_update (DBusConnection *connection,
       
       return DBUS_HANDLER_RESULT_HANDLED;
     }
-                                   
-  
-  return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+  else if (dbus_message_is_method_call (message,
+                                        DBUS_INTERFACE_PEER,
+                                        "GetMachineId"))
+    {
+      DBusMessage *ret;
+      dbus_bool_t sent;
+      DBusString uuid;
+      
+      ret = dbus_message_new_method_return (message);
+      if (ret == NULL)
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+
+      sent = FALSE;
+      _dbus_string_init (&uuid);
+      if (_dbus_get_local_machine_uuid_encoded (&uuid))
+        {
+          const char *v_STRING = _dbus_string_get_const_data (&uuid);
+          if (dbus_message_append_args (ret,
+                                        DBUS_TYPE_STRING, &v_STRING,
+                                        DBUS_TYPE_INVALID))
+            {
+              sent = _dbus_connection_send_unlocked_no_update (connection, ret, NULL);
+            }
+        }
+      _dbus_string_free (&uuid);
+      
+      dbus_message_unref (ret);
+
+      if (!sent)
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+      
+      return DBUS_HANDLER_RESULT_HANDLED;
+    }
+  else if (dbus_message_has_interface (message, DBUS_INTERFACE_PEER))
+    {
+      /* We need to bounce anything else with this interface, otherwise apps
+       * could start extending the interface and when we added extensions
+       * here to DBusConnection we'd break those apps.
+       */
+      
+      DBusMessage *ret;
+      dbus_bool_t sent;
+      
+      ret = dbus_message_new_error (message,
+                                    DBUS_ERROR_UNKNOWN_METHOD,
+                                    "Unknown method invoked on org.freedesktop.DBus.Peer interface");
+      if (ret == NULL)
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+      
+      sent = _dbus_connection_send_unlocked_no_update (connection, ret, NULL);
+      
+      dbus_message_unref (ret);
+      
+      if (!sent)
+        return DBUS_HANDLER_RESULT_NEED_MEMORY;
+      
+      return DBUS_HANDLER_RESULT_HANDLED;
+    }
+  else
+    {
+      return DBUS_HANDLER_RESULT_NOT_YET_HANDLED;
+    }
 }
 
 /**
@@ -3912,22 +4281,6 @@ dbus_connection_dispatch (DBusConnection *connection)
   else
     {
       _dbus_verbose (" ... done dispatching in %s\n", _DBUS_FUNCTION_NAME);
-      
-      if (dbus_message_is_signal (message,
-                                  DBUS_INTERFACE_LOCAL,
-                                  "Disconnected"))
-        {
-          _dbus_bus_check_connection_and_unref_unlocked (connection);
-
-          if (connection->exit_on_disconnect)
-            {
-              CONNECTION_UNLOCK (connection);            
- 
-              _dbus_verbose ("Exiting on Disconnected signal\n");
-              _dbus_exit (1);
-              _dbus_assert_not_reached ("Call to exit() returned");
-            }
-        }
       
       _dbus_list_free_link (message_link);
       dbus_message_unref (message); /* don't want the message to count in max message limits
@@ -4406,6 +4759,35 @@ dbus_connection_set_unix_user_function (DBusConnection             *connection,
 
   if (old_free_function != NULL)
     (* old_free_function) (old_data);    
+}
+
+/**
+ *
+ * Normally #DBusConnection automatically handles all messages to the
+ * org.freedesktop.DBus.Peer interface. However, the message bus wants
+ * to be able to route methods on that interface through the bus and
+ * to other applications. If routing peer messages is enabled, then
+ * messages with the org.freedesktop.DBus.Peer interface that also
+ * have a bus destination name set will not be automatically
+ * handled by the #DBusConnection and instead will be dispatched
+ * normally to the application.
+ *
+ *
+ * If a normal application sets this flag, it can break things badly.
+ * So don't set this unless you are the message bus.
+ *
+ * @param connection the connection
+ * @param value #TRUE to pass through org.freedesktop.DBus.Peer messages with a bus name set
+ */
+void
+dbus_connection_set_route_peer_messages (DBusConnection             *connection,
+                                         dbus_bool_t                 value)
+{
+  _dbus_return_if_fail (connection != NULL);
+  
+  CONNECTION_LOCK (connection);
+  connection->route_peer_messages = TRUE;
+  CONNECTION_UNLOCK (connection);
 }
 
 /**
@@ -4966,6 +5348,60 @@ dbus_connection_get_outgoing_size (DBusConnection *connection)
   res = _dbus_counter_get_value (connection->outgoing_counter);
   CONNECTION_UNLOCK (connection);
   return res;
+}
+
+/**
+ * Obtains the machine UUID of the machine this process is running on.
+ *
+ * The returned string must be freed with dbus_free().
+ * 
+ * This UUID is guaranteed to remain the same until the next reboot
+ * (unless the sysadmin foolishly changes it and screws themselves).
+ * It will usually remain the same across reboots also, but hardware
+ * configuration changes or rebuilding the machine could break that.
+ *
+ * The idea is that two processes with the same machine ID should be
+ * able to use shared memory, UNIX domain sockets, process IDs, and other
+ * features of the OS that require both processes to be running
+ * on the same OS kernel instance.
+ *
+ * The machine ID can also be used to create unique per-machine
+ * instances. For example, you could use it in bus names or
+ * X selection names.
+ *
+ * The machine ID is preferred over the machine hostname, because
+ * the hostname is frequently set to "localhost.localdomain" and
+ * may also change at runtime.
+ *
+ * You can get the machine ID of a remote application by invoking the
+ * method GetMachineId from interface org.freedesktop.DBus.Peer.
+ *
+ * If the remote application has the same machine ID as the one
+ * returned by this function, then the remote application is on the
+ * same machine as your application.
+ * 
+ * @returns a 32-byte-long hex-encoded UUID string, or #NULL if insufficient memory
+ */
+char*
+dbus_get_local_machine_id (void)
+{
+  DBusString uuid;
+  char *s;
+
+  s = NULL;
+  _dbus_string_init (&uuid);
+  if (!_dbus_get_local_machine_uuid_encoded (&uuid) ||
+      !_dbus_string_steal_data (&uuid, &s))
+    {
+      _dbus_string_free (&uuid);
+      return FALSE;
+    }
+  else
+    {
+      _dbus_string_free (&uuid);
+      return s;
+    }
+
 }
 
 /** @} */

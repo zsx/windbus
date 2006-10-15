@@ -44,6 +44,10 @@
 #include <dirent.h>
 #include <sys/un.h>
 
+#ifdef HAVE_SYS_SYSLIMITS_H
+#include <sys/syslimits.h>
+#endif
+
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
@@ -503,15 +507,20 @@ static dbus_bool_t
 dirent_buf_size(DIR * dirp, size_t *size)
 {
  long name_max;
-#   if defined(HAVE_FPATHCONF) && defined(HAVE_DIRFD) \
-    && defined(_PC_NAME_MAX)
-     name_max = fpathconf(dirfd(dirp), _PC_NAME_MAX);
+#   if defined(HAVE_FPATHCONF) && defined(_PC_NAME_MAX)
+#      if defined(HAVE_DIRFD)
+          name_max = fpathconf(dirfd(dirp), _PC_NAME_MAX);
+#      else
+          name_max = fpathconf(dirp->dd_fd, _PC_NAME_MAX);
+#      endif /* HAVE_DIRFD */
      if (name_max == -1)
 #           if defined(NAME_MAX)
 	     name_max = NAME_MAX;
 #           else
 	     return FALSE;
 #           endif
+#   elif defined(MAXNAMELEN)
+     name_max = MAXNAMELEN;
 #   else
 #       if defined(NAME_MAX)
 	 name_max = NAME_MAX;

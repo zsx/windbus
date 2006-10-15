@@ -53,23 +53,28 @@ _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
  * @addtogroup DBusInternalsUtils
  * @{
  */
-#ifndef DBUS_DISABLE_ASSERT
+
 /**
  * Aborts the program with SIGABRT (dumping core).
  */
 void
 _dbus_abort (void)
 {
-#ifdef DBUS_ENABLE_VERBOSE_MODE
   const char *s;
-  s = _dbus_getenv ("DBUS_PRINT_BACKTRACE");
+  
+  _dbus_print_backtrace ();
+  
+  s = _dbus_getenv ("DBUS_BLOCK_ON_ABORT");
   if (s && *s)
-    _dbus_print_backtrace ();
-#endif
+    {
+      /* don't use _dbus_warn here since it can _dbus_abort() */
+      fprintf (stderr, "  Process %lu sleeping for gdb attach\n", (unsigned long) _dbus_getpid());
+      _dbus_sleep_milliseconds (1000 * 180);
+    }
+  
   abort ();
-  _dbus_exit (1); /* in case someone manages to ignore SIGABRT */
+  _dbus_exit (1); /* in case someone manages to ignore SIGABRT ? */
 }
-#endif
 
 /**
  * Wrapper for setenv(). If the value is #NULL, unsets
@@ -919,7 +924,7 @@ _dbus_error_from_errno (int error_number)
 #endif
 #ifdef EEXIST
     case EEXIST:
-      return DBUS_ERROR_FILE_NOT_FOUND;
+      return DBUS_ERROR_FILE_EXISTS;
 #endif
 #ifdef ENOENT
     case ENOENT:

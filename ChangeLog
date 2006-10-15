@@ -1,3 +1,300 @@
+2006-10-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: Released 1.0 RC 2(0.94)
+	Add check for -fPIC and enable it if available
+
+2006-10-14  John (J5) Palmieri  <johnp@redhat.com>
+
+	* doc/TODO: Remove the check TODO item
+
+2006-10-13  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus-transport-socket.c (exchange_credentials):
+	Print out more detailed errors if reading or sending
+	credentials fail (Patch from Julio M. Merino Vidal 
+	<jmmv at NetBSD dot org>)
+
+2006-10-13  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: when checking for posix getpwnam_r assume true
+	for cross compiles
+
+2006-10-13  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: Check for gethostbyname first before we check for it
+	in libnsl.  On gnu systems it is implemeneted 
+
+2006-10-13  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-connection.c
+	(dbus_connection_send_with_reply_and_block): fix to handle closed
+	connections, from Tambet Ingo bug #8631
+
+2006-10-11  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: use AC_TRY_COMPILE for dirfd instead of AC_TRY_RUN
+
+2006-10-11  John (J5) Palmieri  <johnp@redhat.com>
+
+	* test/name-test/Makefile.am: don't link against both libdbus and
+	libdbus-convenience
+
+2006-10-11  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: check for dirfd even if it is a macro
+	(Patch from Timothy Redaelli <drizzt at gufi dot org>)
+
+2006-10-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: define _POSIX_PTHREAD_SEMANTICS on solaris
+	avoid using dirfd on systems that don't have dirfd 
+	(Patch by Brian Cameron <brian dot cameron at sun dot com>) 
+
+2006-10-02  John (J5) Palmieir  <johnp@redhat.com>
+
+	* dbus/dbus-sysdeps.c (_dbus_abort): Remove from 
+	#ifndef DBUS_DISABLE_ASSERTS macro to fix distcheck
+
+	* dbus/dbus-sysdeps-unix.c (_dbus_print_backtrace): Remove from
+	#if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
+	macro because _dbus_abort calls it
+
+	* tools/Makefile.am: Add dbus-launch.h to the source list so distcheck
+	works
+
+2006-10-02  John (J5) Palmieir  <johnp@redhat.com>
+
+	* dbus/dbus-sysdeps-util-unix.c (dirent_buf_size): Add check for
+	MAXNAMELEN for Mac OSX.  (Patch from Jonas B <sanoix at gmail dot com>)
+
+2006-10-02  Thiago Macieira  <thiago@kde.org>
+
+	* tools/dbus-launch.c (main): make it complain and abort
+	execution in case an unknown option is given. Also, process
+	the '--' argument as the end of arguments.
+
+2006-10-01  Havoc Pennington  <hp@redhat.com>
+
+	* tools/dbus-launch.c (print_variables): if no syntax is given,
+	don't print something that's sort-of-half-sh-syntax, just print
+	a plain key-value pairs thing.
+
+	* tools/dbus-launch-x11.c: use machine ID rather than hostname for
+	the local machine representation (but still have the hostname in
+	the display). Remove the hostname from the display if it is
+	localhost. Change session files to be named
+	~/.dbus/session-bus/machine-display. Change X atoms to be
+	underscore-prefixed so nobody whines about ICCCM compliance.
+	Otherwise name them the same as the env variables.
+	Change session file format to include key-value pairs and an
+	explanatory comment. Keys are the same as the env variables.
+	(set_address_in_x11): X property format can't depend on
+	sizeof(pid_t) on a particular machine, fix to always be 32 bits
+
+	* tools/dbus-launch.c: make --autolaunch take a machine id
+	argument. If --autolaunch is used with a program to run, complain
+	for now (but add a FIXME). Also, don't look for existing bus if 
+	there's a program to run (but add a FIXME).
+
+	* dbus/dbus-sysdeps-unix.c (_dbus_get_autolaunch_address): pass
+	machine uuid to dbus-launch (avoids linking dbus-launch to libdbus
+	just to get this, and avoids duplicating uuid-reading code).
+
+	* tools/dbus-launch.1: clarify various things
+	
+2006-10-01  Havoc Pennington  <hp@redhat.com>
+
+	* test/test-service.c (path_message_func): remove broken extra
+	unref that was hidden by the bugs in dbus-connection.c/dbus-bus.c
+
+	* test/test-shell-service.c (path_message_func): same fix
+	
+	* dbus/dbus-connection.c
+	(_dbus_connection_get_dispatch_status_unlocked): break up the
+	function a little for clarity and fix the notification of
+	dbus-bus.c to not require dispatch to be complete
+
+	* dbus/dbus-connection.c (dbus_connection_unref): improve the
+	warning when you try to finalize an open connection.
+	
+2006-10-01  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-bus.c
+	(internal_bus_get): only weak ref the connection; this means 
+	_dbus_bus_notify_shared_connection_disconnected_unlocked can be
+	called safely in any context
+	(_dbus_bus_notify_shared_connection_disconnected_unlocked): don't
+	unref
+
+	* dbus/dbus-connection.c
+	(_dbus_connection_get_dispatch_status_unlocked): move
+	_dbus_bus_notify_shared_connection_disconnected_unlocked here
+	when queuing Disconnected instead of when the Disconnected message
+	arrives, so dbus_bus_get() won't return closed connections.
+	
+2006-10-01  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-connection.c (_dbus_connection_close_if_only_one_ref): 
+	Add a hack to make DBusNewConnectionFunction work right.
+
+	* dbus/dbus-server-socket.c (handle_new_client_fd_and_unlock): use
+	the hack here. Also, fix the todo about refcount leak.
+	
+	* dbus/dbus-server-debug-pipe.c (_dbus_transport_debug_pipe_new):
+	and use the hack here
+	
+        * dbus/dbus-connection.c: Kill the "shared" flag vs. the
+	"shareable" flag; this was completely broken, since it meant 
+	dbus_connection_open() returned a connection of unknown
+	shared-ness. Now, we always hold a ref on anything opened 
+	as shareable.
+
+	Move the call to notify dbus-bus.c into
+	connection_forget_shared_unlocked, so libdbus consistently forgets
+	all its knowledge of a connection at once. This exposed numerous
+	places where things were totally broken if we dropped a ref inside
+	get_dispatch_status_unlocked where
+	connection_forget_shared_unlocked was previously, so move
+	connection_forget_shared_unlocked into
+	_dbus_connection_update_dispatch_status_and_unlock. Also move the
+	exit_on_disconnect here.
+
+	(shared_connections_shutdown): this assumed weak refs to the
+	shared connections; since we have strong refs now, the assertion 
+	was failing and stuff was left in the hash. Fix it to close
+	still-open shared connections.
+	
+	* bus/dispatch.c: fixup to use dbus_connection_open_private on the 
+	debug pipe connections
+	
+	* dbus/dbus-connection.c (dbus_connection_dispatch): only notify
+	dbus-bus.c if the closed connection is in fact shared
+	(_dbus_connection_close_possibly_shared): rename from 
+	_dbus_connection_close_internal
+	(dbus_connection_close, dbus_connection_open,
+	dbus_connection_open_private): Improve docs to explain the deal
+	with when you should close or unref or both
+
+	* dbus/dbus-bus.c
+	(_dbus_bus_notify_shared_connection_disconnected_unlocked): rename
+	from _dbus_bus_check_connection_and_unref_unlocked and modify to
+	loop over all connections
+
+	* test/test-utils.c (test_connection_shutdown): don't try to close
+	shared connections.
+
+	* test/name-test/test-threads-init.c (main): fix warnings in here
+
+	* dbus/dbus-sysdeps.c (_dbus_abort): support DBUS_BLOCK_ON_ABORT
+	env variable to cause blocking waiting for gdb; drop
+	DBUS_PRINT_BACKTRACE and just call _dbus_print_backtrace() 
+	unconditionally.
+
+	* configure.in: add -export-dynamic to libtool flags if assertions enabled
+	so _dbus_print_backtrace works.
+
+	* dbus/dbus-sysdeps-unix.c (_dbus_print_backtrace): use fprintf
+	instead of _dbus_verbose to print the backtrace, and diagnose lack 
+	of -rdynamic/-export-dynamic
+	
+2006-09-30  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-bus.c (dbus_bus_get_private, dbus_bus_get) 
+	(internal_bus_get): fix screwy code formatting. whoever committed
+	that was not paying attention!
+
+2006-09-30  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in (LT_CURRENT, LT_AGE): increment current and age to
+	reflect addition of interfaces.
+
+	* doc/dbus-specification.xml: describe a new
+	org.freedesktop.DBus.Peer.GetMachineId method
+
+	* dbus/dbus-string.c (_dbus_string_skip_white_reverse): new function
+	(_dbus_string_skip_white, _dbus_string_skip_blank): use new
+	DBUS_IS_ASCII_BLANK, DBUS_IS_ASCII_WHITE macros and fix assertion
+	at end of skip_white
+	(_dbus_string_chop_white): new function
+
+	* bus/connection.c (bus_connections_setup_connection): call
+	dbus_connection_set_route_peer_messages.
+
+	* dbus/dbus-connection.c
+	(_dbus_connection_peer_filter_unlocked_no_update): modify to
+	support a GetMachineId method.
+
+	Also, support a new flag to let the bus pass peer methods through
+	to apps on the bus, which can be set with
+	dbus_connection_set_route_peer_messages.
+
+	Finally, handle and return an error for anything unknown on the
+	Peer interface, which will allow us to extend the Peer interface
+	in the future without fear that we're now intercepting something
+	apps were wanting to see.
+	
+	* tools/dbus-uuidgen.c: a thin wrapper around the functions in 
+	dbus/dbus-uuidgen.c
+
+	* dbus/dbus-uuidgen.c: implement the bulk of the dbus-uuidgen
+	binary here, since most of the code is already in libdbus
+
+	* dbus/dbus-sysdeps.c (_dbus_read_local_machine_uuid): read the
+	uuid from the system config file
+
+	* dbus/dbus-internals.c (_dbus_generate_uuid, _dbus_uuid_encode) 
+	(_dbus_read_uuid_file_without_creating) 
+	(_dbus_create_uuid_file_exclusively, _dbus_read_uuid_file): new
+	uuid-related functions, partly factored out from dbus-server.c
+
+	* dbus/dbus-sysdeps.c (_dbus_error_from_errno): convert EEXIST to
+	DBUS_ERROR_FILE_EXISTS instead of EEXIST
+
+	* dbus/dbus-protocol.h (DBUS_ERROR_FILE_EXISTS): add file exists error
+
+	* tools/dbus-cleanup-sockets.1: explain what the point of this
+	thing is a bit more
+
+	* autogen.sh (run_configure): add --config-cache to default
+	configure args
+
+	* dbus/dbus-internals.h (_DBUS_ASSERT_ERROR_IS_SET): disable the
+	error set/clear assertions when DBUS_DISABLE_CHECKS is defined
+
+	* tools/dbus-launch.c (main): if xdisplay hasn't been opened,
+	don't try to save address, fixes crash in make check
+	
+2006-09-30  Thiago Macieira  <thiago@kde.org>
+
+	* configure.in: add DBUS_BINDIR as a #define to C source code.
+
+	* tools/dbus-launch.c
+	* tools/dbus-launch.h
+	* tools/dbus-launch-x11.c:
+	* tools/dbus-launch.1: Add the --autolaunch option to
+	dbus-launch, which makes it scan for an existing session
+	started with --autolaunch. With that option, it also creates
+	an X11 window and saves the bus address and PID to it.
+
+	* dbus/dbus-sysdeps.h:
+	* dbus/dbus-sysdeps-unix.c (_dbus_get_autolaunch_address): Add
+	a function that runs "dbus-launch --autolaunch" to retrieve
+	the running D-Bus session address (or start one if none was running)
+
+	* dbus/dbus-transport.c: Add the handler for the "autolaunch:"
+        address protocol, which tries to get the running session from
+        dbus-launch.
+
+	* dbus/dbus-bus.c:
+	* dbus/dbus-internals.h: Make "autolaunch:" be the default
+	D-Bus session bus address.
+
+	* dbus/dbus-connection.c: Fix horrible typo in error message.
+
+2006-09-18  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/Makefile.am: use @EXPANDED_DATADIR@ instead of @DATADIRNAME@  
+
 2006-09-17  Havoc Pennington  <hp@redhat.com>
 
 	* dbus/dbus-transport.c (_dbus_transport_get_is_authenticated):

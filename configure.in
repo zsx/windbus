@@ -5,7 +5,7 @@ AC_INIT(dbus/dbus.h)
 
 AC_CANONICAL_TARGET
 
-AM_INIT_AUTOMAKE(dbus, 0.94)
+AM_INIT_AUTOMAKE(dbus, 0.95)
 
 AM_CONFIG_HEADER(config.h)
 
@@ -25,7 +25,7 @@ AM_MAINTAINER_MODE
 #
 
 ## increment if the interface has additions, changes, removals.
-LT_CURRENT=4
+LT_CURRENT=5
 
 ## increment any time the source changes; set to
 ##  0 if you increment CURRENT
@@ -34,7 +34,7 @@ LT_REVISION=0
 ## increment if any interfaces have been added; set to 0
 ## if any interfaces have been changed or removed. removal has
 ## precedence over adding, so set to 0 if both happened.
-LT_AGE=1
+LT_AGE=2
 
 AC_SUBST(LT_CURRENT)
 AC_SUBST(LT_REVISION)
@@ -82,10 +82,24 @@ fi
 if test x$enable_verbose_mode = xyes; then
     AC_DEFINE(DBUS_ENABLE_VERBOSE_MODE,1,[Support a verbose mode])
 fi
+
 if test x$enable_asserts = xno; then
     AC_DEFINE(DBUS_DISABLE_ASSERT,1,[Disable assertion checking])
     AC_DEFINE(G_DISABLE_ASSERT,1,[Disable GLib assertion macros])
+    R_DYNAMIC_LDFLAG=""
+else
+    # -rdynamic is needed for glibc's backtrace_symbols to work.
+    # No clue how much overhead this adds, but it's useful 
+    # to do this on any assertion failure,
+    # so for now it's enabled anytime asserts are (currently not
+    # in production builds).
+
+    # To get -rdynamic you pass -export-dynamic to libtool.
+    AC_DEFINE(DBUS_BUILT_R_DYNAMIC,1,[whether -export-dynamic was passed to libtool])
+    R_DYNAMIC_LDFLAG=-export-dynamic
 fi
+AC_SUBST(R_DYNAMIC_LDFLAG)
+
 if test x$enable_checks = xno; then
     AC_DEFINE(DBUS_DISABLE_CHECKS,1,[Disable public API sanity checking])
     AC_DEFINE(G_DISABLE_CHECKS,1,[Disable GLib public API sanity checking])
@@ -173,6 +187,14 @@ if test "x$GCC" = "xyes"; then
      ;;
   esac
 
+  case " $CFLAGS " in
+  *[\ \	]-fPIC[\ \	]*) ;;
+  *) if cc_supports_flag -fPIC; then
+        CFLAGS="$CFLAGS -fPIC"
+     fi
+     ;;
+  esac
+
   if test "x$enable_ansi" = "xyes"; then
     case " $CFLAGS " in
     *[\ \	]-ansi[\ \	]*) ;;
@@ -214,6 +236,13 @@ else
   fi
 fi
 
+# Add -D_POSIX_PTHREAD_SEMANTICS if on Solaris
+#
+case $target_os in
+    solaris*)
+       CFLAGS="$CFLAGS -D_POSIX_PTHREAD_SEMANTICS" ;;
+esac
+    
 AM_PROG_LIBTOOL
 
 changequote(,)dnl
@@ -487,14 +516,35 @@ fi
 
 #### Various functions
 AC_CHECK_LIB(socket,socket)
-AC_CHECK_LIB(nsl,gethostbyname)
+AC_CHECK_FUNC(gethostbyname,,[AC_CHECK_LIB(nsl,gethostbyname)])
 
-AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv unsetenv socketpair getgrouplist fpathconf dirfd)
+AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv unsetenv socketpair getgrouplist fpathconf)
+
+AC_MSG_CHECKING(for dirfd)
+AC_TRY_COMPILE([
+#include <sys/types.h>
+#include <dirent.h>
+],[
+DIR *dirp;
+dirp = opendir(".");
+dirfd(dirp);
+closedir(dirp);
+], 
+dbus_have_dirfd=yes, dbus_have_dirfd=no)
+AC_MSG_RESULT($dbus_have_dirfd)
+if test "$dbus_have_dirfd" = yes; then
+	AC_DEFINE(HAVE_DIRFD,1,[Have dirfd function])
+fi
 
 AC_CHECK_HEADERS(execinfo.h, [AC_CHECK_FUNCS(backtrace)])
 
 AC_CHECK_HEADERS(errno.h)
 
+# checking for a posix version of getpwnam_r
+# if we are cross compiling and can not run the test
+# assume getpwnam_r is the posix version
+# it is up to the person cross compiling to change
+# this behavior if desired
 AC_CACHE_CHECK([for posix getpwnam_r],
 		ac_cv_func_posix_getpwnam_r,
 		[AC_TRY_RUN([
@@ -511,7 +561,8 @@ int main () {
 	   || error == ENOSYS; 
 }               ],
 	[ac_cv_func_posix_getpwnam_r=yes],
-	[ac_cv_func_posix_getpwnam_r=no])])
+	[ac_cv_func_posix_getpwnam_r=no],
+        [ac_cv_func_posix_getpwnam_r=yes])])
 if test "$ac_cv_func_posix_getpwnam_r" = yes; then
 	AC_DEFINE(HAVE_POSIX_GETPWNAM_R,1,
 		[Have POSIX function getpwnam_r])
@@ -550,6 +601,9 @@ fi
 dnl check for writev header and writev function so we're 
 dnl good to go if HAVE_WRITEV gets defined.
 AC_CHECK_HEADERS(sys/uio.h, [AC_CHECK_FUNCS(writev)])
+
+dnl needed on darwin for NAME_MAX
+AC_CHECK_HEADERS(sys/syslimits.h)
 
 dnl check for flavours of varargs macros (test from GLib)
 AC_MSG_CHECKING(for ISO C99 varargs macros in C)
@@ -1048,6 +1102,11 @@ else
 fi
 AC_SUBST(DBUS_DAEMONDIR)
 AC_DEFINE_UNQUOTED(DBUS_DAEMONDIR,"$DBUS_DAEMONDIR", [Directory for installing the DBUS daemon])
+
+#### Directory to install the other binaries
+DBUS_BINDIR=$EXPANDED_BINDIR
+AC_SUBST(DBUS_BINDIR)
+AC_DEFINE_UNQUOTED(DBUS_BINDIR,"$DBUS_BINDIR", [Directory for installing the binaries])
 
 #### Tell tests where to find certain stuff in builddir
 
