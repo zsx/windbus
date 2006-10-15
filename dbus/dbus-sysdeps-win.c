@@ -4685,7 +4685,20 @@ _dbus_send_credentials_unix_socket  (int              server_fd,
 
 
 
+dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
+                                             dbus_bool_t       create_if_not_found,
+                                             DBusError        *error)
+{
+    // definitely wrong: TODO
+    return 1;
+}
 
+dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
+					  DBusError *error)
+{
+    // definitely wrong: TODO
+    return 1;
+}
 
 
 
