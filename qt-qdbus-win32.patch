@@ -33,18 +33,6 @@ diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/README-qdbus.tx
 +QT_CONFIG = qdbus
 +
 +to .qmake.cache after configuring and run your make tool
-diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/src/gui/painting/painting.pri qt-win-opensource-src-4.2.0-snapshot-20060921/src/gui/painting/painting.pri
---- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/src/gui/painting/painting.pri	2006-09-21 01:23:40.000000000 +0200
-+++ qt-win-opensource-src-4.2.0-snapshot-20060921/src/gui/painting/painting.pri	2006-09-21 16:31:04.000000000 +0200
-@@ -152,7 +152,7 @@
-     SOURCES += painting/qdrawhelper_x86.cpp
-     DEFINES += QT_HAVE_IWMMXT
-     DEFINES += QT_HAVE_SSE
--} else:win32:!win32-msvc {
-+} else:win32-borland {
-     SOURCES += painting/qdrawhelper_x86.cpp
-     DEFINES += QT_HAVE_SSE
- }
 diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src/src.pro qt-win-opensource-src-4.2.0-snapshot-20060921/tools/qdbus/src/src.pro
 --- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src/src.pro	2006-09-21 01:23:54.000000000 +0200
 +++ qt-win-opensource-src-4.2.0-snapshot-20060921/tools/qdbus/src/src.pro	2006-09-21 16:31:04.000000000 +0200
@@ -70,8 +58,8 @@ diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/tools.pro
      SUBDIRS		+= assistant/lib \
  			assistant \
  			porting \
---- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/qdbus.pro	2006-09-29 16:39:38.000000000 +0200
-+++ qt-win-opensource-src-4.2.0-snapshot-20060921/tools/qdbus/qdbus.pro	2006-10-08 21:55:12.000000000 +0200
+--- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/tools/qdbus/qdbus.pro	2006-09-29 16:39:38.000000000 +0200
++++ qt-win-opensource-src-4.2.0-snapshot-20060921/tools/qdbus/tools/qdbus/qdbus.pro	2006-10-08 21:55:12.000000000 +0200
 @@ -1,7 +1,7 @@
  SOURCES = qdbus.cpp
  DESTDIR = ../../../../bin
