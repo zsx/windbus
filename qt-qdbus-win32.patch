@@ -1,6 +1,6 @@
-diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/demos/dbus-viewer/dbus-viewer.pro qt-win-opensource-src-4.2.0-snapshot-20060921/demos/dbus-viewer/dbus-viewer.pro
+diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/demos/dbus-viewer/dbus-viewer.pro demos/dbus-viewer/dbus-viewer.pro
 --- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/demos/dbus-viewer/dbus-viewer.pro	2006-09-21 01:24:06.000000000 +0200
-+++ qt-win-opensource-src-4.2.0-snapshot-20060921/demos/dbus-viewer/dbus-viewer.pro	2006-09-21 16:31:04.000000000 +0200
++++ demos/dbus-viewer/dbus-viewer.pro	2006-09-21 16:31:04.000000000 +0200
 @@ -16,6 +16,8 @@
  CONFIG += qdbus
  QT += xml
@@ -10,9 +10,9 @@ diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/demos/dbus-view
  # install
  target.path = $$[QT_INSTALL_DEMOS]/dbus-viewer
  sources.files = $$SOURCES $$HEADERS *.pro *.html *.doc images
-diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/mkspecs/features/qdbus.prf qt-win-opensource-src-4.2.0-snapshot-20060921/mkspecs/features/qdbus.prf
+diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/mkspecs/features/qdbus.prf mkspecs/features/qdbus.prf
 --- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/mkspecs/features/qdbus.prf	2006-09-21 01:23:30.000000000 +0200
-+++ qt-win-opensource-src-4.2.0-snapshot-20060921/mkspecs/features/qdbus.prf	2006-09-21 16:31:04.000000000 +0200
++++ mkspecs/features/qdbus.prf	2006-09-21 16:31:04.000000000 +0200
 @@ -1,6 +1,10 @@
  
  qtAddLibrary(QtDBus)
@@ -24,18 +24,18 @@ diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/mkspecs/feature
  isEmpty(QMAKE_QDBUSXML2CPP) {
      win32:QMAKE_QDBUSXML2CPP = $$[QT_INSTALL_BINS]\qdbusxml2cpp.exe
      else:QMAKE_QDBUSXML2CPP = $$[QT_INSTALL_BINS]/qdbusxml2cpp
-diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/README-qdbus.txt qt-win-opensource-src-4.2.0-snapshot-20060921/README-qdbus.txt
+diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/README-qdbus.txt README-qdbus.txt
 --- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/README-qdbus.txt	1970-01-01 01:00:00.000000000 +0100
-+++ qt-win-opensource-src-4.2.0-snapshot-20060921/README-qdbus.txt	2006-09-21 16:32:40.000000000 +0200
++++ README-qdbus.txt	2006-09-21 16:32:40.000000000 +0200
 @@ -0,0 +1,5 @@
 +to activate qdbus support add the line 
 +
 +QT_CONFIG = qdbus
 +
 +to .qmake.cache after configuring and run your make tool
-diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src/src.pro qt-win-opensource-src-4.2.0-snapshot-20060921/tools/qdbus/src/src.pro
+diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src/src.pro tools/qdbus/src/src.pro
 --- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src/src.pro	2006-09-21 01:23:54.000000000 +0200
-+++ qt-win-opensource-src-4.2.0-snapshot-20060921/tools/qdbus/src/src.pro	2006-09-21 16:31:04.000000000 +0200
++++ tools/qdbus/src/src.pro	2006-09-21 16:31:04.000000000 +0200
 @@ -45,6 +45,9 @@
     LIBS += -lws2_32 -ladvapi32 -lnetapi32
     CONFIG(debug, debug|release):LIBS += -ldbus-1d
@@ -46,9 +46,9 @@ diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src
  }
  
  #load up the headers info
-diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/tools.pro qt-win-opensource-src-4.2.0-snapshot-20060921/tools/tools.pro
+diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/tools.pro tools/tools.pro
 --- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/tools.pro	2006-09-21 01:24:00.000000000 +0200
-+++ qt-win-opensource-src-4.2.0-snapshot-20060921/tools/tools.pro	2006-09-21 16:33:26.000000000 +0200
++++ tools/tools.pro	2006-09-21 16:33:26.000000000 +0200
 @@ -2,7 +2,7 @@
  no-png {
      message("Tools not available without PNG support")
@@ -59,7 +59,7 @@ diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/tools.pro
  			assistant \
  			porting \
 --- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/tools/qdbus/qdbus.pro	2006-09-29 16:39:38.000000000 +0200
-+++ qt-win-opensource-src-4.2.0-snapshot-20060921/tools/qdbus/tools/qdbus/qdbus.pro	2006-10-08 21:55:12.000000000 +0200
++++ tools/qdbus/tools/qdbus/qdbus.pro	2006-10-08 21:55:12.000000000 +0200
 @@ -1,7 +1,7 @@
  SOURCES = qdbus.cpp
  DESTDIR = ../../../../bin
