@@ -18,7 +18,7 @@ diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/mkspecs/feature
  qtAddLibrary(QtDBus)
  
 +win32: !contains(QT, gui):contains(TEMPLATE, app) {
-+	CONFIG += console 
++	CONFIG += console
 +}
 +
  isEmpty(QMAKE_QDBUSXML2CPP) {
@@ -28,21 +28,26 @@ diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/README-qdbus.tx
 --- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/README-qdbus.txt	1970-01-01 01:00:00.000000000 +0100
 +++ README-qdbus.txt	2006-09-21 16:32:40.000000000 +0200
 @@ -0,0 +1,5 @@
-+to activate qdbus support add the line 
++to activate qdbus support add the line
 +
 +QT_CONFIG = qdbus
 +
 +to .qmake.cache after configuring and run your make tool
 diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src/src.pro tools/qdbus/src/src.pro
 --- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src/src.pro	2006-09-21 01:23:54.000000000 +0200
-+++ tools/qdbus/src/src.pro	2006-09-21 16:31:04.000000000 +0200
-@@ -45,6 +45,9 @@
++++ tools/qdbus/src/src.pro	Mon Oct 23 10:47:32 2006
+@@ -45,6 +45,14 @@
     LIBS += -lws2_32 -ladvapi32 -lnetapi32
     CONFIG(debug, debug|release):LIBS += -ldbus-1d
     else:LIBS += -ldbus-1
-+   DBUS_INSTALL_DIR=c:/Programme/dbus
++   DBUS_INSTALL_DIR=$$(DBUSDIR)
++   isEmpty( DBUS_INSTALL_DIR ) {
++      isEmpty( $$(PROGRAMFILES) ):DBUS_INSTALL_DIR = "C:/Program Files/dbus"
++      else:DBUS_INSTALL_DIR = "$$(PROGRAMFILES)/dbus"
++      message( "DBUSDIR not specified. Using $$DBUS_INSTALL_DIR" )
++   }
 +   INCLUDEPATH += $$DBUS_INSTALL_DIR/include
-+   LIBS +=  -L$$DBUS_INSTALL_DIR/lib
++   LIBS +=  -L\"$$DBUS_INSTALL_DIR/lib\"
  }
  
  #load up the headers info
