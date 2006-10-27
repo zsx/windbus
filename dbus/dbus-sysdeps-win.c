@@ -4700,6 +4700,19 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
     return 1;
 }
 
+/** Makes the file readable by every user in the system.
+ *
+ * @param filename the filename
+ * @param error error location
+ * @returns #TRUE if the file's permissions could be changed.
+ */
+dbus_bool_t
+_dbus_make_file_world_readable(const DBusString *filename,
+                               DBusError *error)
+{
+  // TODO
+  return TRUE;
+}
 
 
 
