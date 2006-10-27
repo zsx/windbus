@@ -465,6 +465,9 @@ _dbus_watch_set_handler (DBusWatch        *watch,
  * Types and functions related to DBusWatch. A watch represents
  * a file descriptor that the main loop needs to monitor,
  * as in Qt's QSocketNotifier or GLib's g_io_add_watch().
+ *
+ * Use dbus_connection_set_watch_functions() or dbus_server_set_watch_functions()
+ * to be notified when libdbus needs to add or remove watches.
  * 
  * @{
  */
@@ -480,6 +483,9 @@ _dbus_watch_set_handler (DBusWatch        *watch,
 /**
  * Gets the file descriptor that should be watched.
  *
+ * On Windows, this will be a socket. On UNIX right now it will be a
+ * socket but in principle it could be something else.
+ * 
  * @param watch the DBusWatch object.
  * @returns the file descriptor to watch.
  */
@@ -594,8 +600,8 @@ dbus_watch_handle (DBusWatch    *watch,
 #ifndef DBUS_DISABLE_CHECKS
   if (watch->fd < 0 || watch->flags == 0)
     {
-      _dbus_warn ("%s: Watch is invalid, it should have been removed\n",
-                  _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("%s: Watch is invalid, it should have been removed\n",
+                               _DBUS_FUNCTION_NAME);
       return TRUE;
     }
 #endif

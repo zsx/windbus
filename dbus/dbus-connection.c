@@ -95,28 +95,56 @@
  * maintains a queue of incoming messages and a queue of outgoing
  * messages.
  *
- * Incoming messages are normally processed by calling
- * dbus_connection_dispatch(). dbus_connection_dispatch() runs any
- * handlers registered for the topmost message in the message queue,
- * then discards the message, then returns.
+ * Several functions use the following terms:
+ * <ul>
+ * <li><b>read</b> means to fill the incoming message queue by reading from the socket</li>
+ * <li><b>write</b> means to drain the outgoing queue by writing to the socket</li>
+ * <li><b>dispatch</b> means to drain the incoming queue by invoking application-provided message handlers</li>
+ * </ul>
+ *
+ * The function dbus_connection_read_write_dispatch() for example does all
+ * three of these things, offering a simple alternative to a main loop.
+ *
+ * In an application with a main loop, the read/write/dispatch
+ * operations are usually separate.
+ *
+ * The connection provides #DBusWatch and #DBusTimeout objects to
+ * the main loop. These are used to know when reading, writing, or
+ * dispatching should be performed.
+ * 
+ * Incoming messages are processed
+ * by calling dbus_connection_dispatch(). dbus_connection_dispatch()
+ * runs any handlers registered for the topmost message in the message
+ * queue, then discards the message, then returns.
  * 
  * dbus_connection_get_dispatch_status() indicates whether
  * messages are currently in the queue that need dispatching.
  * dbus_connection_set_dispatch_status_function() allows
  * you to set a function to be used to monitor the dispatch status.
- *
+ * 
  * If you're using GLib or Qt add-on libraries for D-Bus, there are
  * special convenience APIs in those libraries that hide
  * all the details of dispatch and watch/timeout monitoring.
  * For example, dbus_connection_setup_with_g_main().
  *
- * If you aren't using these add-on libraries, you have to manually
- * call dbus_connection_set_dispatch_status_function(),
+ * If you aren't using these add-on libraries, but want to process
+ * messages asynchronously, you must manually call
+ * dbus_connection_set_dispatch_status_function(),
  * dbus_connection_set_watch_functions(),
  * dbus_connection_set_timeout_functions() providing appropriate
  * functions to integrate the connection with your application's main
- * loop.
+ * loop. This can be tricky to get right; main loops are not simple.
  *
+ * If you don't need to be asynchronous, you can ignore #DBusWatch,
+ * #DBusTimeout, and dbus_connection_dispatch().  Instead,
+ * dbus_connection_read_write_dispatch() can be used.
+ *
+ * Or, in <em>very</em> simple applications,
+ * dbus_connection_pop_message() may be all you need, allowing you to
+ * avoid setting up any handler functions (see
+ * dbus_connection_add_filter(),
+ * dbus_connection_register_object_path() for more on handlers).
+ * 
  * When you use dbus_connection_send() or one of its variants to send
  * a message, the message is added to the outgoing queue.  It's
  * actually written to the network later; either in
@@ -138,11 +166,26 @@
  * the last message in the queue (obviously no messages are received
  * after disconnection).
  *
- * #DBusConnection has thread locks and drops them when invoking user
- * callbacks, so in general is transparently threadsafe. However,
- * #DBusMessage does NOT have thread locks; you must not send the same
- * message to multiple #DBusConnection that will be used from
- * different threads.
+ * After calling dbus_threads_init(), #DBusConnection has thread
+ * locks and drops them when invoking user callbacks, so in general is
+ * transparently threadsafe. However, #DBusMessage does NOT have
+ * thread locks; you must not send the same message to multiple
+ * #DBusConnection if those connections will be used from different threads,
+ * for example.
+ *
+ * Also, if you dispatch or pop messages from multiple threads, it
+ * may work in the sense that it won't crash, but it's tough to imagine
+ * sane results; it will be completely unpredictable which messages
+ * go to which threads.
+ *
+ * It's recommended to dispatch from a single thread.
+ *
+ * The most useful function to call from multiple threads at once
+ * is dbus_connection_send_with_reply_and_block(). That is,
+ * multiple threads can make method calls at the same time.
+ *
+ * If you aren't using threads, you can use a main loop and
+ * dbus_pending_call_set_notify() to achieve a similar result.
  */
 
 /**
@@ -373,18 +416,18 @@ _dbus_connection_queue_received_message (DBusConnection *connection,
  *        variable pointer
  */ 
 void 
-_dbus_connection_test_get_locks (DBusConnection *conn,
+_dbus_connection_test_get_locks (DBusConnection *connection,
                                  DBusMutex     **mutex_loc,
                                  DBusMutex     **dispatch_mutex_loc,
                                  DBusMutex     **io_path_mutex_loc,
                                  DBusCondVar   **dispatch_cond_loc,
                                  DBusCondVar   **io_path_cond_loc)
 {
-  *mutex_loc = conn->mutex;
-  *dispatch_mutex_loc = conn->dispatch_mutex;
-  *io_path_mutex_loc = conn->io_path_mutex; 
-  *dispatch_cond_loc = conn->dispatch_cond;
-  *io_path_cond_loc = conn->io_path_cond;
+  *mutex_loc = connection->mutex;
+  *dispatch_mutex_loc = connection->dispatch_mutex;
+  *io_path_mutex_loc = connection->io_path_mutex; 
+  *dispatch_cond_loc = connection->dispatch_cond;
+  *io_path_cond_loc = connection->io_path_cond;
 }
 #endif
 
@@ -490,7 +533,10 @@ _dbus_connection_has_messages_to_send_unlocked (DBusConnection *connection)
 
 /**
  * Checks whether there are messages in the outgoing message queue.
- *
+ * Use dbus_connection_flush() to block until all outgoing
+ * messages have been written to the underlying transport
+ * (such as a socket).
+ * 
  * @param connection the connection.
  * @returns #TRUE if the outgoing queue is non-empty.
  */
@@ -578,10 +624,13 @@ _dbus_connection_message_sent (DBusConnection *connection,
   dbus_message_unref (message);
 }
 
+/** Function to be called in protected_change_watch() with refcount held */
 typedef dbus_bool_t (* DBusWatchAddFunction)     (DBusWatchList *list,
                                                   DBusWatch     *watch);
+/** Function to be called in protected_change_watch() with refcount held */
 typedef void        (* DBusWatchRemoveFunction)  (DBusWatchList *list,
                                                   DBusWatch     *watch);
+/** Function to be called in protected_change_watch() with refcount held */
 typedef void        (* DBusWatchToggleFunction)  (DBusWatchList *list,
                                                   DBusWatch     *watch,
                                                   dbus_bool_t    enabled);
@@ -696,10 +745,13 @@ _dbus_connection_toggle_watch_unlocked (DBusConnection *connection,
                           enabled);
 }
 
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef dbus_bool_t (* DBusTimeoutAddFunction)    (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout);
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef void        (* DBusTimeoutRemoveFunction) (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout);
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef void        (* DBusTimeoutToggleFunction) (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout,
                                                    dbus_bool_t      enabled);
@@ -939,7 +991,7 @@ _dbus_connection_remove_pending_call (DBusConnection  *connection,
  */
 static dbus_bool_t
 _dbus_connection_acquire_io_path (DBusConnection *connection,
-				  int timeout_milliseconds)
+				  int             timeout_milliseconds)
 {
   dbus_bool_t we_acquired;
   
@@ -965,9 +1017,20 @@ _dbus_connection_acquire_io_path (DBusConnection *connection,
         {
           _dbus_verbose ("%s waiting %d for IO path to be acquirable\n",
                          _DBUS_FUNCTION_NAME, timeout_milliseconds);
-          _dbus_condvar_wait_timeout (connection->io_path_cond,
-                                      connection->io_path_mutex,
-                                      timeout_milliseconds);
+
+          if (!_dbus_condvar_wait_timeout (connection->io_path_cond,
+                                           connection->io_path_mutex,
+                                           timeout_milliseconds))
+            {
+              /* We timed out before anyone signaled. */
+              /* (writing the loop to handle the !timedout case by
+               * waiting longer if needed is a pain since dbus
+               * wraps pthread_cond_timedwait to take a relative
+               * time instead of absolute, something kind of stupid
+               * on our part. for now it doesn't matter, we will just
+               * end up back here eventually.)
+               */
+            }
         }
       else
         {
@@ -1673,41 +1736,31 @@ _dbus_connection_open_internal (const char     *address,
           connection = connection_try_from_address_entry (entries[i],
                                                           &tmp_error);
 
-          if (connection != NULL)
+          if (connection != NULL && shared)
             {
+              const char *guid;
+                  
+              connection->shareable = TRUE;
+                  
+              /* guid may be NULL */
+              guid = dbus_address_entry_get_value (entries[i], "guid");
+                  
               CONNECTION_LOCK (connection);
           
-              if (shared)
+              if (!connection_record_shared_unlocked (connection, guid))
                 {
-                  const char *guid;
-                  
-                  connection->shareable = TRUE;
-                  
-                  /* guid may be NULL */
-                  guid = dbus_address_entry_get_value (entries[i], "guid");
-                  
-                  if (!connection_record_shared_unlocked (connection, guid))
-                    {
-                      _DBUS_SET_OOM (&tmp_error);
-                      _dbus_connection_close_possibly_shared_and_unlock (connection);
-                      dbus_connection_unref (connection);
-                      connection = NULL;
-                    }
-                  
-                  /* Note: as of now the connection is possibly shared
-                   * since another thread could have pulled it from the table.
-                   * However, we still have it locked so that thread isn't
-                   * doing anything more than blocking on the lock.
-                   */
+                  _DBUS_SET_OOM (&tmp_error);
+                  _dbus_connection_close_possibly_shared_and_unlock (connection);
+                  dbus_connection_unref (connection);
+                  connection = NULL;
                 }
+              else
+                CONNECTION_UNLOCK (connection);
             }
         }
       
       if (connection)
-        {
-          HAVE_LOCK_CHECK (connection);
-          break;
-        }
+        break;
 
       _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
       
@@ -1726,14 +1779,580 @@ _dbus_connection_open_internal (const char     *address,
       dbus_move_error (&first_error, error);
     }
   else
-    {
-      dbus_error_free (&first_error);
-
-      CONNECTION_UNLOCK (connection);
-    }
+    dbus_error_free (&first_error);
   
   dbus_address_entries_free (entries);
   return connection;
+}
+
+/**
+ * Closes a shared OR private connection, while dbus_connection_close() can
+ * only be used on private connections. Should only be called by the
+ * dbus code that owns the connection - an owner must be known,
+ * the open/close state is like malloc/free, not like ref/unref.
+ * 
+ * @param connection the connection
+ */
+void
+_dbus_connection_close_possibly_shared (DBusConnection *connection)
+{
+  _dbus_assert (connection != NULL);
+  _dbus_assert (connection->generation == _dbus_current_generation);
+
+  CONNECTION_LOCK (connection);
+  _dbus_connection_close_possibly_shared_and_unlock (connection);
+}
+
+static DBusPreallocatedSend*
+_dbus_connection_preallocate_send_unlocked (DBusConnection *connection)
+{
+  DBusPreallocatedSend *preallocated;
+
+  HAVE_LOCK_CHECK (connection);
+  
+  _dbus_assert (connection != NULL);
+  
+  preallocated = dbus_new (DBusPreallocatedSend, 1);
+  if (preallocated == NULL)
+    return NULL;
+
+  if (connection->link_cache != NULL)
+    {
+      preallocated->queue_link =
+        _dbus_list_pop_first_link (&connection->link_cache);
+      preallocated->queue_link->data = NULL;
+    }
+  else
+    {
+      preallocated->queue_link = _dbus_list_alloc_link (NULL);
+      if (preallocated->queue_link == NULL)
+        goto failed_0;
+    }
+  
+  if (connection->link_cache != NULL)
+    {
+      preallocated->counter_link =
+        _dbus_list_pop_first_link (&connection->link_cache);
+      preallocated->counter_link->data = connection->outgoing_counter;
+    }
+  else
+    {
+      preallocated->counter_link = _dbus_list_alloc_link (connection->outgoing_counter);
+      if (preallocated->counter_link == NULL)
+        goto failed_1;
+    }
+
+  _dbus_counter_ref (preallocated->counter_link->data);
+
+  preallocated->connection = connection;
+  
+  return preallocated;
+  
+ failed_1:
+  _dbus_list_free_link (preallocated->queue_link);
+ failed_0:
+  dbus_free (preallocated);
+  
+  return NULL;
+}
+
+/* Called with lock held, does not update dispatch status */
+static void
+_dbus_connection_send_preallocated_unlocked_no_update (DBusConnection       *connection,
+                                                       DBusPreallocatedSend *preallocated,
+                                                       DBusMessage          *message,
+                                                       dbus_uint32_t        *client_serial)
+{
+  dbus_uint32_t serial;
+  const char *sig;
+
+  preallocated->queue_link->data = message;
+  _dbus_list_prepend_link (&connection->outgoing_messages,
+                           preallocated->queue_link);
+
+  _dbus_message_add_size_counter_link (message,
+                                       preallocated->counter_link);
+
+  dbus_free (preallocated);
+  preallocated = NULL;
+  
+  dbus_message_ref (message);
+  
+  connection->n_outgoing += 1;
+
+  sig = dbus_message_get_signature (message);
+  
+  _dbus_verbose ("Message %p (%d %s %s %s '%s') for %s added to outgoing queue %p, %d pending to send\n",
+                 message,
+                 dbus_message_get_type (message),
+                 dbus_message_get_path (message) ?
+                 dbus_message_get_path (message) :
+                 "no path",
+                 dbus_message_get_interface (message) ?
+                 dbus_message_get_interface (message) :
+                 "no interface",
+                 dbus_message_get_member (message) ?
+                 dbus_message_get_member (message) :
+                 "no member",
+                 sig,
+                 dbus_message_get_destination (message) ?
+                 dbus_message_get_destination (message) :
+                 "null",
+                 connection,
+                 connection->n_outgoing);
+
+  if (dbus_message_get_serial (message) == 0)
+    {
+      serial = _dbus_connection_get_next_client_serial (connection);
+      _dbus_message_set_serial (message, serial);
+      if (client_serial)
+        *client_serial = serial;
+    }
+  else
+    {
+      if (client_serial)
+        *client_serial = dbus_message_get_serial (message);
+    }
+
+  _dbus_verbose ("Message %p serial is %u\n",
+                 message, dbus_message_get_serial (message));
+  
+  _dbus_message_lock (message);
+
+  /* Now we need to run an iteration to hopefully just write the messages
+   * out immediately, and otherwise get them queued up
+   */
+  _dbus_connection_do_iteration_unlocked (connection,
+                                          DBUS_ITERATION_DO_WRITING,
+                                          -1);
+
+  /* If stuff is still queued up, be sure we wake up the main loop */
+  if (connection->n_outgoing > 0)
+    _dbus_connection_wakeup_mainloop (connection);
+}
+
+static void
+_dbus_connection_send_preallocated_and_unlock (DBusConnection       *connection,
+					       DBusPreallocatedSend *preallocated,
+					       DBusMessage          *message,
+					       dbus_uint32_t        *client_serial)
+{
+  DBusDispatchStatus status;
+
+  HAVE_LOCK_CHECK (connection);
+  
+  _dbus_connection_send_preallocated_unlocked_no_update (connection,
+                                                         preallocated,
+                                                         message, client_serial);
+
+  _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+
+  /* this calls out to user code */
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+}
+
+/**
+ * Like dbus_connection_send(), but assumes the connection
+ * is already locked on function entry, and unlocks before returning.
+ *
+ * @param connection the connection
+ * @param message the message to send
+ * @param client_serial return location for client serial of sent message
+ * @returns #FALSE on out-of-memory
+ */
+dbus_bool_t
+_dbus_connection_send_and_unlock (DBusConnection *connection,
+				  DBusMessage    *message,
+				  dbus_uint32_t  *client_serial)
+{
+  DBusPreallocatedSend *preallocated;
+
+  _dbus_assert (connection != NULL);
+  _dbus_assert (message != NULL);
+  
+  preallocated = _dbus_connection_preallocate_send_unlocked (connection);
+  if (preallocated == NULL)
+    {
+      CONNECTION_UNLOCK (connection);
+      return FALSE;
+    }
+
+  _dbus_connection_send_preallocated_and_unlock (connection,
+						 preallocated,
+						 message,
+						 client_serial);
+  return TRUE;
+}
+
+/**
+ * Used internally to handle the semantics of dbus_server_set_new_connection_function().
+ * If the new connection function does not ref the connection, we want to close it.
+ *
+ * A bit of a hack, probably the new connection function should have returned a value
+ * for whether to close, or should have had to close the connection itself if it
+ * didn't want it.
+ *
+ * But, this works OK as long as the new connection function doesn't do anything
+ * crazy like keep the connection around without ref'ing it.
+ *
+ * We have to lock the connection across refcount check and close in case
+ * the new connection function spawns a thread that closes and unrefs.
+ * In that case, if the app thread
+ * closes and unrefs first, we'll harmlessly close again; if the app thread
+ * still has the ref, we'll close and then the app will close harmlessly.
+ * If the app unrefs without closing, the app is broken since if the
+ * app refs from the new connection function it is supposed to also close.
+ *
+ * If we didn't atomically check the refcount and close with the lock held
+ * though, we could screw this up.
+ * 
+ * @param connection the connection
+ */
+void
+_dbus_connection_close_if_only_one_ref (DBusConnection *connection)
+{
+  CONNECTION_LOCK (connection);
+  
+  _dbus_assert (connection->refcount.value > 0);
+
+  if (connection->refcount.value == 1)
+    _dbus_connection_close_possibly_shared_and_unlock (connection);
+  else
+    CONNECTION_UNLOCK (connection);
+}
+
+
+/**
+ * When a function that blocks has been called with a timeout, and we
+ * run out of memory, the time to wait for memory is based on the
+ * timeout. If the caller was willing to block a long time we wait a
+ * relatively long time for memory, if they were only willing to block
+ * briefly then we retry for memory at a rapid rate.
+ *
+ * @timeout_milliseconds the timeout requested for blocking
+ */
+static void
+_dbus_memory_pause_based_on_timeout (int timeout_milliseconds)
+{
+  if (timeout_milliseconds == -1)
+    _dbus_sleep_milliseconds (1000);
+  else if (timeout_milliseconds < 100)
+    ; /* just busy loop */
+  else if (timeout_milliseconds <= 1000)
+    _dbus_sleep_milliseconds (timeout_milliseconds / 3);
+  else
+    _dbus_sleep_milliseconds (1000);
+}
+
+static DBusMessage *
+generate_local_error_message (dbus_uint32_t serial, 
+                              char *error_name, 
+                              char *error_msg)
+{
+  DBusMessage *message;
+  message = dbus_message_new (DBUS_MESSAGE_TYPE_ERROR);
+  if (!message)
+    goto out;
+
+  if (!dbus_message_set_error_name (message, error_name))
+    {
+      dbus_message_unref (message);
+      message = NULL;
+      goto out; 
+    }
+
+  dbus_message_set_no_reply (message, TRUE); 
+
+  if (!dbus_message_set_reply_serial (message,
+                                      serial))
+    {
+      dbus_message_unref (message);
+      message = NULL;
+      goto out;
+    }
+
+  if (error_msg != NULL)
+    {
+      DBusMessageIter iter;
+
+      dbus_message_iter_init_append (message, &iter);
+      if (!dbus_message_iter_append_basic (&iter,
+                                           DBUS_TYPE_STRING,
+                                           &error_msg))
+        {
+          dbus_message_unref (message);
+          message = NULL;
+	  goto out;
+        }
+    }
+
+ out:
+  return message;
+}
+
+
+/* This is slightly strange since we can pop a message here without
+ * the dispatch lock.
+ */
+static DBusMessage*
+check_for_reply_unlocked (DBusConnection *connection,
+                          dbus_uint32_t   client_serial)
+{
+  DBusList *link;
+
+  HAVE_LOCK_CHECK (connection);
+  
+  link = _dbus_list_get_first_link (&connection->incoming_messages);
+
+  while (link != NULL)
+    {
+      DBusMessage *reply = link->data;
+
+      if (dbus_message_get_reply_serial (reply) == client_serial)
+	{
+	  _dbus_list_remove_link (&connection->incoming_messages, link);
+	  connection->n_incoming  -= 1;
+	  return reply;
+	}
+      link = _dbus_list_get_next_link (&connection->incoming_messages, link);
+    }
+
+  return NULL;
+}
+
+static void
+connection_timeout_and_complete_all_pending_calls_unlocked (DBusConnection *connection)
+{
+   /* We can't iterate over the hash in the normal way since we'll be
+    * dropping the lock for each item. So we restart the
+    * iter each time as we drain the hash table.
+    */
+   
+   while (_dbus_hash_table_get_n_entries (connection->pending_replies) > 0)
+    {
+      DBusPendingCall *pending;
+      DBusHashIter iter;
+      
+      _dbus_hash_iter_init (connection->pending_replies, &iter);
+      _dbus_hash_iter_next (&iter);
+       
+      pending = _dbus_hash_iter_get_value (&iter);
+      _dbus_pending_call_ref_unlocked (pending);
+       
+      _dbus_pending_call_queue_timeout_error_unlocked (pending, 
+                                                       connection);
+      _dbus_connection_remove_timeout_unlocked (connection,
+                                                _dbus_pending_call_get_timeout_unlocked (pending));
+      _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);       
+      _dbus_hash_iter_remove_entry (&iter);
+
+      _dbus_pending_call_unref_and_unlock (pending);
+      CONNECTION_LOCK (connection);
+    }
+  HAVE_LOCK_CHECK (connection);
+}
+
+static void
+complete_pending_call_and_unlock (DBusConnection  *connection,
+                                  DBusPendingCall *pending,
+                                  DBusMessage     *message)
+{
+  _dbus_pending_call_set_reply_unlocked (pending, message);
+  _dbus_pending_call_ref_unlocked (pending); /* in case there's no app with a ref held */
+  _dbus_connection_detach_pending_call_and_unlock (connection, pending);
+ 
+  /* Must be called unlocked since it invokes app callback */
+  _dbus_pending_call_complete (pending);
+  dbus_pending_call_unref (pending);
+}
+
+static dbus_bool_t
+check_for_reply_and_update_dispatch_unlocked (DBusConnection  *connection,
+                                              DBusPendingCall *pending)
+{
+  DBusMessage *reply;
+  DBusDispatchStatus status;
+
+  reply = check_for_reply_unlocked (connection, 
+                                    _dbus_pending_call_get_reply_serial_unlocked (pending));
+  if (reply != NULL)
+    {
+      _dbus_verbose ("%s checked for reply\n", _DBUS_FUNCTION_NAME);
+
+      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply\n");
+
+      complete_pending_call_and_unlock (connection, pending, reply);
+      dbus_message_unref (reply);
+
+      CONNECTION_LOCK (connection);
+      status = _dbus_connection_get_dispatch_status_unlocked (connection);
+      _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+      dbus_pending_call_unref (pending);
+
+      return TRUE;
+    }
+
+  return FALSE;
+}
+
+/**
+ * Blocks until a pending call times out or gets a reply.
+ *
+ * Does not re-enter the main loop or run filter/path-registered
+ * callbacks. The reply to the message will not be seen by
+ * filter callbacks.
+ *
+ * Returns immediately if pending call already got a reply.
+ * 
+ * @todo could use performance improvements (it keeps scanning
+ * the whole message queue for example)
+ *
+ * @param pending the pending call we block for a reply on
+ */
+void
+_dbus_connection_block_pending_call (DBusPendingCall *pending)
+{
+  long start_tv_sec, start_tv_usec;
+  long end_tv_sec, end_tv_usec;
+  long tv_sec, tv_usec;
+  DBusDispatchStatus status;
+  DBusConnection *connection;
+  dbus_uint32_t client_serial;
+  int timeout_milliseconds;
+
+  _dbus_assert (pending != NULL);
+
+  if (dbus_pending_call_get_completed (pending))
+    return;
+
+  dbus_pending_call_ref (pending); /* necessary because the call could be canceled */
+
+  connection = _dbus_pending_call_get_connection_and_lock (pending);
+  
+  /* Flush message queue - note, can affect dispatch status */
+  _dbus_connection_flush_unlocked (connection);
+
+  client_serial = _dbus_pending_call_get_reply_serial_unlocked (pending);
+
+  /* note that timeout_milliseconds is limited to a smallish value
+   * in _dbus_pending_call_new() so overflows aren't possible
+   * below
+   */
+  timeout_milliseconds = dbus_timeout_get_interval (_dbus_pending_call_get_timeout_unlocked (pending));
+  
+  _dbus_get_current_time (&start_tv_sec, &start_tv_usec);
+  end_tv_sec = start_tv_sec + timeout_milliseconds / 1000;
+  end_tv_usec = start_tv_usec + (timeout_milliseconds % 1000) * 1000;
+  end_tv_sec += end_tv_usec / _DBUS_USEC_PER_SECOND;
+  end_tv_usec = end_tv_usec % _DBUS_USEC_PER_SECOND;
+
+  _dbus_verbose ("dbus_connection_send_with_reply_and_block(): will block %d milliseconds for reply serial %u from %ld sec %ld usec to %ld sec %ld usec\n",
+                 timeout_milliseconds,
+                 client_serial,
+                 start_tv_sec, start_tv_usec,
+                 end_tv_sec, end_tv_usec);
+
+  /* check to see if we already got the data off the socket */
+  /* from another blocked pending call */
+  if (check_for_reply_and_update_dispatch_unlocked (connection, pending))
+    return;
+
+  /* Now we wait... */
+  /* always block at least once as we know we don't have the reply yet */
+  _dbus_connection_do_iteration_unlocked (connection,
+                                          DBUS_ITERATION_DO_READING |
+                                          DBUS_ITERATION_BLOCK,
+                                          timeout_milliseconds);
+
+ recheck_status:
+
+  _dbus_verbose ("%s top of recheck\n", _DBUS_FUNCTION_NAME);
+  
+  HAVE_LOCK_CHECK (connection);
+  
+  /* queue messages and get status */
+
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+
+  /* the get_completed() is in case a dispatch() while we were blocking
+   * got the reply instead of us.
+   */
+  if (_dbus_pending_call_get_completed_unlocked (pending))
+    {
+      _dbus_verbose ("Pending call completed by dispatch in %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+      dbus_pending_call_unref (pending);
+      return;
+    }
+  
+  if (status == DBUS_DISPATCH_DATA_REMAINS) {
+    if (check_for_reply_and_update_dispatch_unlocked (connection, pending))
+      return;
+  }
+  
+  _dbus_get_current_time (&tv_sec, &tv_usec);
+  
+  if (!_dbus_connection_get_is_connected_unlocked (connection))
+    {
+      DBusMessage *error_msg;
+
+      error_msg = generate_local_error_message (client_serial,
+                                                DBUS_ERROR_DISCONNECTED, 
+                                                "Connection was disconnected before a reply was received"); 
+
+      /* on OOM error_msg is set to NULL */
+      complete_pending_call_and_unlock (connection, pending, error_msg);
+      dbus_pending_call_unref (pending);
+      return;
+    }
+  else if (tv_sec < start_tv_sec)
+    _dbus_verbose ("dbus_connection_send_with_reply_and_block(): clock set backward\n");
+  else if (connection->disconnect_message_link == NULL)
+    _dbus_verbose ("dbus_connection_send_with_reply_and_block(): disconnected\n");
+  else if (tv_sec < end_tv_sec ||
+           (tv_sec == end_tv_sec && tv_usec < end_tv_usec))
+    {
+      timeout_milliseconds = (end_tv_sec - tv_sec) * 1000 +
+        (end_tv_usec - tv_usec) / 1000;
+      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): %d milliseconds remain\n", timeout_milliseconds);
+      _dbus_assert (timeout_milliseconds >= 0);
+      
+      if (status == DBUS_DISPATCH_NEED_MEMORY)
+        {
+          /* Try sleeping a bit, as we aren't sure we need to block for reading,
+           * we may already have a reply in the buffer and just can't process
+           * it.
+           */
+          _dbus_verbose ("dbus_connection_send_with_reply_and_block() waiting for more memory\n");
+
+          _dbus_memory_pause_based_on_timeout (timeout_milliseconds);
+        }
+      else
+        {          
+          /* block again, we don't have the reply buffered yet. */
+          _dbus_connection_do_iteration_unlocked (connection,
+                                                  DBUS_ITERATION_DO_READING |
+                                                  DBUS_ITERATION_BLOCK,
+                                                  timeout_milliseconds);
+        }
+
+      goto recheck_status;
+    }
+
+  _dbus_verbose ("dbus_connection_send_with_reply_and_block(): Waited %ld milliseconds and got no reply\n",
+                 (tv_sec - start_tv_sec) * 1000 + (tv_usec - start_tv_usec) / 1000);
+
+  _dbus_assert (!_dbus_pending_call_get_completed_unlocked (pending));
+  
+  /* unlock and call user code */
+  complete_pending_call_and_unlock (connection, pending, NULL);
+
+  /* update user code on dispatch status */
+  CONNECTION_LOCK (connection);
+  status = _dbus_connection_get_dispatch_status_unlocked (connection);
+  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
+  dbus_pending_call_unref (pending);
 }
 
 /** @} */
@@ -2007,11 +2626,10 @@ dbus_connection_unref (DBusConnection *connection)
 #ifndef DBUS_DISABLE_CHECKS
       if (_dbus_transport_get_is_connected (connection->transport))
         {
-          _dbus_warn ("The last reference on a connection was dropped without closing the connection. This is a bug. See dbus_connection_unref() documentation for details.\n");
-          if (connection->shareable)
-            _dbus_warn ("Most likely, the application called unref() too many times and removed a reference belonging to libdbus, since this is a shared connection.\n");
-          else
-            _dbus_warn ("Most likely, the application was supposed to call dbus_connection_close(), since this is a private connection.\n");
+          _dbus_warn_check_failed ("The last reference on a connection was dropped without closing the connection. This is a bug in an application. See dbus_connection_unref() documentation for details.\n%s",
+                                   connection->shareable ?
+                                   "Most likely, the application called unref() too many times and removed a reference belonging to libdbus, since this is a shared connection.\n" : 
+                                    "Most likely, the application was supposed to call dbus_connection_close(), since this is a private connection.\n");
           return;
         }
 #endif
@@ -2061,16 +2679,6 @@ _dbus_connection_close_possibly_shared_and_unlock (DBusConnection *connection)
 
   /* Could also call out to user code */
   dbus_connection_unref (connection);
-}
-
-void
-_dbus_connection_close_possibly_shared (DBusConnection *connection)
-{
-  _dbus_assert (connection != NULL);
-  _dbus_assert (connection->generation == _dbus_current_generation);
-
-  CONNECTION_LOCK (connection);
-  _dbus_connection_close_possibly_shared_and_unlock (connection);
 }
 
 /**
@@ -2128,49 +2736,12 @@ dbus_connection_close (DBusConnection *connection)
     {
       CONNECTION_UNLOCK (connection);
 
-      _dbus_warn ("Applications must not close shared connections - see dbus_connection_close() docs. This is a bug in the application.\n");
+      _dbus_warn_check_failed ("Applications must not close shared connections - see dbus_connection_close() docs. This is a bug in the application.\n");
       return;
     }
 #endif
   
   _dbus_connection_close_possibly_shared_and_unlock (connection);
-}
-
-/**
- * Used internally to handle the semantics of dbus_server_set_new_connection_function().
- * If the new connection function does not ref the connection, we want to close it.
- *
- * A bit of a hack, probably the new connection function should have returned a value
- * for whether to close, or should have had to close the connection itself if it
- * didn't want it.
- *
- * But, this works OK as long as the new connection function doesn't do anything
- * crazy like keep the connection around without ref'ing it.
- *
- * We have to lock the connection across refcount check and close in case
- * the new connection function spawns a thread that closes and unrefs.
- * In that case, if the app thread
- * closes and unrefs first, we'll harmlessly close again; if the app thread
- * still has the ref, we'll close and then the app will close harmlessly.
- * If the app unrefs without closing, the app is broken since if the
- * app refs from the new connection function it is supposed to also close.
- *
- * If we didn't atomically check the refcount and close with the lock held
- * though, we could screw this up.
- * 
- * @param connection the connection
- */
-void
-_dbus_connection_close_if_only_one_ref (DBusConnection *connection)
-{
-  CONNECTION_LOCK (connection);
-  
-  _dbus_assert (connection->refcount.value > 0);
-
-  if (connection->refcount.value == 1)
-    _dbus_connection_close_possibly_shared_and_unlock (connection);
-  else
-    CONNECTION_UNLOCK (connection);
 }
 
 static dbus_bool_t
@@ -2253,59 +2824,6 @@ dbus_connection_set_exit_on_disconnect (DBusConnection *connection,
   CONNECTION_UNLOCK (connection);
 }
 
-static DBusPreallocatedSend*
-_dbus_connection_preallocate_send_unlocked (DBusConnection *connection)
-{
-  DBusPreallocatedSend *preallocated;
-
-  HAVE_LOCK_CHECK (connection);
-  
-  _dbus_assert (connection != NULL);
-  
-  preallocated = dbus_new (DBusPreallocatedSend, 1);
-  if (preallocated == NULL)
-    return NULL;
-
-  if (connection->link_cache != NULL)
-    {
-      preallocated->queue_link =
-        _dbus_list_pop_first_link (&connection->link_cache);
-      preallocated->queue_link->data = NULL;
-    }
-  else
-    {
-      preallocated->queue_link = _dbus_list_alloc_link (NULL);
-      if (preallocated->queue_link == NULL)
-        goto failed_0;
-    }
-  
-  if (connection->link_cache != NULL)
-    {
-      preallocated->counter_link =
-        _dbus_list_pop_first_link (&connection->link_cache);
-      preallocated->counter_link->data = connection->outgoing_counter;
-    }
-  else
-    {
-      preallocated->counter_link = _dbus_list_alloc_link (connection->outgoing_counter);
-      if (preallocated->counter_link == NULL)
-        goto failed_1;
-    }
-
-  _dbus_counter_ref (preallocated->counter_link->data);
-
-  preallocated->connection = connection;
-  
-  return preallocated;
-  
- failed_1:
-  _dbus_list_free_link (preallocated->queue_link);
- failed_0:
-  dbus_free (preallocated);
-  
-  return NULL;
-}
-
 /**
  * Preallocates resources needed to send a message, allowing the message 
  * to be sent without the possibility of memory allocation failure.
@@ -2353,102 +2871,6 @@ dbus_connection_free_preallocated_send (DBusConnection       *connection,
   _dbus_counter_unref (preallocated->counter_link->data);
   _dbus_list_free_link (preallocated->counter_link);
   dbus_free (preallocated);
-}
-
-/* Called with lock held, does not update dispatch status */
-static void
-_dbus_connection_send_preallocated_unlocked_no_update (DBusConnection       *connection,
-                                                       DBusPreallocatedSend *preallocated,
-                                                       DBusMessage          *message,
-                                                       dbus_uint32_t        *client_serial)
-{
-  dbus_uint32_t serial;
-  const char *sig;
-
-  preallocated->queue_link->data = message;
-  _dbus_list_prepend_link (&connection->outgoing_messages,
-                           preallocated->queue_link);
-
-  _dbus_message_add_size_counter_link (message,
-                                       preallocated->counter_link);
-
-  dbus_free (preallocated);
-  preallocated = NULL;
-  
-  dbus_message_ref (message);
-  
-  connection->n_outgoing += 1;
-
-  sig = dbus_message_get_signature (message);
-  
-  _dbus_verbose ("Message %p (%d %s %s %s '%s') for %s added to outgoing queue %p, %d pending to send\n",
-                 message,
-                 dbus_message_get_type (message),
-                 dbus_message_get_path (message) ?
-                 dbus_message_get_path (message) :
-                 "no path",
-                 dbus_message_get_interface (message) ?
-                 dbus_message_get_interface (message) :
-                 "no interface",
-                 dbus_message_get_member (message) ?
-                 dbus_message_get_member (message) :
-                 "no member",
-                 sig,
-                 dbus_message_get_destination (message) ?
-                 dbus_message_get_destination (message) :
-                 "null",
-                 connection,
-                 connection->n_outgoing);
-
-  if (dbus_message_get_serial (message) == 0)
-    {
-      serial = _dbus_connection_get_next_client_serial (connection);
-      _dbus_message_set_serial (message, serial);
-      if (client_serial)
-        *client_serial = serial;
-    }
-  else
-    {
-      if (client_serial)
-        *client_serial = dbus_message_get_serial (message);
-    }
-
-  _dbus_verbose ("Message %p serial is %u\n",
-                 message, dbus_message_get_serial (message));
-  
-  _dbus_message_lock (message);
-
-  /* Now we need to run an iteration to hopefully just write the messages
-   * out immediately, and otherwise get them queued up
-   */
-  _dbus_connection_do_iteration_unlocked (connection,
-                                          DBUS_ITERATION_DO_WRITING,
-                                          -1);
-
-  /* If stuff is still queued up, be sure we wake up the main loop */
-  if (connection->n_outgoing > 0)
-    _dbus_connection_wakeup_mainloop (connection);
-}
-
-static void
-_dbus_connection_send_preallocated_and_unlock (DBusConnection       *connection,
-					       DBusPreallocatedSend *preallocated,
-					       DBusMessage          *message,
-					       dbus_uint32_t        *client_serial)
-{
-  DBusDispatchStatus status;
-
-  HAVE_LOCK_CHECK (connection);
-  
-  _dbus_connection_send_preallocated_unlocked_no_update (connection,
-                                                         preallocated,
-                                                         message, client_serial);
-
-  _dbus_verbose ("%s middle\n", _DBUS_FUNCTION_NAME);
-  status = _dbus_connection_get_dispatch_status_unlocked (connection);
-
-  /* this calls out to user code */
-  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
 }
 
 /**
@@ -2506,30 +2928,6 @@ _dbus_connection_send_unlocked_no_update (DBusConnection *connection,
   return TRUE;
 }
 
-dbus_bool_t
-_dbus_connection_send_and_unlock (DBusConnection *connection,
-				  DBusMessage    *message,
-				  dbus_uint32_t  *client_serial)
-{
-  DBusPreallocatedSend *preallocated;
-
-  _dbus_assert (connection != NULL);
-  _dbus_assert (message != NULL);
-  
-  preallocated = _dbus_connection_preallocate_send_unlocked (connection);
-  if (preallocated == NULL)
-    {
-      CONNECTION_UNLOCK (connection);
-      return FALSE;
-    }
-
-  _dbus_connection_send_preallocated_and_unlock (connection,
-						 preallocated,
-						 message,
-						 client_serial);
-  return TRUE;
-}
-
 /**
  * Adds a message to the outgoing message queue. Does not block to
  * write the message to the network; that happens asynchronously. To
@@ -2542,16 +2940,19 @@ _dbus_connection_send_and_unlock (DBusConnection *connection,
  * The function will never fail for other reasons; even if the
  * connection is disconnected, you can queue an outgoing message,
  * though obviously it won't be sent.
+ *
+ * The message serial is used by the remote application to send a
+ * reply; see dbus_message_get_serial() or the D-Bus specification.
  * 
  * @param connection the connection.
  * @param message the message to write.
- * @param client_serial return location for client serial.
+ * @param serial return location for message serial, or #NULL if you don't care
  * @returns #TRUE on success.
  */
 dbus_bool_t
 dbus_connection_send (DBusConnection *connection,
                       DBusMessage    *message,
-                      dbus_uint32_t  *client_serial)
+                      dbus_uint32_t  *serial)
 {
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (message != NULL, FALSE);
@@ -2560,7 +2961,7 @@ dbus_connection_send (DBusConnection *connection,
 
   return _dbus_connection_send_and_unlock (connection,
 					   message,
-					   client_serial);
+					   serial);
 }
 
 static dbus_bool_t
@@ -2588,23 +2989,19 @@ reply_handler_timeout (void *data)
 }
 
 /**
- * Queues a message to send, as with dbus_connection_send_message(),
+ * Queues a message to send, as with dbus_connection_send(),
  * but also returns a #DBusPendingCall used to receive a reply to the
  * message. If no reply is received in the given timeout_milliseconds,
  * this function expires the pending reply and generates a synthetic
  * error reply (generated in-process, not by the remote application)
  * indicating that a timeout occurred.
  *
- * A #DBusPendingCall will see a reply message after any filters, but
- * before any object instances or other handlers. A #DBusPendingCall
- * will always see exactly one reply message, unless it's cancelled
- * with dbus_pending_call_cancel().
- * 
- * If a filter filters out the reply before the handler sees it, the
- * reply is immediately timed out and a timeout error reply is
- * generated. If a filter removes the timeout error reply then the
- * #DBusPendingCall will get confused. Filtering the timeout error
- * is thus considered a bug and will print a warning.
+ * A #DBusPendingCall will see a reply message before any filters or
+ * registered object path handlers. See dbus_connection_dispatch() for
+ * details on when handlers are run.
+ *
+ * A #DBusPendingCall will always see exactly one reply message,
+ * unless it's cancelled with dbus_pending_call_cancel().
  * 
  * If #NULL is passed for the pending_return, the #DBusPendingCall
  * will still be generated internally, and used to track
@@ -2615,7 +3012,11 @@ reply_handler_timeout (void *data)
  * is typically the best value for the timeout for this reason, unless
  * you want a very short or very long timeout.  There is no way to
  * avoid a timeout entirely, other than passing INT_MAX for the
- * timeout to postpone it indefinitely.
+ * timeout to mean "very long timeout." libdbus clamps an INT_MAX
+ * timeout down to a few hours timeout though.
+ *
+ * @warning if the connection is disconnected, the #DBusPendingCall
+ * will be set to #NULL, so be careful with this.
  * 
  * @param connection the connection
  * @param message the message to send
@@ -2715,351 +3116,28 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
   return FALSE;
 }
 
-/* This is slightly strange since we can pop a message here without
- * the dispatch lock.
- */
-static DBusMessage*
-check_for_reply_unlocked (DBusConnection *connection,
-                          dbus_uint32_t   client_serial)
-{
-  DBusList *link;
-
-  HAVE_LOCK_CHECK (connection);
-  
-  link = _dbus_list_get_first_link (&connection->incoming_messages);
-
-  while (link != NULL)
-    {
-      DBusMessage *reply = link->data;
-
-      if (dbus_message_get_reply_serial (reply) == client_serial)
-	{
-	  _dbus_list_remove_link (&connection->incoming_messages, link);
-	  connection->n_incoming  -= 1;
-	  return reply;
-	}
-      link = _dbus_list_get_next_link (&connection->incoming_messages, link);
-    }
-
-  return NULL;
-}
-
-static void
-connection_timeout_and_complete_all_pending_calls_unlocked (DBusConnection *connection)
-{
-   /* We can't iterate over the hash in the normal way since we'll be
-    * dropping the lock for each item. So we restart the
-    * iter each time as we drain the hash table.
-    */
-   
-   while (_dbus_hash_table_get_n_entries (connection->pending_replies) > 0)
-    {
-      DBusPendingCall *pending;
-      DBusHashIter iter;
-      
-      _dbus_hash_iter_init (connection->pending_replies, &iter);
-      _dbus_hash_iter_next (&iter);
-       
-      pending = _dbus_hash_iter_get_value (&iter);
-      _dbus_pending_call_ref_unlocked (pending);
-       
-      _dbus_pending_call_queue_timeout_error_unlocked (pending, 
-                                                       connection);
-      _dbus_connection_remove_timeout_unlocked (connection,
-                                                _dbus_pending_call_get_timeout_unlocked (pending));
-      _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);       
-      _dbus_hash_iter_remove_entry (&iter);
-
-      _dbus_pending_call_unref_and_unlock (pending);
-      CONNECTION_LOCK (connection);
-    }
-  HAVE_LOCK_CHECK (connection);
-}
-
-static void
-complete_pending_call_and_unlock (DBusConnection  *connection,
-                                  DBusPendingCall *pending,
-                                  DBusMessage     *message)
-{
-  _dbus_pending_call_set_reply_unlocked (pending, message);
-  _dbus_pending_call_ref_unlocked (pending); /* in case there's no app with a ref held */
-  _dbus_connection_detach_pending_call_and_unlock (connection, pending);
- 
-  /* Must be called unlocked since it invokes app callback */
-  _dbus_pending_call_complete (pending);
-  dbus_pending_call_unref (pending);
-}
-
-static dbus_bool_t
-check_for_reply_and_update_dispatch_unlocked (DBusConnection  *connection,
-                                              DBusPendingCall *pending)
-{
-  DBusMessage *reply;
-  DBusDispatchStatus status;
-
-  reply = check_for_reply_unlocked (connection, 
-                                    _dbus_pending_call_get_reply_serial_unlocked (pending));
-  if (reply != NULL)
-    {
-      _dbus_verbose ("%s checked for reply\n", _DBUS_FUNCTION_NAME);
-
-      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): got reply\n");
-
-      complete_pending_call_and_unlock (connection, pending, reply);
-      dbus_message_unref (reply);
-
-      CONNECTION_LOCK (connection);
-      status = _dbus_connection_get_dispatch_status_unlocked (connection);
-      _dbus_connection_update_dispatch_status_and_unlock (connection, status);
-      dbus_pending_call_unref (pending);
-
-      return TRUE;
-    }
-
-  return FALSE;
-}
-
-/**
- * When a function that blocks has been called with a timeout, and we
- * run out of memory, the time to wait for memory is based on the
- * timeout. If the caller was willing to block a long time we wait a
- * relatively long time for memory, if they were only willing to block
- * briefly then we retry for memory at a rapid rate.
- *
- * @timeout_milliseconds the timeout requested for blocking
- */
-static void
-_dbus_memory_pause_based_on_timeout (int timeout_milliseconds)
-{
-  if (timeout_milliseconds == -1)
-    _dbus_sleep_milliseconds (1000);
-  else if (timeout_milliseconds < 100)
-    ; /* just busy loop */
-  else if (timeout_milliseconds <= 1000)
-    _dbus_sleep_milliseconds (timeout_milliseconds / 3);
-  else
-    _dbus_sleep_milliseconds (1000);
-}
-
-static DBusMessage *
-generate_local_error_message (dbus_uint32_t serial, 
-                              char *error_name, 
-                              char *error_msg)
-{
-  DBusMessage *message;
-  message = dbus_message_new (DBUS_MESSAGE_TYPE_ERROR);
-  if (!message)
-    goto out;
-
-  if (!dbus_message_set_error_name (message, error_name))
-    {
-      dbus_message_unref (message);
-      message = NULL;
-      goto out; 
-    }
-
-  dbus_message_set_no_reply (message, TRUE); 
-
-  if (!dbus_message_set_reply_serial (message,
-                                      serial))
-    {
-      dbus_message_unref (message);
-      message = NULL;
-      goto out;
-    }
-
-  if (error_msg != NULL)
-    {
-      DBusMessageIter iter;
-
-      dbus_message_iter_init_append (message, &iter);
-      if (!dbus_message_iter_append_basic (&iter,
-                                           DBUS_TYPE_STRING,
-                                           &error_msg))
-        {
-          dbus_message_unref (message);
-          message = NULL;
-	  goto out;
-        }
-    }
-
- out:
-  return message;
-}
-
-/**
- * Blocks until a pending call times out or gets a reply.
- *
- * Does not re-enter the main loop or run filter/path-registered
- * callbacks. The reply to the message will not be seen by
- * filter callbacks.
- *
- * Returns immediately if pending call already got a reply.
- * 
- * @todo could use performance improvements (it keeps scanning
- * the whole message queue for example)
- *
- * @param pending the pending call we block for a reply on
- */
-void
-_dbus_connection_block_pending_call (DBusPendingCall *pending)
-{
-  long start_tv_sec, start_tv_usec;
-  long end_tv_sec, end_tv_usec;
-  long tv_sec, tv_usec;
-  DBusDispatchStatus status;
-  DBusConnection *connection;
-  dbus_uint32_t client_serial;
-  int timeout_milliseconds;
-
-  _dbus_assert (pending != NULL);
-
-  if (dbus_pending_call_get_completed (pending))
-    return;
-
-  dbus_pending_call_ref (pending); /* necessary because the call could be canceled */
-
-  connection = _dbus_pending_call_get_connection_and_lock (pending);
-  
-  /* Flush message queue - note, can affect dispatch status */
-  _dbus_connection_flush_unlocked (connection);
-
-  client_serial = _dbus_pending_call_get_reply_serial_unlocked (pending);
-
-  /* note that timeout_milliseconds is limited to a smallish value
-   * in _dbus_pending_call_new() so overflows aren't possible
-   * below
-   */
-  timeout_milliseconds = dbus_timeout_get_interval (_dbus_pending_call_get_timeout_unlocked (pending));
-  
-  _dbus_get_current_time (&start_tv_sec, &start_tv_usec);
-  end_tv_sec = start_tv_sec + timeout_milliseconds / 1000;
-  end_tv_usec = start_tv_usec + (timeout_milliseconds % 1000) * 1000;
-  end_tv_sec += end_tv_usec / _DBUS_USEC_PER_SECOND;
-  end_tv_usec = end_tv_usec % _DBUS_USEC_PER_SECOND;
-
-  _dbus_verbose ("dbus_connection_send_with_reply_and_block(): will block %d milliseconds for reply serial %u from %ld sec %ld usec to %ld sec %ld usec\n",
-                 timeout_milliseconds,
-                 client_serial,
-                 start_tv_sec, start_tv_usec,
-                 end_tv_sec, end_tv_usec);
-
-  /* check to see if we already got the data off the socket */
-  /* from another blocked pending call */
-  if (check_for_reply_and_update_dispatch_unlocked (connection, pending))
-    return;
-
-  /* Now we wait... */
-  /* always block at least once as we know we don't have the reply yet */
-  _dbus_connection_do_iteration_unlocked (connection,
-                                          DBUS_ITERATION_DO_READING |
-                                          DBUS_ITERATION_BLOCK,
-                                          timeout_milliseconds);
-
- recheck_status:
-
-  _dbus_verbose ("%s top of recheck\n", _DBUS_FUNCTION_NAME);
-  
-  HAVE_LOCK_CHECK (connection);
-  
-  /* queue messages and get status */
-
-  status = _dbus_connection_get_dispatch_status_unlocked (connection);
-
-  /* the get_completed() is in case a dispatch() while we were blocking
-   * got the reply instead of us.
-   */
-  if (_dbus_pending_call_get_completed_unlocked (pending))
-    {
-      _dbus_verbose ("Pending call completed by dispatch in %s\n", _DBUS_FUNCTION_NAME);
-      _dbus_connection_update_dispatch_status_and_unlock (connection, status);
-      dbus_pending_call_unref (pending);
-      return;
-    }
-  
-  if (status == DBUS_DISPATCH_DATA_REMAINS) {
-    if (check_for_reply_and_update_dispatch_unlocked (connection, pending))
-      return;
-  }
-  
-  _dbus_get_current_time (&tv_sec, &tv_usec);
-  
-  if (!_dbus_connection_get_is_connected_unlocked (connection))
-    {
-      DBusMessage *error_msg;
-
-      error_msg = generate_local_error_message (client_serial,
-                                                DBUS_ERROR_DISCONNECTED, 
-                                                "Connection was disconnected before a reply was received"); 
-
-      /* on OOM error_msg is set to NULL */
-      complete_pending_call_and_unlock (connection, pending, error_msg);
-      dbus_pending_call_unref (pending);
-      return;
-    }
-  else if (tv_sec < start_tv_sec)
-    _dbus_verbose ("dbus_connection_send_with_reply_and_block(): clock set backward\n");
-  else if (connection->disconnect_message_link == NULL)
-    _dbus_verbose ("dbus_connection_send_with_reply_and_block(): disconnected\n");
-  else if (tv_sec < end_tv_sec ||
-           (tv_sec == end_tv_sec && tv_usec < end_tv_usec))
-    {
-      timeout_milliseconds = (end_tv_sec - tv_sec) * 1000 +
-        (end_tv_usec - tv_usec) / 1000;
-      _dbus_verbose ("dbus_connection_send_with_reply_and_block(): %d milliseconds remain\n", timeout_milliseconds);
-      _dbus_assert (timeout_milliseconds >= 0);
-      
-      if (status == DBUS_DISPATCH_NEED_MEMORY)
-        {
-          /* Try sleeping a bit, as we aren't sure we need to block for reading,
-           * we may already have a reply in the buffer and just can't process
-           * it.
-           */
-          _dbus_verbose ("dbus_connection_send_with_reply_and_block() waiting for more memory\n");
-
-          _dbus_memory_pause_based_on_timeout (timeout_milliseconds);
-        }
-      else
-        {          
-          /* block again, we don't have the reply buffered yet. */
-          _dbus_connection_do_iteration_unlocked (connection,
-                                                  DBUS_ITERATION_DO_READING |
-                                                  DBUS_ITERATION_BLOCK,
-                                                  timeout_milliseconds);
-        }
-
-      goto recheck_status;
-    }
-
-  _dbus_verbose ("dbus_connection_send_with_reply_and_block(): Waited %ld milliseconds and got no reply\n",
-                 (tv_sec - start_tv_sec) * 1000 + (tv_usec - start_tv_usec) / 1000);
-
-  _dbus_assert (!_dbus_pending_call_get_completed_unlocked (pending));
-  
-  /* unlock and call user code */
-  complete_pending_call_and_unlock (connection, pending, NULL);
-
-  /* update user code on dispatch status */
-  CONNECTION_LOCK (connection);
-  status = _dbus_connection_get_dispatch_status_unlocked (connection);
-  _dbus_connection_update_dispatch_status_and_unlock (connection, status);
-  dbus_pending_call_unref (pending);
-}
-
 /**
  * Sends a message and blocks a certain time period while waiting for
  * a reply.  This function does not reenter the main loop,
  * i.e. messages other than the reply are queued up but not
- * processed. This function is used to do non-reentrant "method
- * calls."
+ * processed. This function is used to invoke method calls on a
+ * remote object.
  * 
  * If a normal reply is received, it is returned, and removed from the
  * incoming message queue. If it is not received, #NULL is returned
  * and the error is set to #DBUS_ERROR_NO_REPLY.  If an error reply is
  * received, it is converted to a #DBusError and returned as an error,
- * then the reply message is deleted. If something else goes wrong,
- * result is set to whatever is appropriate, such as
- * #DBUS_ERROR_NO_MEMORY or #DBUS_ERROR_DISCONNECTED.
+ * then the reply message is deleted and #NULL is returned. If
+ * something else goes wrong, result is set to whatever is
+ * appropriate, such as #DBUS_ERROR_NO_MEMORY or
+ * #DBUS_ERROR_DISCONNECTED.
+ *
+ * @warning While this function blocks the calling thread will not be
+ * processing the incoming message queue. This means you can end up
+ * deadlocked if the application you're talking to needs you to reply
+ * to a method. To solve this, either avoid the situation, block in a
+ * separate thread from the main connection-dispatching thread, or use
+ * dbus_pending_call_set_notify() to avoid blocking.
  *
  * @param connection the connection
  * @param message the message to send
@@ -3183,32 +3261,10 @@ dbus_connection_flush (DBusConnection *connection)
 }
 
 /**
- * This function is intended for use with applications that don't want
- * to write a main loop and deal with #DBusWatch and #DBusTimeout. An
- * example usage would be:
+ * This function implements dbus_connection_read_write_dispatch() and
+ * dbus_connection_read_write() (they pass a different value for the
+ * dispatch parameter).
  * 
- * @code
- *   while (dbus_connection_read_write_dispatch (connection, -1))
- *     ; // empty loop body
- * @endcode
- * 
- * In this usage you would normally have set up a filter function to look
- * at each message as it is dispatched. The loop terminates when the last
- * message from the connection (the disconnected signal) is processed.
- *
- * If there are messages to dispatch and the dispatch flag is set, this
- * function will dbus_connection_dispatch() once, and return. If there are no
- * messages to dispatch, this function will block until it can read or write,
- * then read or write, then return.
- *
- * The way to think of this function is that it either makes some sort
- * of progress, or it blocks.
- *
- * The return value indicates whether the disconnect message has been
- * processed, NOT whether the connection is connected. This is
- * important because even after disconnecting, you want to process any
- * messages you received prior to the disconnect.
- *
  * @param connection the connection
  * @param timeout_milliseconds max time to block or -1 for infinite
  * @param dispatch dispatch new messages or leave them on the incoming queue
@@ -3220,7 +3276,7 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
                                      dbus_bool_t     dispatch)
 {
   DBusDispatchStatus dstatus;
-  dbus_bool_t dispatched_disconnected;
+  dbus_bool_t no_progress_possible;
   
   dstatus = dbus_connection_get_dispatch_status (connection);
 
@@ -3251,10 +3307,17 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
     }
   
   HAVE_LOCK_CHECK (connection);
-  dispatched_disconnected = connection->n_incoming == 0 &&
-    connection->disconnect_message_link == NULL;
+  /* If we can dispatch, we can make progress until the Disconnected message
+   * has been processed; if we can only read/write, we can make progress
+   * as long as the transport is open.
+   */
+  if (dispatch)
+    no_progress_possible = connection->n_incoming == 0 &&
+      connection->disconnect_message_link == NULL;
+  else
+    no_progress_possible = _dbus_connection_get_is_connected_unlocked (connection);
   CONNECTION_UNLOCK (connection);
-  return !dispatched_disconnected; /* TRUE if we have not processed disconnected */
+  return !no_progress_possible; /* TRUE if we can make more progress */
 }
 
 
@@ -3278,7 +3341,10 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
  * write, then read or write, then return.
  *
  * The way to think of this function is that it either makes some sort
- * of progress, or it blocks.
+ * of progress, or it blocks. Note that, while it is blocked on I/O, it
+ * cannot be interrupted (even by other threads), which makes this function
+ * unsuitable for applications that do more than just react to received
+ * messages.
  *
  * The return value indicates whether the disconnect message has been
  * processed, NOT whether the connection is connected. This is
@@ -3300,19 +3366,26 @@ dbus_connection_read_write_dispatch (DBusConnection *connection,
 
 /** 
  * This function is intended for use with applications that don't want to
- * write a main loop and deal with #DBusWatch and #DBusTimeout.
+ * write a main loop and deal with #DBusWatch and #DBusTimeout. See also
+ * dbus_connection_read_write_dispatch().
  * 
- * If there are no messages to dispatch, this function will block until it can
- * read or write, then read or write, then return.
+ * As long as the connection is open, this function will block until it can
+ * read or write, then read or write, then return #TRUE.
  *
- * The return value indicates whether the disconnect message has been
- * processed, NOT whether the connection is connected. This is important
- * because even after disconnecting, you want to process any messages you
- * received prior to the disconnect.
+ * If the connection is closed, the function returns #FALSE.
  *
+ * The return value indicates whether reading or writing is still
+ * possible, i.e. whether the connection is connected.
+ *
+ * Note that even after disconnection, messages may remain in the
+ * incoming queue that need to be
+ * processed. dbus_connection_read_write_dispatch() dispatches
+ * incoming messages for you; with dbus_connection_read_write() you
+ * have to arrange to drain the incoming queue yourself.
+ * 
  * @param connection the connection 
  * @param timeout_milliseconds max time to block or -1 for infinite 
- * @returns #TRUE if the disconnect message has not been processed
+ * @returns #TRUE if still connected
  */
 dbus_bool_t 
 dbus_connection_read_write (DBusConnection *connection, 
@@ -3854,9 +3927,26 @@ _dbus_connection_update_dispatch_status_and_unlock (DBusConnection    *connectio
 }
 
 /**
- * Gets the current state (what we would currently return
- * from dbus_connection_dispatch()) but doesn't actually
- * dispatch any messages.
+ * Gets the current state of the incoming message queue.
+ * #DBUS_DISPATCH_DATA_REMAINS indicates that the message queue
+ * may contain messages. #DBUS_DISPATCH_COMPLETE indicates that the
+ * incoming queue is empty. #DBUS_DISPATCH_NEED_MEMORY indicates that
+ * there could be data, but we can't know for sure without more
+ * memory.
+ *
+ * To process the incoming message queue, use dbus_connection_dispatch()
+ * or (in rare cases) dbus_connection_pop_message().
+ *
+ * Note, #DBUS_DISPATCH_DATA_REMAINS really means that either we
+ * have messages in the queue, or we have raw bytes buffered up
+ * that need to be parsed. When these bytes are parsed, they
+ * may not add up to an entire message. Thus, it's possible
+ * to see a status of #DBUS_DISPATCH_DATA_REMAINS but not
+ * have a message yet.
+ *
+ * In particular this happens on initial connection, because all sorts
+ * of authentication protocol stuff has to be parsed before the
+ * first message arrives.
  * 
  * @param connection the connection.
  * @returns current dispatch status
@@ -3992,27 +4082,46 @@ _dbus_connection_run_builtin_filters_unlocked_no_update (DBusConnection *connect
 }
 
 /**
- * Processes data buffered while handling watches, queueing zero or
- * more incoming messages. Then pops the first-received message from
- * the current incoming message queue, runs any handlers for it, and
- * unrefs the message. Returns a status indicating whether messages/data
- * remain, more memory is needed, or all data has been processed.
+ * Processes any incoming data.
+ *
+ * If there's incoming raw data that has not yet been parsed, it is
+ * parsed, which may or may not result in adding messages to the
+ * incoming queue.
+ *
+ * The incoming data buffer is filled when the connection reads from
+ * its underlying transport (such as a socket).  Reading usually
+ * happens in dbus_watch_handle() or dbus_connection_read_write().
  * 
- * Even if the dispatch status is #DBUS_DISPATCH_DATA_REMAINS,
- * does not necessarily dispatch a message, as the data may
- * be part of authentication or the like.
+ * If there are complete messages in the incoming queue,
+ * dbus_connection_dispatch() removes one message from the queue and
+ * processes it. Processing has three steps.
  *
+ * First, any method replies are passed to #DBusPendingCall or
+ * dbus_connection_send_with_reply_and_block() in order to
+ * complete the pending method call.
+ * 
+ * Second, any filters registered with dbus_connection_add_filter()
+ * are run. If any filter returns #DBUS_HANDLER_RESULT_HANDLED
+ * then processing stops after that filter.
+ *
+ * Third, if the message is a method call it is forwarded to
+ * any registered object path handlers added with
+ * dbus_connection_register_object_path() or
+ * dbus_connection_register_fallback().
+ *
+ * A single call to dbus_connection_dispatch() will process at most
+ * one message; it will not clear the entire message queue.
+ *
+ * Be careful about calling dbus_connection_dispatch() from inside a
+ * message handler, i.e. calling dbus_connection_dispatch()
+ * recursively.  If threads have been initialized with a recursive
+ * mutex function, then this will not deadlock; however, it can
+ * certainly confuse your application.
+ * 
  * @todo some FIXME in here about handling DBUS_HANDLER_RESULT_NEED_MEMORY
- *
- * @todo FIXME what if we call out to application code to handle a
- * message, holding the dispatch lock, and the application code runs
- * the main loop and dispatches again? Probably deadlocks at the
- * moment. Maybe we want a dispatch status of DBUS_DISPATCH_IN_PROGRESS,
- * and then the GSource etc. could handle the situation? Right now
- * our GSource is NO_RECURSE
  * 
  * @param connection the connection
- * @returns dispatch status
+ * @returns dispatch status, see dbus_connection_get_dispatch_status()
  */
 DBusDispatchStatus
 dbus_connection_dispatch (DBusConnection *connection)
@@ -4378,8 +4487,8 @@ dbus_connection_set_watch_functions (DBusConnection              *connection,
 #ifndef DBUS_DISABLE_CHECKS
   if (connection->watches == NULL)
     {
-      _dbus_warn ("Re-entrant call to %s is not allowed\n",
-                  _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("Re-entrant call to %s is not allowed\n",
+                               _DBUS_FUNCTION_NAME);
       return FALSE;
     }
 #endif
@@ -4460,8 +4569,8 @@ dbus_connection_set_timeout_functions   (DBusConnection            *connection,
 #ifndef DBUS_DISABLE_CHECKS
   if (connection->timeouts == NULL)
     {
-      _dbus_warn ("Re-entrant call to %s is not allowed\n",
-                  _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("Re-entrant call to %s is not allowed\n",
+                               _DBUS_FUNCTION_NAME);
       return FALSE;
     }
 #endif
@@ -4488,13 +4597,13 @@ dbus_connection_set_timeout_functions   (DBusConnection            *connection,
 }
 
 /**
- * Sets the mainloop wakeup function for the connection. This function is
- * responsible for waking up the main loop (if its sleeping) when some some
- * change has happened to the connection that the mainloop needs to reconsider
- * (e.g. a message has been queued for writing).
- * When using Qt, this typically results in a call to QEventLoop::wakeUp().
- * When using GLib, it would call g_main_context_wakeup().
- *
+ * Sets the mainloop wakeup function for the connection. This function
+ * is responsible for waking up the main loop (if its sleeping in
+ * another thread) when some some change has happened to the
+ * connection that the mainloop needs to reconsider (e.g. a message
+ * has been queued for writing).  When using Qt, this typically
+ * results in a call to QEventLoop::wakeUp().  When using GLib, it
+ * would call g_main_context_wakeup().
  *
  * @param connection the connection.
  * @param wakeup_main_function function to wake up the mainloop
@@ -4537,6 +4646,10 @@ dbus_connection_set_wakeup_main_function (DBusConnection            *connection,
  * the DBusDispatchStatusFunction should simply save an indication
  * that messages should be dispatched later, when the main loop
  * is re-entered.
+ *
+ * If you don't set a dispatch status function, you have to be sure to
+ * dispatch on every iteration of your main loop, especially if
+ * dbus_watch_handle() or dbus_timeout_handle() were called.
  *
  * @param connection the connection
  * @param function function to call on dispatch status changes
@@ -4900,8 +5013,8 @@ dbus_connection_remove_filter (DBusConnection            *connection,
 #ifndef DBUS_DISABLE_CHECKS
   if (filter == NULL)
     {
-      _dbus_warn ("Attempt to remove filter function %p user data %p, but no such filter has been added\n",
-                  function, user_data);
+      _dbus_warn_check_failed ("Attempt to remove filter function %p user data %p, but no such filter has been added\n",
+                               function, user_data);
       return;
     }
 #endif

@@ -1,7 +1,7 @@
 
 configdir=$(sysconfdir)/dbus-1
 
-INCLUDES=-I$(top_builddir) -I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION -DDBUS_MACHINE_UUID_FILE=\""$(configdir)/machine-id"\"
+INCLUDES=-I$(top_builddir) -I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION -DDBUS_MACHINE_UUID_FILE=\""$(localstatedir)/lib/dbus/machine-id"\"
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 dbusarchincludedir=$(libdir)/dbus-1.0/include/dbus
@@ -113,6 +113,7 @@ DBUS_SHARED_SOURCES=				\
 	dbus-string-private.h			\
 	dbus-sysdeps.c				\
 	dbus-sysdeps.h				\
+	dbus-sysdeps-pthread.c			\
 	dbus-sysdeps-unix.c			\
 	dbus-sysdeps-unix.h			\
 	dbus-userdb.c				\
@@ -185,7 +186,7 @@ noinst_PROGRAMS=$(TESTS)
 dbus_test_SOURCES=				\
 	dbus-test-main.c
 
-dbus_test_LDADD=libdbus-convenience.la
+dbus_test_LDADD=libdbus-convenience.la $(DBUS_TEST_LIBS)
 dbus_test_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 ## mop up the gcov files

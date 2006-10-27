@@ -1,3 +1,241 @@
+2006-10-26  Havoc Pennington  <hp@redhat.com>
+	
+	* dbus/dbus-sysdeps-pthread.c (_dbus_pthread_mutex_lock): change
+	to be recursive
+	(_dbus_pthread_mutex_unlock): make it recursive
+	(_dbus_pthread_condvar_wait): save/restore the recursion count
+	(_dbus_pthread_condvar_wait_timeout): save/restore the recursion count
+
+2006-10-26  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.xml: clarify the UUID text slightly
+
+	* dbus/dbus-sysdeps-pthread.c: check for and mostly abort on
+	pthread errors. Add DBusMutexPThread and DBusCondVarPThread 
+	in preparation for being able to extend them for e.g. recursive
+	mutexes.
+
+2006-10-26  Havoc Pennington  <hp@redhat.com>
+
+        * dbus/dbus-threads.[hc]: Documentation improvements. Clarify how 
+	condition variables relate to recursive mutexes.
+	
+        * dbus/dbus-sysdeps-pthread.c, dbus/dbus-sysdeps-win-thread.c, 
+	dbus/dbus-threads.c: Split the platforms-specific thread 
+	implementations into their own files.
+	
+	* dbus/dbus-sysdeps-pthread.c
+	(_dbus_pthread_condvar_wait_timeout): invert the return value, it
+	was backward. Not that anything uses it.
+
+2006-10-26  John (J5) Palmieri  <johnp@redhat.com>
+
+	* dbus-sysdeps-unix.c (_dbus_set_local_creds): Clean up the
+	LOCAL_CREDS vs CMSGCRED stuff a bit.  Prefer CMSGCRED.  This
+	needs to be cleaned up more.
+
+	* doc/TODO: Add a todo that *BSD hackers should look at cleaning
+	up the CREDS issue.
+
+2006-10-26  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in, dbus-1.pc.in: Check to see if thread methods 
+	are in glibc or libpthread and add -lpthread to the link stage 
+	if it is the latter
+
+2006-10-26  Thiago Macieira  <thiago@kde.org>
+
+	* dbus/dbus-connection.c (_dbus_connection_open_internal): Fix
+        bug 8780: the connection lock is only required while recording
+        the shared connection, so protect only that code
+        section. Don't require connection_lookup_shared to return a
+        locked connection.
+
+2006-10-26  Thiago Macieira  <thiago@kde.org>
+
+	* tools/dbus-launch-x11.c (get_session_file, init_x_atoms):
+        check if get_machine_uuid() returns NULL before proceeding any
+        further: we can't init the X atoms or create a session file
+        name if there is no machine ID.
+	This solves a crash reported by some users if
+        --exit-with-session was used without --autolaunch=<machine-id>
+
+2006-10-26  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/dbus-launch.c (main): run the dbus-daemon in the builddir
+	if tests are enabled and the DBUS_USE_TEST_BINARY env variable is set
+
+	* tools/run-with-tmp-session-bus.sh: set DBUS_USE_TEST_BINARY
+	before we run dbus-launch
+
+	* configure.in: define TEST_BUS_BINARY to be the full path to 
+	dbus-daemon in the build root 
+
+2006-10-25  Sjoerd Simons  <sjoerd@luon.net>
+
+	* dbus/Makefile.am:
+	* tools/Makefile.am:
+	* toos/dbus-uuidgen.1:
+		Move the machine-id file to /var/lib/dbus 
+
+2006-10-24  David Zeuthen  <davidz@redhat.com>
+
+	* dbus/dbus-threads.c (init_uninitialized_locks): Fix typo so it's
+	_dbus_assert (thread_init_generation != _dbus_current_generation)
+	not _dbus_assert (thread_init_generation == _dbus_current_generation)
+
+2006-10-24  Thiago Macieira  <thiago@kde.org>
+
+	* dbus/dbus-sysdeps.h:
+	* dbus/dbus-sysdeps-unix.c: Add function
+	_dbus_make_file_world_readable that chmods a file to 0644.
+
+	* dbus/dbus-sysdeps-unix.c (_dbus_get_autolaunch_address):
+        Avoid writing to the static "argv" array, thereby avoiding a
+        COW on the child process.
+
+	* dbus/dbus-internals.c (_dbus_create_uuid_file_exclusively):
+        call _dbus_make_file_world_readable on the created file.
+
+2006-10-23  David Zeuthen  <davidz@redhat.com>
+
+	* dbus/dbus-memory.c: Use atomic variable to protect
+	n_blocks_outstanding otherwise OOM will be reported using SMP on
+	some arches
+	
+	* bus/dispatch.c: Add missing end of line characters
+
+	* bus/desktop-file.c (parse_section_start, parse_key_value) 
+	(bus_desktop_file_load): Propertly handle OOM
+
+	* dbus/dbus-threads.c (init_uninitialized_locks): Check that
+	thread_init_generation equals _dbus_current_generation, not 0
+
+2006-10-22  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-connection-internal.h: move prototype of
+	_dbus_bus_notify_shared_connection_disconnected_unlocked() here so
+	it isn't in a public header and doesn't end up in the DBusBus
+	group in Doxygen
+
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
+	* Makefile.am (EXTRA_DIST): dist cleanup-man-pages.sh so it's in
+	the tarball if packagers want to run it
+
+	* cleanup-man-pages.sh: Add a script which munges all the internal
+	API man pages out of the Doxygen output. This reduces the size of
+	the installed man pages from 7 to 2 megs, and avoids
+	namespace-polluting pages. Right now (like Doxygen) this script
+	isn't in the build, it's something packagers can do manually.
+
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-connection.h: don't include the watch/timeout
+	functions in connection section
+
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
+	* Documentation! Whee! Doxygen now 100% silent. If you make it
+	angry again, you will be punished.
+	
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
+	* More documentation - all public API now documented according to
+	Doxygen
+
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
+	* Document a bunch of undocumented stuff
+	
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
+	* Clean up Doxygen group markers for public API so Doxygen finds
+	everything (not comprehensively fixed for private API).
+	Means all remaining Doxygen warnings are just about missing docs
+	and thus pretty simple to resolve.
+	
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+	
+	* dbus/dbus-macros.h: add DBUS_GNUC_DEPRECATED macro
+
+	* dbus/dbus-message.h: mark dbus_message_iter_get_array_len() 
+	as DBUS_GNUC_DEPRECATED
+
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
+        * Move all private API into the private Doxygen group sections of
+	the files, so they don't show up in the public API docs
+	
+2006-10-21  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-message.h: put #ifndef DBUS_DISABLE_DEPRECATED around 
+	dbus_message_iter_get_array_len().
+
+	* throughout: documentation improvements.
+
+2006-10-20  Havoc Pennington  <hp@redhat.com>
+
+	* doc/TODO: remove the int64 thing from 1.0 since it doesn't
+	matter, and the message-loader-breaker thing since nobody is going
+	to do it.  Add an item to 1.0 about supporting recursive locks
+	in dbus_threads_init_default() though, since it should be easy.
+
+	* dbus/dbus-connection.c (_dbus_connection_read_write_dispatch):
+	Fix this in the !dispatch case to avoid busy-looping after
+	disconnection
+
+        * More misc docs improvements
+
+2006-10-19  Havoc Pennington  <hp@redhat.com>
+
+	* more Doxygen-related fixes (lots of moving things from the
+	public to internal section in dbus-connection.c)
+
+2006-10-19  Havoc Pennington  <hp@redhat.com>
+
+	* Fix a pile of Doxygen warnings and missing docs
+
+2006-10-19  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/dir-watch-default.c, bus/dir-watch-dnotify.c, 
+	bus/dir-watch-kqueue.c (bus_watch_directory): Pass in a BusContext 
+	instead of a void *.  kqueue uses this to get the context's loop
+	while the other modules ignore the parameter.  This allows us to
+	avoid platform conditionals
+
+	* bus/bus.c (process_config_postinit): Pass in the context to the 
+	watch
+
+2006-10-19  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/messagebus.in, bus/rc.messagebus.in: run dbus-uuidgen --ensure
+	when starting the system bus
+
+2006-10-18  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: More fixups for cross compile (Patch from 
+	Marco Pracucci <development at pracucci dot com>)
+
+2006-10-17  Havoc Pennington  <hp@redhat.com>
+
+	* tools/dbus-send.c (main): don't close shared connection, fix
+	from Timo Hoenig
+
+2006-10-17  Havoc Pennington  <hp@redhat.com>
+
+	* configure.in (CPPFLAGS): don't do -DDBUS_API_SUBJECT_TO_CHANGE here
+
+	* dbus/dbus.h: drop the DBUS_API_SUBJECT_TO_CHANGE requirement,
+	since realistically it doesn't look like we'll be changing it
+	anymore.
+
+2006-10-17  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-internals.c (_dbus_warn_check_failed): new function to
+	be used for return_if_fail type warnings; prefixes the pid, and
+	fatal by default.
+
 2006-10-14  John (J5) Palmieri  <johnp@redhat.com>
 
 	* configure.in: Released 1.0 RC 2(0.94)

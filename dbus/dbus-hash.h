@@ -29,6 +29,11 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusHashTable
+ * @{
+ */
+
 /** Hash iterator object. The iterator is on the stack, but its real
  * fields are hidden privately.
  */
@@ -58,6 +63,7 @@ typedef enum
   DBUS_HASH_POINTER,       /**< Hash keys are pointers. */
   DBUS_HASH_ULONG          /**< Hash keys are unsigned long. */
 } DBusHashType;
+
 DBusHashTable* _dbus_hash_table_new                (DBusHashType      type,
                                                     DBusFreeFunction  key_free_function,
                                                     DBusFreeFunction  value_free_function);
@@ -117,6 +123,8 @@ dbus_bool_t    _dbus_hash_table_insert_ulong       (DBusHashTable    *table,
 int            _dbus_hash_table_get_n_entries      (DBusHashTable    *table);
 
 /* Preallocation */
+
+/** A preallocated hash entry */
 typedef struct DBusPreallocatedHash DBusPreallocatedHash;
 
 DBusPreallocatedHash *_dbus_hash_table_preallocate_entry          (DBusHashTable        *table);
@@ -127,6 +135,7 @@ void                  _dbus_hash_table_insert_string_preallocated (DBusHashTable
                                                                    char                 *key,
                                                                    void                 *value);
 
+/** @} */
 
 DBUS_END_DECLS
 

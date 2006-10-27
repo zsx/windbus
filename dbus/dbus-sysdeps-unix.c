@@ -73,11 +73,6 @@
 #define socklen_t int
 #endif
 
-/**
- * @addtogroup DBusInternalsUtils
- * @{
- */
-
 static dbus_bool_t
 _dbus_open_socket (int              *fd,
                    int               domain,
@@ -107,6 +102,13 @@ _dbus_open_tcp_socket (int              *fd,
   return _dbus_open_socket(fd, AF_INET, SOCK_STREAM, 0, error);
 }
 
+/**
+ * Opens a UNIX domain socket (as in the socket() call).
+ * Does not bind the socket.
+ * @param fd return location for socket descriptor
+ * @param error return location for an error
+ * @returns #FALSE if error is set
+ */
 dbus_bool_t
 _dbus_open_unix_socket (int              *fd,
                         DBusError        *error)
@@ -114,6 +116,14 @@ _dbus_open_unix_socket (int              *fd,
   return _dbus_open_socket(fd, PF_UNIX, SOCK_STREAM, 0, error);
 }
 
+/**
+ * Closes a socket. Should not be used on non-socket
+ * file descriptors or handles.
+ *
+ * @param fd the socket
+ * @param error return location for an error
+ * @returns #FALSE if error is set
+ */
 dbus_bool_t 
 _dbus_close_socket (int               fd,
                     DBusError        *error)
@@ -121,6 +131,15 @@ _dbus_close_socket (int               fd,
   return _dbus_close (fd, error);
 }
 
+/**
+ * Like _dbus_read(), but only works on sockets so is
+ * available on Windows.
+ *
+ * @param fd the socket
+ * @param buffer string to append data to
+ * @param count max amount of data to read
+ * @returns number of bytes appended to the string
+ */
 int
 _dbus_read_socket (int               fd,
                    DBusString       *buffer,
@@ -129,6 +148,16 @@ _dbus_read_socket (int               fd,
   return _dbus_read (fd, buffer, count);
 }
 
+/**
+ * Like _dbus_write(), but only supports sockets
+ * and is thus available on Windows.
+ *
+ * @param fd the file descriptor to write
+ * @param buffer the buffer to write data from
+ * @param start the first byte in the buffer to write
+ * @param len the number of bytes to try to write
+ * @returns the number of bytes written or -1 on error
+ */
 int
 _dbus_write_socket (int               fd,
                     const DBusString *buffer,
@@ -138,6 +167,19 @@ _dbus_write_socket (int               fd,
   return _dbus_write (fd, buffer, start, len);
 }
 
+/**
+ * Like _dbus_write_two() but only works on sockets and is thus
+ * available on Windows.
+ * 
+ * @param fd the file descriptor
+ * @param buffer1 first buffer
+ * @param start1 first byte to write in first buffer
+ * @param len1 number of bytes to write from first buffer
+ * @param buffer2 second buffer, or #NULL
+ * @param start2 first byte to write in second buffer
+ * @param len2 number of bytes to write in second buffer
+ * @returns total bytes written from both buffers, or -1 on error
+ */
 int
 _dbus_write_socket_two (int               fd,
                         const DBusString *buffer1,
@@ -157,9 +199,12 @@ _dbus_write_socket_two (int               fd,
  * the data it reads to the DBusString buffer. It appends
  * up to the given count, and returns the same value
  * and same errno as read(). The only exception is that
- * _dbus_read() handles EINTR for you. _dbus_read() can
+ * _dbus_read() handles EINTR for you. Also, _dbus_read() can
  * return ENOMEM, even though regular UNIX read doesn't.
  *
+ * Unlike _dbus_read_socket(), _dbus_read() is not available
+ * on Windows.
+ * 
  * @param fd the file descriptor to read from
  * @param buffer the buffer to append data to
  * @param count the amount of data to read
@@ -470,7 +515,11 @@ _dbus_set_local_creds (int fd, dbus_bool_t on)
 {
   dbus_bool_t retval = TRUE;
 
-#if defined(LOCAL_CREDS) && !defined(HAVE_CMSGCRED)
+#if defined(HAVE_CMSGCRED)
+  /* NOOP just to make sure only one codepath is used 
+   *      and to prefer CMSGCRED
+   */
+#elif defined(LOCAL_CREDS) 
   int val = on ? 1 : 0;
   if (setsockopt (fd, 0, LOCAL_CREDS, &val, sizeof (val)) < 0)
     {
@@ -783,16 +832,13 @@ write_credentials_byte (int             server_fd,
 {
   int bytes_written;
   char buf[1] = { '\0' };
-#if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
+#if defined(HAVE_CMSGCRED) 
   struct {
 	  struct cmsghdr hdr;
 	  struct cmsgcred cred;
   } cmsg;
   struct iovec iov;
   struct msghdr msg;
-#endif
-
-#if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
   iov.iov_base = buf;
   iov.iov_len = 1;
 
@@ -812,7 +858,7 @@ write_credentials_byte (int             server_fd,
   
  again:
 
-#if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
+#if defined(HAVE_CMSGCRED) 
   bytes_written = sendmsg (server_fd, &msg, 0);
 #else
   bytes_written = write (server_fd, buf, 1);
@@ -1757,6 +1803,33 @@ _dbus_string_save_to_file (const DBusString *str,
   return retval;
 }
 
+/** Makes the file readable by every user in the system.
+ *
+ * @param filename the filename
+ * @param error error location
+ * @returns #TRUE if the file's permissions could be changed.
+ */
+dbus_bool_t
+_dbus_make_file_world_readable(const DBusString *filename,
+                               DBusError *error)
+{
+  const char *filename_c;
+
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+
+  filename_c = _dbus_string_get_const_data (filename);
+  if (chmod (filename_c, 0644) == -1)
+    {
+      dbus_set_error (error,
+                      DBUS_ERROR_FAILED,
+                      "Could not change permissions of file %s: %s\n",
+                      filename_c,
+                      _dbus_strerror (errno));
+      return FALSE;
+    }
+  return TRUE;
+}
+
 /** Creates the given file, failing if the file already exists.
  *
  * @param filename the filename
@@ -2316,11 +2389,11 @@ _dbus_get_autolaunch_address (DBusString *address,
     }
   
   i = 0;
-  argv[i] = DBUS_BINDIR "/dbus-launch";
+  argv[i] = "dbus-launch";
   ++i;
   argv[i] = "--autolaunch";
   ++i;
-  argv[i] = _dbus_string_get_const_data (&uuid);
+  argv[i] = _dbus_string_get_data (&uuid);
   ++i;
   argv[i] = "--binary-syntax";
   ++i;
@@ -2378,10 +2451,9 @@ _dbus_get_autolaunch_address (DBusString *address,
       close (fd);
       close (address_pipe[WRITE_END]);
 
-      execv (argv[0], argv);
+      execv (DBUS_BINDIR "/dbus-launch", argv);
 
       /* failed, try searching PATH */
-      argv[0] = "dbus-launch";
       execvp ("dbus-launch", argv);
 
       /* still nothing, we failed */
@@ -2441,7 +2513,7 @@ _dbus_get_autolaunch_address (DBusString *address,
  * we might want to use the registry instead of a file for
  * this, and I'm not sure how we'd ensure the uuid gets created.
  *
- * @param guid to init with the machine's uuid
+ * @param machine_id guid to init with the machine's uuid
  * @param create_if_not_found try to create the uuid if it doesn't exist
  * @param error the error return
  * @returns #FALSE if the error is set
@@ -2455,7 +2527,5 @@ _dbus_read_local_machine_uuid (DBusGUID   *machine_id,
   _dbus_string_init_const (&filename, DBUS_MACHINE_UUID_FILE);
   return _dbus_read_uuid_file (&filename, machine_id, create_if_not_found, error);
 }
-
-/** @} end of sysdeps */
 
 /* tests in dbus-sysdeps-util.c */

@@ -34,24 +34,47 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusConnection
+ * @{
+ */
+
+/* documented in dbus-watch.c */
 typedef struct DBusWatch DBusWatch;
+/* documented in dbus-timeout.c */
 typedef struct DBusTimeout DBusTimeout;
+/** Opaque type representing preallocated resources so a message can be sent without further memory allocation. */
 typedef struct DBusPreallocatedSend DBusPreallocatedSend;
+/** Opaque type representing a method call that has not yet received a reply. */
 typedef struct DBusPendingCall DBusPendingCall;
+/** Opaque type representing a connection to a remote application and associated incoming/outgoing message queues. */
 typedef struct DBusConnection DBusConnection;
+/** Set of functions that must be implemented to handle messages sent to a particular object path. */
 typedef struct DBusObjectPathVTable DBusObjectPathVTable;
 
+/**
+ * Indicates the status of a #DBusWatch.
+ */
 typedef enum
 {
   DBUS_WATCH_READABLE = 1 << 0, /**< As in POLLIN */
   DBUS_WATCH_WRITABLE = 1 << 1, /**< As in POLLOUT */
-  DBUS_WATCH_ERROR    = 1 << 2, /**< As in POLLERR (can't watch for this, but
-                                 *   the flag can be passed to dbus_watch_handle()).
+  DBUS_WATCH_ERROR    = 1 << 2, /**< As in POLLERR (can't watch for
+                                 *   this, but can be present in
+                                 *   current state passed to
+                                 *   dbus_watch_handle()).
                                  */
-  DBUS_WATCH_HANGUP   = 1 << 3  /**< As in POLLHUP (can't watch for it, but
-                                 *   can be present in current state). */
+  DBUS_WATCH_HANGUP   = 1 << 3  /**< As in POLLHUP (can't watch for
+                                 *   it, but can be present in current
+                                 *   state passed to
+                                 *   dbus_watch_handle()).
+                                 */
 } DBusWatchFlags;
 
+/**
+ * Indicates the status of incoming data on a #DBusConnection. This determines whether
+ * dbus_connection_dispatch() needs to be called.
+ */
 typedef enum
 {
   DBUS_DISPATCH_DATA_REMAINS,  /**< There is more data to potentially convert to messages. */
@@ -59,30 +82,75 @@ typedef enum
   DBUS_DISPATCH_NEED_MEMORY    /**< More memory is needed to continue. */
 } DBusDispatchStatus;
 
+/** Called when libdbus needs a new watch to be monitored by the main
+ * loop. Returns #FALSE if it lacks enough memory to add the
+ * watch. Set by dbus_connection_set_watch_functions() or
+ * dbus_server_set_watch_functions().
+ */
 typedef dbus_bool_t (* DBusAddWatchFunction)       (DBusWatch      *watch,
                                                     void           *data);
+/** Called when dbus_watch_get_enabled() may return a different value
+ *  than it did before.  Set by dbus_connection_set_watch_functions()
+ *  or dbus_server_set_watch_functions().
+ */
 typedef void        (* DBusWatchToggledFunction)   (DBusWatch      *watch,
                                                     void           *data);
+/** Called when libdbus no longer needs a watch to be monitored by the
+ * main loop. Set by dbus_connection_set_watch_functions() or
+ * dbus_server_set_watch_functions().
+ */
 typedef void        (* DBusRemoveWatchFunction)    (DBusWatch      *watch,
                                                     void           *data);
+/** Called when libdbus needs a new timeout to be monitored by the main
+ * loop. Returns #FALSE if it lacks enough memory to add the
+ * watch. Set by dbus_connection_set_timeout_functions() or
+ * dbus_server_set_timeout_functions().
+ */
 typedef dbus_bool_t (* DBusAddTimeoutFunction)     (DBusTimeout    *timeout,
                                                     void           *data);
+/** Called when dbus_timeout_get_enabled() may return a different
+ * value than it did before.
+ * Set by dbus_connection_set_timeout_functions() or
+ * dbus_server_set_timeout_functions().
+ */
 typedef void        (* DBusTimeoutToggledFunction) (DBusTimeout    *timeout,
                                                     void           *data);
+/** Called when libdbus no longer needs a timeout to be monitored by the
+ * main loop. Set by dbus_connection_set_timeout_functions() or
+ * dbus_server_set_timeout_functions().
+ */
 typedef void        (* DBusRemoveTimeoutFunction)  (DBusTimeout    *timeout,
                                                     void           *data);
+/** Called when the return value of dbus_connection_get_dispatch_status()
+ * may have changed. Set with dbus_connection_set_dispatch_status_function().
+ */
 typedef void        (* DBusDispatchStatusFunction) (DBusConnection *connection,
                                                     DBusDispatchStatus new_status,
                                                     void           *data);
+/**
+ * Called when the main loop's thread should be notified that there's now work
+ * to do. Set with dbus_connection_set_wakeup_main_function().
+ */
 typedef void        (* DBusWakeupMainFunction)     (void           *data);
+/**
+ * Called during authentication on UNIX systems to check whether the given
+ * user ID is allowed to connect. Never called on Windows. Set with
+ * dbus_connection_set_unix_user_function().
+ */ 
 typedef dbus_bool_t (* DBusAllowUnixUserFunction)  (DBusConnection *connection,
                                                     unsigned long   uid,
                                                     void           *data);
-
+/**
+ * Called when a pending call now has a reply available. Set with
+ * dbus_pending_call_set_notify().
+ */
 typedef void (* DBusPendingCallNotifyFunction) (DBusPendingCall *pending,
                                                 void            *user_data);
 
-
+/**
+ * Called when a message needs to be handled. The result indicates whether or
+ * not more handlers should be run. Set with dbus_connection_add_filter().
+ */
 typedef DBusHandlerResult (* DBusHandleMessageFunction) (DBusConnection     *connection,
                                                          DBusMessage        *message,
                                                          void               *user_data);
@@ -155,24 +223,6 @@ void               dbus_connection_set_route_peer_messages      (DBusConnection 
                                                                  dbus_bool_t                 value);
 
 
-int          dbus_watch_get_fd      (DBusWatch        *watch);
-unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
-void*        dbus_watch_get_data    (DBusWatch        *watch);
-void         dbus_watch_set_data    (DBusWatch        *watch,
-                                     void             *data,
-                                     DBusFreeFunction  free_data_function);
-dbus_bool_t  dbus_watch_handle      (DBusWatch        *watch,
-                                     unsigned int      flags);
-dbus_bool_t  dbus_watch_get_enabled (DBusWatch        *watch);
-
-int         dbus_timeout_get_interval (DBusTimeout      *timeout);
-void*       dbus_timeout_get_data     (DBusTimeout      *timeout);
-void        dbus_timeout_set_data     (DBusTimeout      *timeout,
-                                       void             *data,
-                                       DBusFreeFunction  free_data_function);
-dbus_bool_t dbus_timeout_handle       (DBusTimeout      *timeout);
-dbus_bool_t dbus_timeout_get_enabled  (DBusTimeout      *timeout);
-
 /* Filters */
 
 dbus_bool_t dbus_connection_add_filter    (DBusConnection            *connection,
@@ -215,15 +265,26 @@ void                  dbus_connection_send_preallocated      (DBusConnection    
 
 /* Object tree functionality */
 
+/**
+ * Called when a #DBusObjectPathVTable is unregistered (or its connection is freed).
+ * Found in #DBusObjectPathVTable.
+ */
 typedef void              (* DBusObjectPathUnregisterFunction) (DBusConnection  *connection,
                                                                 void            *user_data);
+/**
+ * Called when a message is sent to a registered object path. Found in
+ * #DBusObjectPathVTable which is registered with dbus_connection_register_object_path()
+ * or dbus_connection_register_fallback().
+ */
 typedef DBusHandlerResult (* DBusObjectPathMessageFunction)    (DBusConnection  *connection,
                                                                 DBusMessage     *message,
                                                                 void            *user_data);
 
 /**
  * Virtual table that must be implemented to handle a portion of the
- * object path hierarchy.
+ * object path hierarchy. Attach the vtable to a particular path using
+ * dbus_connection_register_object_path() or
+ * dbus_connection_register_fallback().
  */
 struct DBusObjectPathVTable
 {
@@ -261,6 +322,41 @@ dbus_bool_t dbus_connection_get_socket             (DBusConnection              
                                                     int                         *fd);
 
 char*       dbus_get_local_machine_id              (void);
+
+/** @} */
+
+
+/**
+ * @addtogroup DBusWatch
+ * @{
+ */
+
+int          dbus_watch_get_fd      (DBusWatch        *watch);
+unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
+void*        dbus_watch_get_data    (DBusWatch        *watch);
+void         dbus_watch_set_data    (DBusWatch        *watch,
+                                     void             *data,
+                                     DBusFreeFunction  free_data_function);
+dbus_bool_t  dbus_watch_handle      (DBusWatch        *watch,
+                                     unsigned int      flags);
+dbus_bool_t  dbus_watch_get_enabled (DBusWatch        *watch);
+
+/** @} */
+
+/**
+ * @addtogroup DBusTimeout
+ * @{
+ */
+
+int         dbus_timeout_get_interval (DBusTimeout      *timeout);
+void*       dbus_timeout_get_data     (DBusTimeout      *timeout);
+void        dbus_timeout_set_data     (DBusTimeout      *timeout,
+                                       void             *data,
+                                       DBusFreeFunction  free_data_function);
+dbus_bool_t dbus_timeout_handle       (DBusTimeout      *timeout);
+dbus_bool_t dbus_timeout_get_enabled  (DBusTimeout      *timeout);
+
+/** @} */
 
 DBUS_END_DECLS
 

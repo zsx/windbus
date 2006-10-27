@@ -29,7 +29,7 @@
 #include <stdlib.h>
 
 /**
- * @defgroup DBusInternals D-Bus internal implementation details
+ * @defgroup DBusInternals D-Bus secret internal implementation details
  * @brief Documentation useful when developing or debugging D-Bus itself.
  * 
  */
@@ -192,9 +192,44 @@ const char _dbus_no_memory_message[] = "Not enough memory";
 
 static dbus_bool_t warn_initted = FALSE;
 static dbus_bool_t fatal_warnings = FALSE;
+static dbus_bool_t fatal_warnings_on_check_failed = TRUE;
+
+static void
+init_warnings(void)
+{
+  if (!warn_initted)
+    {
+      const char *s;
+      s = _dbus_getenv ("DBUS_FATAL_WARNINGS");
+      if (s && *s)
+        {
+          if (*s == '0')
+            {
+              fatal_warnings = FALSE;
+              fatal_warnings_on_check_failed = FALSE;
+            }
+          else if (*s == '1')
+            {
+              fatal_warnings = TRUE;
+              fatal_warnings_on_check_failed = TRUE;
+            }
+          else
+            {
+              fprintf(stderr, "DBUS_FATAL_WARNINGS should be set to 0 or 1 if set, not '%s'",
+                      s);
+            }
+        }
+
+      warn_initted = TRUE;
+    }
+}
 
 /**
- * Prints a warning message to stderr.
+ * Prints a warning message to stderr. Can optionally be made to exit
+ * fatally by setting DBUS_FATAL_WARNINGS, but this is rarely
+ * used. This function should be considered pretty much equivalent to
+ * fprintf(stderr). _dbus_warn_check_failed() on the other hand is
+ * suitable for use when a programming mistake has been made.
  *
  * @param format printf-style format string.
  */
@@ -205,14 +240,7 @@ _dbus_warn (const char *format,
   va_list args;
 
   if (!warn_initted)
-    {
-      const char *s;
-      s = _dbus_getenv ("DBUS_FATAL_WARNINGS");
-      if (s && *s)
-        fatal_warnings = TRUE;
-
-      warn_initted = TRUE;
-    }
+    init_warnings ();
   
   va_start (args, format);
   vfprintf (stderr, format, args);
@@ -225,11 +253,42 @@ _dbus_warn (const char *format,
     }
 }
 
+/**
+ * Prints a "critical" warning to stderr when an assertion fails;
+ * differs from _dbus_warn primarily in that it prefixes the pid and
+ * defaults to fatal. This should be used only when a programming
+ * error has been detected. (NOT for unavoidable errors that an app
+ * might handle - those should be returned as DBusError.) Calling this
+ * means "there is a bug"
+ */
+void
+_dbus_warn_check_failed(const char *format,
+                        ...)
+{
+  va_list args;
+  
+  if (!warn_initted)
+    init_warnings ();
+
+  fprintf (stderr, "process %lu: ", _dbus_getpid ());
+  
+  va_start (args, format);
+  vfprintf (stderr, format, args);
+  va_end (args);
+
+  if (fatal_warnings_on_check_failed)
+    {
+      fflush (stderr);
+      _dbus_abort ();
+    }
+}
+
 #ifdef DBUS_ENABLE_VERBOSE_MODE
 
 static dbus_bool_t verbose_initted = FALSE;
 static dbus_bool_t verbose = TRUE;
 
+/** Whether to show the current thread in verbose messages */
 #define PTHREAD_IN_VERBOSE 0
 #if PTHREAD_IN_VERBOSE
 #include <pthread.h>
@@ -246,6 +305,11 @@ _dbus_verbose_init (void)
     }
 }
 
+/**
+ * Implementation of dbus_is_verbose() macro if built with verbose logging
+ * enabled.
+ * @returns whether verbose logging is active.
+ */
 dbus_bool_t
 _dbus_is_verbose_real (void)
 {
@@ -575,6 +639,8 @@ _dbus_create_uuid_file_exclusively (const DBusString *filename,
   if (!_dbus_string_save_to_file (&encoded, filename, error))
     goto error;
 
+  if (!_dbus_make_file_world_readable (filename, error))
+    goto error;
 
   _dbus_string_free (&encoded);
 
@@ -664,10 +730,9 @@ _dbus_get_local_machine_uuid_encoded (DBusString *uuid_str)
            * here. But in a production build, we want to be nice and loud about
            * this.
            */
-          _dbus_warn ("D-Bus library appears to be incorrectly set up; failed to read machine uuid: %s\n",
-                      error.message);
-          _dbus_warn ("See the manual page for dbus-uuidgen to correct this issue.\n");
-          _dbus_warn ("Continuing with a bogus made-up machine UUID, which may cause problems.");
+          _dbus_warn_check_failed ("D-Bus library appears to be incorrectly set up; failed to read machine uuid: %s\n"
+                                   "See the manual page for dbus-uuidgen to correct this issue.\n",
+                                   error.message);
 #endif
           
           dbus_error_free (&error);
@@ -722,7 +787,7 @@ _dbus_header_field_to_string (int header_field)
 #ifndef DBUS_DISABLE_CHECKS
 /** String used in _dbus_return_if_fail macro */
 const char _dbus_return_if_fail_warning_format[] =
-"%lu: arguments to %s() were incorrect, assertion \"%s\" failed in file %s line %d.\n"
+"arguments to %s() were incorrect, assertion \"%s\" failed in file %s line %d.\n"
 "This is normally a bug in some application using the D-Bus library.\n";
 #endif
 

@@ -42,6 +42,10 @@ DBUS_BEGIN_DECLS
 void _dbus_warn               (const char *format,
                                ...) _DBUS_GNUC_PRINTF (1, 2);
 
+void _dbus_warn_check_failed  (const char *format,
+                               ...) _DBUS_GNUC_PRINTF (1, 2);
+
+
 #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
 #define _DBUS_FUNCTION_NAME __func__
 #elif defined(__GNUC__)
@@ -129,19 +133,19 @@ void _dbus_real_assert_not_reached (const char *explanation,
 #else
 extern const char _dbus_return_if_fail_warning_format[];
 
-#define _dbus_return_if_fail(condition) do {                                            \
-   _dbus_assert ((*(const char*)_DBUS_FUNCTION_NAME) != '_');                           \
-  if (!(condition)) {                                                                   \
-    _dbus_warn (_dbus_return_if_fail_warning_format,                                    \
-                _dbus_getpid (), _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__);  \
-    return;                                                                             \
+#define _dbus_return_if_fail(condition) do {                                       \
+   _dbus_assert ((*(const char*)_DBUS_FUNCTION_NAME) != '_');                      \
+  if (!(condition)) {                                                              \
+    _dbus_warn_check_failed (_dbus_return_if_fail_warning_format,                  \
+                             _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__); \
+    return;                                                                        \
   } } while (0)
 
 #define _dbus_return_val_if_fail(condition, val) do {                                   \
    _dbus_assert ((*(const char*)_DBUS_FUNCTION_NAME) != '_');                           \
   if (!(condition)) {                                                                   \
-    _dbus_warn (_dbus_return_if_fail_warning_format,                                    \
-                _dbus_getpid (), _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__);  \
+    _dbus_warn_check_failed (_dbus_return_if_fail_warning_format,                       \
+                             _DBUS_FUNCTION_NAME, #condition, __FILE__, __LINE__);      \
     return (val);                                                                       \
   } } while (0)
 
@@ -318,8 +322,8 @@ void          _dbus_set_bad_address        (DBusError         *error,
  */
 union DBusGUID
 {
-  dbus_uint32_t as_uint32s[DBUS_UUID_LENGTH_BYTES / 4];
-  char as_bytes[DBUS_UUID_LENGTH_BYTES];
+  dbus_uint32_t as_uint32s[DBUS_UUID_LENGTH_BYTES / 4]; /**< guid as four uint32 values */
+  char as_bytes[DBUS_UUID_LENGTH_BYTES];                /**< guid as 16 single-byte values */
 };
 
 void        _dbus_generate_uuid  (DBusGUID         *uuid);

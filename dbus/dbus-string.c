@@ -36,9 +36,9 @@
 #include "dbus-sysdeps.h"
 
 /**
- * @defgroup DBusString string class
+ * @defgroup DBusString DBusString class
  * @ingroup  DBusInternals
- * @brief DBusString data structure
+ * @brief DBusString data structure for safer string handling
  *
  * Types and functions related to DBusString. DBusString is intended
  * to be a string class that makes it hard to mess up security issues
@@ -2011,7 +2011,7 @@ _dbus_string_skip_white_reverse (const DBusString *str,
  * @todo owen correctly notes that this is a stupid function (it was
  * written purely for test code,
  * e.g. dbus-message-builder.c). Probably should be enforced as test
- * code only with #ifdef DBUS_BUILD_TESTS
+ * code only with ifdef DBUS_BUILD_TESTS
  * 
  * @param source the source string
  * @param dest the destination string (contents are replaced)

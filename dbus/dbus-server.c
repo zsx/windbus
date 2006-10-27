@@ -36,12 +36,11 @@
  * @ingroup  DBus
  * @brief Server that listens for new connections.
  *
- * Types and functions related to DBusServer.
  * A DBusServer represents a server that other applications
  * can connect to. Each connection from another application
- * is represented by a DBusConnection.
+ * is represented by a #DBusConnection.
  *
- * @todo Thread safety hasn't been looked at for #DBusServer
+ * @todo Thread safety hasn't been tested much for #DBusServer
  * @todo Need notification to apps of disconnection, may matter for some transports
  */
 
@@ -194,10 +193,13 @@ _dbus_server_finalize_base (DBusServer *server)
 }
 
 
+/** Function to be called in protected_change_watch() with refcount held */
 typedef dbus_bool_t (* DBusWatchAddFunction)     (DBusWatchList *list,
                                                   DBusWatch     *watch);
+/** Function to be called in protected_change_watch() with refcount held */
 typedef void        (* DBusWatchRemoveFunction)  (DBusWatchList *list,
                                                   DBusWatch     *watch);
+/** Function to be called in protected_change_watch() with refcount held */
 typedef void        (* DBusWatchToggleFunction)  (DBusWatchList *list,
                                                   DBusWatch     *watch,
                                                   dbus_bool_t    enabled);
@@ -307,11 +309,13 @@ _dbus_server_toggle_watch (DBusServer  *server,
                           enabled);
 }
 
-
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef dbus_bool_t (* DBusTimeoutAddFunction)    (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout);
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef void        (* DBusTimeoutRemoveFunction) (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout);
+/** Function to be called in protected_change_timeout() with refcount held */
 typedef void        (* DBusTimeoutToggleFunction) (DBusTimeoutList *list,
                                                    DBusTimeout     *timeout,
                                                    dbus_bool_t      enabled);
@@ -418,6 +422,67 @@ _dbus_server_toggle_timeout (DBusServer  *server,
                             enabled);
 }
 
+
+/**
+ * Like dbus_server_ref() but does not acquire the lock (must already be held)
+ *
+ * @param server the server.
+ */
+void
+_dbus_server_ref_unlocked (DBusServer *server)
+{
+  _dbus_assert (server != NULL);
+  _dbus_assert (server->refcount.value > 0);
+  
+  HAVE_LOCK_CHECK (server);
+
+#ifdef DBUS_HAVE_ATOMIC_INT
+  _dbus_atomic_inc (&server->refcount);
+#else
+  _dbus_assert (server->refcount.value > 0);
+
+  server->refcount.value += 1;
+#endif
+}
+
+/**
+ * Like dbus_server_unref() but does not acquire the lock (must already be held)
+ *
+ * @param server the server.
+ */
+void
+_dbus_server_unref_unlocked (DBusServer *server)
+{
+  dbus_bool_t last_unref;
+
+  /* Keep this in sync with dbus_server_unref */
+  
+  _dbus_assert (server != NULL);
+  _dbus_assert (server->refcount.value > 0);
+
+  HAVE_LOCK_CHECK (server);
+  
+#ifdef DBUS_HAVE_ATOMIC_INT
+  last_unref = (_dbus_atomic_dec (&server->refcount) == 1);
+#else
+  _dbus_assert (server->refcount.value > 0);
+
+  server->refcount.value -= 1;
+  last_unref = (server->refcount.value == 0);
+#endif
+  
+  if (last_unref)
+    {
+      _dbus_assert (server->disconnected);
+      
+      SERVER_UNLOCK (server);
+      
+      _dbus_assert (server->vtable->finalize != NULL);
+      
+      (* server->vtable->finalize) (server);
+    }
+}
+
 /** @} */
 
 /**
@@ -452,20 +517,23 @@ static const struct {
 };
 
 /**
- * Listens for new connections on the given address.
- * If there are multiple address entries in the address,
- * tries each one and listens on the first one that
- * works.
+ * Listens for new connections on the given address.  If there are
+ * multiple semicolon-separated address entries in the address, tries
+ * each one and listens on the first one that works.
  * 
  * Returns #NULL and sets error if listening fails for any reason.
  * Otherwise returns a new #DBusServer.
- * dbus_server_set_new_connection_function() and
- * dbus_server_set_watch_functions() should be called
- * immediately to render the server fully functional.
+ * dbus_server_set_new_connection_function(),
+ * dbus_server_set_watch_functions(), and
+ * dbus_server_set_timeout_functions() should be called immediately to
+ * render the server fully functional.
+ *
+ * To free the server, applications must call first
+ * dbus_server_disconnect() and then dbus_server_unref().
  * 
  * @param address the address of this server.
- * @param error location to store rationale for failure.
- * @returns a new DBusServer, or #NULL on failure.
+ * @param error location to store reason for failure.
+ * @returns a new #DBusServer, or #NULL on failure.
  * 
  */
 DBusServer*
@@ -629,6 +697,8 @@ void
 dbus_server_unref (DBusServer *server)
 {
   dbus_bool_t last_unref;
+
+  /* keep this in sync with unref_unlocked */
   
   _dbus_return_if_fail (server != NULL);
   _dbus_return_if_fail (server->refcount.value > 0);
@@ -650,64 +720,6 @@ dbus_server_unref (DBusServer *server)
     {
       /* lock not held! */
       _dbus_assert (server->disconnected);
-      
-      _dbus_assert (server->vtable->finalize != NULL);
-      
-      (* server->vtable->finalize) (server);
-    }
-}
-
-/**
- * Like dbus_server_ref() but does not acquire the lock (must already be held)
- *
- * @param server the server.
- */
-void
-_dbus_server_ref_unlocked (DBusServer *server)
-{
-  _dbus_assert (server != NULL);
-  _dbus_assert (server->refcount.value > 0);
-  
-  HAVE_LOCK_CHECK (server);
-
-#ifdef DBUS_HAVE_ATOMIC_INT
-  _dbus_atomic_inc (&server->refcount);
-#else
-  _dbus_assert (server->refcount.value > 0);
-
-  server->refcount.value += 1;
-#endif
-}
-
-/**
- * Like dbus_server_unref() but does not acquire the lock (must already be held)
- *
- * @param server the server.
- */
-void
-_dbus_server_unref_unlocked (DBusServer *server)
-{
-  dbus_bool_t last_unref;
-  
-  _dbus_assert (server != NULL);
-  _dbus_assert (server->refcount.value > 0);
-
-  HAVE_LOCK_CHECK (server);
-  
-#ifdef DBUS_HAVE_ATOMIC_INT
-  last_unref = (_dbus_atomic_dec (&server->refcount) == 1);
-#else
-  _dbus_assert (server->refcount.value > 0);
-
-  server->refcount.value -= 1;
-  last_unref = (server->refcount.value == 0);
-#endif
-  
-  if (last_unref)
-    {
-      _dbus_assert (server->disconnected);
-      
-      SERVER_UNLOCK (server);
       
       _dbus_assert (server->vtable->finalize != NULL);
       
@@ -831,7 +843,7 @@ dbus_server_set_new_connection_function (DBusServer                *server,
 }
 
 /**
- * Sets the watch functions for the connection. These functions are
+ * Sets the watch functions for the server. These functions are
  * responsible for making the application's main loop aware of file
  * descriptors that need to be monitored for events.
  *
@@ -875,7 +887,7 @@ dbus_server_set_watch_functions (DBusServer              *server,
     }
   else
     {
-      _dbus_warn ("Re-entrant call to %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("Re-entrant call to %s\n", _DBUS_FUNCTION_NAME);
       result = FALSE;
     }
   server->watches = watches;
@@ -885,7 +897,7 @@ dbus_server_set_watch_functions (DBusServer              *server,
 }
 
 /**
- * Sets the timeout functions for the connection. These functions are
+ * Sets the timeout functions for the server. These functions are
  * responsible for making the application's main loop aware of timeouts.
  *
  * This function behaves exactly like dbus_connection_set_timeout_functions();
@@ -928,7 +940,7 @@ dbus_server_set_timeout_functions (DBusServer                *server,
     }
   else
     {
-      _dbus_warn ("Re-entrant call to %s\n", _DBUS_FUNCTION_NAME);
+      _dbus_warn_check_failed ("Re-entrant call to %s\n", _DBUS_FUNCTION_NAME);
       result = FALSE;
     }
   server->timeouts = timeouts;
@@ -938,10 +950,13 @@ dbus_server_set_timeout_functions (DBusServer                *server,
 }
 
 /**
- * Sets the authentication mechanisms that this server offers
- * to clients, as a list of SASL mechanisms. This function
- * only affects connections created *after* it is called.
- * Pass #NULL instead of an array to use all available mechanisms.
+ * Sets the authentication mechanisms that this server offers to
+ * clients, as a #NULL-terminated array of mechanism names. This
+ * function only affects connections created <em>after</em> it is
+ * called.  Pass #NULL instead of an array to use all available
+ * mechanisms (this is the default behavior).
+ *
+ * The D-Bus specification describes some of the supported mechanisms.
  *
  * @param server the server
  * @param mechanisms #NULL-terminated array of mechanisms

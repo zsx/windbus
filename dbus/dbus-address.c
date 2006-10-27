@@ -49,8 +49,20 @@ struct DBusAddressEntry
 };
 
 
+/**
+ *
+ * Sets #DBUS_ERROR_BAD_ADDRESS.
+ * If address_problem_type and address_problem_field are not #NULL,
+ * sets an error message about how the field is no good. Otherwise, sets
+ * address_problem_other as the error message.
+ * 
+ * @param error the error to set
+ * @param address_problem_type the address type of the bad address or #NULL
+ * @param address_problem_field the missing field of the bad address or #NULL
+ * @param address_problem_other any other error message or #NULL
+ */
 void
-_dbus_set_bad_address (DBusError *error,
+_dbus_set_bad_address (DBusError  *error,
                        const char *address_problem_type,
                        const char *address_problem_field,
                        const char *address_problem_other)
@@ -65,6 +77,10 @@ _dbus_set_bad_address (DBusError *error,
                     address_problem_other);
 }
 
+/**
+ * #TRUE if the byte need not be escaped when found in a dbus address.
+ * All other bytes are required to be escaped in a valid address.
+ */
 #define _DBUS_ADDRESS_OPTIONALLY_ESCAPED_BYTE(b)        \
          (((b) >= 'a' && (b) <= 'z') ||                 \
           ((b) >= 'A' && (b) <= 'Z') ||                 \
@@ -198,7 +214,9 @@ create_entry (void)
 }
 
 /**
- * Returns the method string of an address entry.
+ * Returns the method string of an address entry.  For example, given
+ * the address entry "tcp:host=example.com" it would return the string
+ * "tcp"
  *
  * @param entry the entry.
  * @returns a string describing the method. This string
@@ -211,8 +229,12 @@ dbus_address_entry_get_method (DBusAddressEntry *entry)
 }
 
 /**
- * Returns a value from a key of an entry.
+ * Returns a value from a key of an entry. For example,
+ * given the address "tcp:host=example.com,port=8073" if you asked
+ * for the key "host" you would get the value "example.com"
  *
+ * The returned value is already unescaped.
+ * 
  * @param entry the entry.
  * @param key the key.
  * @returns the key value. This string must not be freed.
@@ -326,6 +348,9 @@ append_unescaped_value (DBusString       *unescaped,
  * method:key=value,key=value;method:key=value
  *
  * See the D-Bus specification for complete docs on the format.
+ *
+ * When connecting to an address, the first address entries
+ * in the semicolon-separated list should be tried first.
  * 
  * @param address the address.
  * @param entry return location to an array of entries.
@@ -573,7 +598,8 @@ dbus_address_escape_value (const char *value)
 
 /**
  * Unescapes the given string as a value in a key=value pair
- * for a D-Bus address.
+ * for a D-Bus address. Note that dbus_address_entry_get_value()
+ * returns an already-unescaped value.
  *
  * @param value the escaped value
  * @param error error to set if the unescaping fails
@@ -615,6 +641,9 @@ dbus_address_unescape_value (const char *value,
 /** @} */ /* End of public API */
 
 #ifdef DBUS_BUILD_TESTS
+
+#ifndef DOXYGEN_SHOULD_SKIP_THIS
+
 #include "dbus-test.h"
 #include <stdlib.h>
 
@@ -781,5 +810,7 @@ _dbus_address_test (void)
 
   return TRUE;
 }
+
+#endif /* !DOXYGEN_SHOULD_SKIP_THIS */
 
 #endif

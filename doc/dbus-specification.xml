@@ -1184,7 +1184,8 @@
           A signal emission is simply a single message of type <literal>SIGNAL</literal>.
           It must have three header fields: <literal>PATH</literal> giving the object 
           the signal was emitted from, plus <literal>INTERFACE</literal> and <literal>MEMBER</literal> giving
-          the fully-qualified name of the signal.
+          the fully-qualified name of the signal. The <literal>INTERFACE</literal> header is required
+          for signals, though it is optional for method calls.
         </para>
       </sect3>
 
@@ -2310,9 +2311,22 @@
         UUID representing the identity of the machine the process is running on.
         This UUID must be the same for all processes on a single system at least
         until that system next reboots. It should be the same across reboots 
-        if possible, but may change due to reconfiguration or hardware changes.
+        if possible, but this is not always possible to implement and is not 
+        guaranteed.
         It does not matter which object path a GetMachineId is sent to.  The
         reference implementation handles this method automatically.
+      </para>
+      <para>
+        The UUID is intended to be per-instance-of-the-operating-system, so may represent
+        a virtual machine running on a hypervisor, rather than a physical machine.
+        Basically if two processes see the same UUID, they should also see the same
+        shared memory, UNIX domain sockets, process IDs, and other features that require 
+        a running OS kernel in common between the processes.
+      </para>
+      <para>
+        The UUID is often used where other programs might use a hostname. Hostnames 
+        can change without rebooting, however, or just be "localhost" - so the UUID
+        is more robust.
       </para>
       <para>
         The UUID must contain 128 bits of data and be hex-encoded (meaning, the hex 
@@ -2321,13 +2335,6 @@
         To generate a UUID, the recommended algorithm is to put the current time in seconds
         since the UNIX epoch in the last 32 bits of the UUID, and to put randomly-generated bits
         in the first 96 bits of the UUID.
-      </para>
-      <para>
-        The UUID is intended to be per-instance-of-the-operating-system, so may represent
-        a virtual machine running on a hypervisor, rather than a physical machine.
-        Basically if two processes see the same UUID, they should also see the same
-        shared memory, UNIX domain sockets, process IDs, and other features that require 
-        a running OS kernel in common between the processes.
       </para>
     </sect2>
 
@@ -3014,7 +3021,9 @@
                   <entry><literal>interface</literal></entry>
                   <entry>An interface name (see <xref linkend="message-protocol-names-interface"/>)</entry>
                   <entry>Match messages sent over or to a particular interface.  An example of an
-                  interface match is interface='org.freedesktop.Hal.Manager'</entry>
+                  interface match is interface='org.freedesktop.Hal.Manager'.
+                  If a message omits the interface header, it must not match any rule 
+                  that specifies this key.</entry>
                 </row>
                 <row>
                   <entry><literal>member</literal></entry>
@@ -3035,12 +3044,13 @@
                   example of a destination match is destination=':1.0'</entry>
                 </row>
                 <row>
-                  <entry><literal>arg[1, 2, 3, ...]</literal></entry>
+                  <entry><literal>arg[0, 1, 2, 3, ...]</literal></entry>
                   <entry>Any string</entry>
                   <entry>Arg matches are special and are used for further restricting the 
                   match based on the arguments in the body of a message.  As of this time
                   only string arguments can be matched.  An example of an argument match 
-                  would be arg3='Foo'.</entry>
+                  would be arg3='Foo'. Only argument indexes from 0 to 63 should be 
+                  accepted.</entry>
                 </row>
               </tbody>
             </tgroup>

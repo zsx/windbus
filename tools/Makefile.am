@@ -1,6 +1,6 @@
 configdir=$(sysconfdir)/dbus-1
 
-INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_X_CFLAGS) -DDBUS_LOCALEDIR=\"@EXPANDED_DATADIR@/locale\" -DDBUS_COMPILATION -DDBUS_DAEMONDIR=\"@DBUS_DAEMONDIR@\" -DDBUS_MACHINE_UUID_FILE=\""$(configdir)/machine-id"\"
+INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_X_CFLAGS) -DDBUS_LOCALEDIR=\"@EXPANDED_DATADIR@/locale\" -DDBUS_COMPILATION -DDBUS_DAEMONDIR=\"@DBUS_DAEMONDIR@\" -DDBUS_MACHINE_UUID_FILE=\""$(localstatedir)/lib/dbus/machine-id"\"
 
 bin_PROGRAMS=dbus-send dbus-monitor dbus-launch dbus-cleanup-sockets dbus-uuidgen
 
@@ -25,16 +25,16 @@ dbus_cleanup_sockets_SOURCES=			\
 dbus_uuidgen_SOURCES=				\
 	dbus-uuidgen.c
 
-dbus_send_LDADD= $(top_builddir)/dbus/libdbus-1.la
+dbus_send_LDADD= $(top_builddir)/dbus/libdbus-1.la $(DBUS_CLIENT_LIBS)
 dbus_send_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
-dbus_monitor_LDADD= $(top_builddir)/dbus/libdbus-1.la
+dbus_monitor_LDADD= $(top_builddir)/dbus/libdbus-1.la $(DBUS_CLIENT_LIBS)
 dbus_monitor_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
-dbus_uuidgen_LDADD= $(top_builddir)/dbus/libdbus-1.la
+dbus_uuidgen_LDADD= $(top_builddir)/dbus/libdbus-1.la $(DBUS_CLIENT_LIBS)
 dbus_uuidgen_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
-dbus_launch_LDADD= $(DBUS_X_LIBS)
+dbus_launch_LDADD= $(DBUS_X_LIBS) $(DBUS_CLIENT_LIBS)
 dbus_launch_LDFLAGS=@R_DYNAMIC_LDFLAG@
 
 man_MANS = dbus-send.1 dbus-monitor.1 dbus-launch.1 dbus-cleanup-sockets.1 dbus-uuidgen.1

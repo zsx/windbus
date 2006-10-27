@@ -79,7 +79,7 @@ _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator,
     }
   else if (allocator->lock_loc != mutex_loc)
     {
-      _dbus_warn ("D-Bus threads were initialized after first using the D-Bus library. If your application does not directly initialize threads or use D-Bus, keep in mind that some library or plugin may have used D-Bus or initialized threads behind your back. You can often fix this problem by calling dbus_init_threads() or dbus_g_threads_init() early in your main() method, before D-Bus is used.");
+      _dbus_warn_check_failed ("D-Bus threads were initialized after first using the D-Bus library. If your application does not directly initialize threads or use D-Bus, keep in mind that some library or plugin may have used D-Bus or initialized threads behind your back. You can often fix this problem by calling dbus_init_threads() or dbus_g_threads_init() early in your main() method, before D-Bus is used.\n");
       _dbus_assert_not_reached ("exiting");
     }
 
@@ -151,7 +151,7 @@ _dbus_data_slot_allocator_alloc (DBusDataSlotAllocator *allocator,
 /**
  * Deallocates an ID previously allocated with
  * _dbus_data_slot_allocator_alloc().  Existing data stored on
- * existing #DBusDataList objects with this ID will be freed when the
+ * existing #DBusDataSlotList objects with this ID will be freed when the
  * data list is finalized, but may not be retrieved (and may only be
  * replaced if someone else reallocates the slot).
  * The slot value is reset to -1 if this is the last unref.

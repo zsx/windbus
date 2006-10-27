@@ -36,11 +36,17 @@
 
 DBUS_BEGIN_DECLS
 
+/**
+ * @addtogroup DBusMessage
+ * @{
+ */
+
 typedef struct DBusMessage DBusMessage;
+/** Opaque type representing a message iterator. Can be copied by value, and contains no allocated memory so never needs to be freed and can be allocated on the stack. */
 typedef struct DBusMessageIter DBusMessageIter;
 
 /**
- * DBusMessageIter struct; contains no public fields 
+ * DBusMessageIter struct; contains no public fields. 
  */
 struct DBusMessageIter
 { 
@@ -163,7 +169,12 @@ void        dbus_message_iter_recurse          (DBusMessageIter *iter,
                                                 DBusMessageIter *sub);
 void        dbus_message_iter_get_basic        (DBusMessageIter *iter,
                                                 void            *value);
-int         dbus_message_iter_get_array_len    (DBusMessageIter *iter);
+#ifndef DBUS_DISABLE_DEPRECATED
+/* This function returns the wire protocol size of the array in bytes,
+ * you do not want to know that probably
+ */
+int         dbus_message_iter_get_array_len    (DBusMessageIter *iter) DBUS_GNUC_DEPRECATED;
+#endif
 void        dbus_message_iter_get_fixed_array  (DBusMessageIter *iter,
                                                 void            *value,
                                                 int             *n_elements);
@@ -201,6 +212,8 @@ void*       dbus_message_get_data           (DBusMessage      *message,
 
 int dbus_message_type_from_string (const char *type_str);
 const char * dbus_message_type_to_string (int type);
+
+/** @} */
 
 DBUS_END_DECLS
 
