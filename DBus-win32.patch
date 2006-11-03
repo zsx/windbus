@@ -789,7 +789,7 @@ Index: dbus/dbus-string-util.c
    return TRUE;
  }
  
-Index: dbus/dbus-transport-socket.h
+Index: dbus/dbus-transport-socket.h 
 ===================================================================
 --- dbus/dbus-transport-socket.h	(revision 364)
 +++ dbus/dbus-transport-socket.h	(working copy)
