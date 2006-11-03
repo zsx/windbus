@@ -16,7 +16,8 @@ Build
    into a subdir win32libs in your program installation eg c:\Programme\win32libs (german) 
    or "c:\Program Files\win32libs" (english) 
 3. download and install the most recent CMake version from http://www.cmake.org/files/
-6. open command shell and run in the created build folder which resides side by side 
+4. apply DBus-win32.patch: 'patch -p0 -i DBus-win32.patch'
+5. open command shell and run in the created build folder which resides side by side 
    to the D-Bus sources:
    	- for mingw: 
 		cmake -G "MinGW Makefiles" <options> ..\trunk\cmake
@@ -76,10 +77,10 @@ Don't touch these files which are managed by CVS.
 
 Only commit changes to  *-win.h, *-win.c, Readme.win and files in the cmake folder.
 
-Move all patches of CVS managed files to 'windows-patch.diff'.
+Move all patches of CVS managed files to 'DBus-win32.patch'.
 
 Apply patch by:
-	patch -p0 -i windows-patch.diff
+	patch -p0 -i DBus-win32.patch
 
 Extract changes by:
 	svn diff >> temp.diff 
@@ -94,11 +95,11 @@ simple to sync with the freedesktop version:
 Use the following commands for a complete update cycle
  - svn revert -R *
  - cvs -z9 up *
- - patch -p0 -i windows-patch.diff
+ - patch -p0 -i DBus-win32.patch
  - compile and change windows related code
  - cvs -z9 diff -uBb > tmp.diff
  - svn revert -R *
- - copy tmp.diff windows-patch.diff 
+ - copy tmp.diff DBus-win32.patch
  - cvs -z9 up *
  - svn ci -m "sync with cvs" 
 
