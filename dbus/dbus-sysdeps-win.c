@@ -24,6 +24,8 @@
  */
 #undef open
 
+#define _WIN32_WINNT 0x0500
+
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include "dbus-threads.h"
@@ -4682,22 +4684,89 @@ _dbus_send_credentials_unix_socket  (int              server_fd,
     return FALSE;
 }
 
-
-
+static dbus_uint32_t fromAscii(char ascii)
+{
+    if(ascii >= '0' && ascii <= '9')
+        return ascii - '0';
+    if(ascii >= 'A' && ascii <= 'F')
+        return ascii - 'A' + 10;
+    if(ascii >= 'a' && ascii <= 'f')
+        return ascii - 'a' + 10;
+    return 0;    
+}
 
 dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
                                              dbus_bool_t       create_if_not_found,
                                              DBusError        *error)
 {
-    // definitely wrong: TODO
-    return 1;
+    HW_PROFILE_INFOA info;
+    char *lpc = &info.szHwProfileGuid[0];
+    dbus_uint32_t u;
+
+    //  the hw-profile guid lives long enough
+    if(!GetCurrentHwProfileA(&info))
+      {
+        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL); // FIXME
+        return FALSE;  
+      }
+
+    // Form: {12340001-4980-1920-6788-123456789012}
+    lpc++;
+    // 12340001
+    u = ((fromAscii(lpc[0]) <<  0) |
+         (fromAscii(lpc[1]) <<  4) |
+         (fromAscii(lpc[2]) <<  8) |
+         (fromAscii(lpc[3]) << 12) |
+         (fromAscii(lpc[4]) << 16) |
+         (fromAscii(lpc[5]) << 20) |
+         (fromAscii(lpc[6]) << 24) |
+         (fromAscii(lpc[7]) << 28));
+    machine_id->as_uint32s[0] = u;
+
+    lpc += 9;
+    // 4980-1920
+    u = ((fromAscii(lpc[0]) <<  0) |
+         (fromAscii(lpc[1]) <<  4) |
+         (fromAscii(lpc[2]) <<  8) |
+         (fromAscii(lpc[3]) << 12) |
+         (fromAscii(lpc[5]) << 16) |
+         (fromAscii(lpc[6]) << 20) |
+         (fromAscii(lpc[7]) << 24) |
+         (fromAscii(lpc[8]) << 28));
+    machine_id->as_uint32s[1] = u;
+    
+    lpc += 10;
+    // 6788-1234
+    u = ((fromAscii(lpc[0]) <<  0) |
+         (fromAscii(lpc[1]) <<  4) |
+         (fromAscii(lpc[2]) <<  8) |
+         (fromAscii(lpc[3]) << 12) |
+         (fromAscii(lpc[5]) << 16) |
+         (fromAscii(lpc[6]) << 20) |
+         (fromAscii(lpc[7]) << 24) |
+         (fromAscii(lpc[8]) << 28));
+    machine_id->as_uint32s[2] = u;
+    
+    lpc += 9;
+    // 56789012
+    u = ((fromAscii(lpc[0]) <<  0) |
+         (fromAscii(lpc[1]) <<  4) |
+         (fromAscii(lpc[2]) <<  8) |
+         (fromAscii(lpc[3]) << 12) |
+         (fromAscii(lpc[4]) << 16) |
+         (fromAscii(lpc[5]) << 20) |
+         (fromAscii(lpc[6]) << 24) |
+         (fromAscii(lpc[7]) << 28));
+    machine_id->as_uint32s[3] = u;
+
+    return TRUE;
 }
 
 dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
 					  DBusError *error)
 {
-    // definitely wrong: TODO
-    return 1;
+  // TODO
+  return TRUE;
 }
 
 /** Makes the file readable by every user in the system.
