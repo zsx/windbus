@@ -80,6 +80,39 @@ static int  win_encap_randomizer;
 static DBusHashTable *sid_atom_cache = NULL;
 
 
+static DBusString dbusdir;
+
+int _dbus_init_working_dir(char *s)
+{
+  /* change working directory to one level above 
+     of dbus-daemon executable path.  
+     This allows the usage of relative path in 
+     config files or command line parameters */
+  DBusString daemon_path,bin_path;
+
+  if (!_dbus_string_init (&daemon_path))
+    return FALSE;
+  
+  if (!_dbus_string_init (&bin_path))
+    return FALSE;
+
+  if (!_dbus_string_init (&dbusdir))
+    return FALSE;
+  
+  _dbus_string_append(&daemon_path,s);
+  _dbus_string_get_dirname(&daemon_path,&bin_path);
+  _dbus_string_get_dirname(&bin_path,&dbusdir);
+  chdir(_dbus_string_get_const_data(&dbusdir));
+  _dbus_verbose ("Change working path to %s\n",_dbus_string_get_const_data (&dbusdir));
+  return TRUE;
+}
+
+DBusString *_dbus_get_working_dir(void)
+{
+ _dbus_verbose ("retrieving working path %s\n",_dbus_string_get_const_data (&dbusdir));
+	return &dbusdir;
+}
+
 /**
  * File interface
  *
