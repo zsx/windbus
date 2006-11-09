@@ -871,3 +871,108 @@ Index: tools/dbus-send.c
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
+Index: bus/main.c
+===================================================================
+--- bus/main.c	(Revision 375)
++++ bus/main.c	(Arbeitskopie)
+@@ -234,6 +233,12 @@
+   dbus_bool_t print_pid;
+   int force_fork;
+ 
++#ifdef _WIN32
++	extern int _dbus_init_working_dir(char *s);
++	if (!_dbus_init_working_dir(argv[0]))
++		return 1;
++#endif
++
+   if (!_dbus_string_init (&config_file))
+     return 1;
+ 
+Index: dbus/dbus-sysdeps-win.c
+===================================================================
+--- dbus/dbus-sysdeps-win.c	(Revision 375)
++++ dbus/dbus-sysdeps-win.c	(Arbeitskopie)
+@@ -79,7 +81,41 @@
+ #endif
+ static DBusHashTable *sid_atom_cache = NULL;
+ 
++#ifdef _WIN32
++static DBusString dbusdir;
+ 
++int _dbus_init_working_dir(char *s)
++{
++	/* change working directory to one level above 
++	   of dbus-daemon executable path.  
++	   This allows the usage of relative path in 
++	   config files or command line parameters */
++  DBusString daemon_path,bin_path;
++
++  if (!_dbus_string_init (&daemon_path))
++    return FALSE;
++  
++  if (!_dbus_string_init (&bin_path))
++    return FALSE;
++
++  if (!_dbus_string_init (&dbusdir))
++    return FALSE;
++  
++  _dbus_string_append(&daemon_path,s);
++  _dbus_string_get_dirname(&daemon_path,&bin_path);
++  _dbus_string_get_dirname(&bin_path,&dbusdir);
++  chdir(_dbus_string_get_const_data(&dbusdir));
++  _dbus_verbose ("Change working path to %s\n",_dbus_string_get_const_data (&dbusdir));
++  return TRUE;
++}
++
++DBusString *_dbus_get_working_dir(void)
++{
++ _dbus_verbose ("retrieving working path %s\n",_dbus_string_get_const_data (&dbusdir));
++	return &dbusdir;
++}
++#endif
++
+ /**
+  * File interface
+  *
+Index: bus/config-loader-libxml.c
+===================================================================
+--- bus/config-loader-libxml.c	(Revision 375)
++++ bus/config-loader-libxml.c	(Arbeitskopie)
+@@ -177,13 +177,19 @@
+       xmlSetGenericErrorFunc (NULL, xml_shut_up);
+     }
+ 
++#ifdef _WIN32
++	DBusString *_dbus_get_working_dir(void);
++	DBusString *dbusdir = _dbus_get_working_dir();
++  parser = bus_config_parser_new (dbusdir, is_toplevel, parent);
++#else
+   if (!_dbus_string_get_dirname (file, &dirname))
+     {
+       _DBUS_SET_OOM (error);
+       goto failed;
+     }
++  parser = bus_config_parser_new (&dirname, is_toplevel, parent);
++#endif
+   
+-  parser = bus_config_parser_new (&dirname, is_toplevel, parent);
+   if (parser == NULL)
+     {
+       _DBUS_SET_OOM (error);
+Index: cmake/CMakeLists.txt
+===================================================================
+--- cmake/CMakeLists.txt        (Revision 375)
++++ cmake/CMakeLists.txt        (Arbeitskopie)
+@@ -300,9 +300,9 @@
+ if (WIN32)
+   set (DBUS_SESSION_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=12434")
+   set (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=12434")
+-  set (DBUS_SERVICE_DIR "${EXPANDED_DATADIR}/dbus-1/services")
+-  set (DBUS_SYSTEM_CONFIG_FILE "${EXPANDED_SYSCONFDIR}/system.conf")
+-  set (DBUS_SESSION_CONFIG_FILE "${EXPANDED_SYSCONFDIR}/session.conf")
++  set (DBUS_SERVICE_DIR "data/dbus-1/services")
++  set (DBUS_SYSTEM_CONFIG_FILE "etc/system.conf")
++  set (DBUS_SESSION_CONFIG_FILE "etc/session.conf")
+   # bus-test expects a non empty string
+   set (DBUS_USER "Administrator")
+ else (WIN32)
