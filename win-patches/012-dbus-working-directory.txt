@@ -1,7 +1,4 @@
 ChangeLog Entry
 
-  * dbus/dbus-sysdeps-win.c: new functions _dbus_init_working_dir() 
-    and _dbus_get_working_dir().
-  * bus/main.c: win32 only: setup working directory to one level above dbus daemon executable 
-    to allow relative path in config files.
-  * bus/config-libxml.c:bus_config_load(): win32 only: setup working directory as parser base dir
+  * bus/main.c: win32 only: setup working directory 
+  * bus/config-libxml.c:bus_config_load(): win32 only: set working directory as parser base dir

@@ -888,52 +888,6 @@ Index: bus/main.c
    if (!_dbus_string_init (&config_file))
      return 1;
  
-Index: dbus/dbus-sysdeps-win.c
-===================================================================
---- dbus/dbus-sysdeps-win.c	(Revision 375)
-+++ dbus/dbus-sysdeps-win.c	(Arbeitskopie)
-@@ -79,7 +81,41 @@
- #endif
- static DBusHashTable *sid_atom_cache = NULL;
- 
-+#ifdef _WIN32
-+static DBusString dbusdir;
- 
-+int _dbus_init_working_dir(char *s)
-+{
-+	/* change working directory to one level above 
-+	   of dbus-daemon executable path.  
-+	   This allows the usage of relative path in 
-+	   config files or command line parameters */
-+  DBusString daemon_path,bin_path;
-+
-+  if (!_dbus_string_init (&daemon_path))
-+    return FALSE;
-+  
-+  if (!_dbus_string_init (&bin_path))
-+    return FALSE;
-+
-+  if (!_dbus_string_init (&dbusdir))
-+    return FALSE;
-+  
-+  _dbus_string_append(&daemon_path,s);
-+  _dbus_string_get_dirname(&daemon_path,&bin_path);
-+  _dbus_string_get_dirname(&bin_path,&dbusdir);
-+  chdir(_dbus_string_get_const_data(&dbusdir));
-+  _dbus_verbose ("Change working path to %s\n",_dbus_string_get_const_data (&dbusdir));
-+  return TRUE;
-+}
-+
-+DBusString *_dbus_get_working_dir(void)
-+{
-+ _dbus_verbose ("retrieving working path %s\n",_dbus_string_get_const_data (&dbusdir));
-+	return &dbusdir;
-+}
-+#endif
-+
- /**
-  * File interface
-  *
 Index: bus/config-loader-libxml.c
 ===================================================================
 --- bus/config-loader-libxml.c	(Revision 375)
@@ -959,20 +913,3 @@ Index: bus/config-loader-libxml.c
    if (parser == NULL)
      {
        _DBUS_SET_OOM (error);
-Index: cmake/CMakeLists.txt
-===================================================================
---- cmake/CMakeLists.txt        (Revision 375)
-+++ cmake/CMakeLists.txt        (Arbeitskopie)
-@@ -300,9 +300,9 @@
- if (WIN32)
-   set (DBUS_SESSION_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=12434")
-   set (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=12434")
--  set (DBUS_SERVICE_DIR "${EXPANDED_DATADIR}/dbus-1/services")
--  set (DBUS_SYSTEM_CONFIG_FILE "${EXPANDED_SYSCONFDIR}/system.conf")
--  set (DBUS_SESSION_CONFIG_FILE "${EXPANDED_SYSCONFDIR}/session.conf")
-+  set (DBUS_SERVICE_DIR "data/dbus-1/services")
-+  set (DBUS_SYSTEM_CONFIG_FILE "etc/system.conf")
-+  set (DBUS_SESSION_CONFIG_FILE "etc/session.conf")
-   # bus-test expects a non empty string
-   set (DBUS_USER "Administrator")
- else (WIN32)
