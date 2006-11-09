@@ -17,10 +17,17 @@ FOREACH(file ${config_DATA})
 	CONFIGURE_FILE( "${CMAKE_CURRENT_SOURCE_DIR}/${file}.cmake" "${CMAKE_CURRENT_BINARY_DIR}/${file}" IMMEDIATE @ONLY)
 ENDFOREACH(file)
 
-# config files for build dir configuration 
-FOREACH(file ${config_DATA})
-	CONFIGURE_FILE( "${CMAKE_CURRENT_SOURCE_DIR}/${file}.cmake" "${CMAKE_CURRENT_BINARY_DIR}/build-${file}" IMMEDIATE @ONLY)
-ENDFOREACH(file)
+# copy services for local daemon start to local service dir data/dbus-1/services
+SET (SERVICE_FILES test/data/valid-service-files)
+FILE(GLOB FILES "${CMAKE_SOURCE_DIR}/../${SERVICE_FILES}/*.service.in" )
+FOREACH(FILE ${FILES})	
+	GET_FILENAME_COMPONENT(FILENAME ${FILE} NAME_WE)
+	SET (TARGET ${CMAKE_BINARY_DIR}/data/dbus-1/services/${FILENAME}.service)
+	IF (CONFIG_VERBOSE)
+		MESSAGE("FROM: ${FILE}\nTO: ${TARGET}\n")
+	ENDIF (CONFIG_VERBOSE)
+	configure_file(${FILE} ${TARGET} )
+ENDFOREACH(FILE)
 
 if(DBUS_USE_EXPAT)
     SET (XML_SOURCES ${BUS_DIR}/config-loader-expat.c)
