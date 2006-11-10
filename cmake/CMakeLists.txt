@@ -252,16 +252,21 @@ set(TEST_SLEEP_FOREVER_BINARY
     CACHE STRING "Full path to test file test/test-sleep-forever in builddir")
 
 #### Find socket directories
-#if ! test -z "$TMPDIR" ; then
-#   DEFAULT_SOCKET_DIR=$TMPDIR
-#elif ! test -z "$TEMP" ; then
-#   DEFAULT_SOCKET_DIR=$TEMP
-#elif ! test -z "$TMP" ; then
-#   DEFAULT_SOCKET_DIR=$TMP
-#else
-#   DEFAULT_SOCKET_DIR=/tmp
-#fi
-set (DBUS_SESSION_SOCKET_DIR /tmp)
+if (NOT WIN32)
+    if (NOT $ENV{TMPDIR} STREQUAL "")
+        set (DBUS_SESSION_SOCKET_DIR $ENV{TMPDIR})
+    else (NOT $ENV{TMPDIR} STREQUAL "")
+        if (NOT $ENV{TEMP} STREQUAL "")
+            set (DBUS_SESSION_SOCKET_DIR $ENV{TEMP})
+        else (NOT $ENV{TEMP} STREQUAL "")
+            if (NOT $ENV{TMP} STREQUAL "")
+                set (DBUS_SESSION_SOCKET_DIR $ENV{TMP})
+            else (NOT $ENV{TMP} STREQUAL "")
+                set (DBUS_SESSION_SOCKET_DIR /tmp)
+            endif (NOT $ENV{TMP} STREQUAL "")
+        endif (NOT $ENV{TEMP} STREQUAL "")
+    endif (NOT $ENV{TMPDIR} STREQUAL "")
+endif (NOT WIN32)
 
 #AC_ARG_WITH(test-socket-dir, AS_HELP_STRING([--with-test-socket-dir=[dirname]],[Where to put sockets for make check]))
 
