@@ -35,6 +35,7 @@
 #include "dbus-protocol.h"
 #include "dbus-hash.h"
 #include "dbus-sockets-win.h"
+#include "dbus-userdb.h"
 
 #include <stdlib.h>
 #include <string.h>
@@ -4814,6 +4815,94 @@ _dbus_make_file_world_readable(const DBusString *filename,
 {
   // TODO
   return TRUE;
+}
+
+
+/**
+ * Returns the standard directories for a session bus to look for service 
+ * activation files 
+ *
+ * On UNIX this should be the standard xdg freedesktop.org data directories:
+ *
+ * XDG_DATA_HOME=${XDG_DATA_HOME-$HOME/.local/share}
+ * XDG_DATA_DIRS=${XDG_DATA_DIRS-/usr/local/share:/usr/share}
+ *
+ * and
+ *
+ * DBUS_DATADIR
+ *
+ * @param dirs the directory list we are returning
+ * @returns #FALSE on OOM 
+ */
+
+dbus_bool_t 
+_dbus_get_standard_session_servicedirs (DBusList **dirs)
+{
+  const char *xdg_data_home;
+  const char *xdg_data_dirs;
+  DBusString servicedir_path;
+
+  if (!_dbus_string_init (&servicedir_path))
+    return FALSE;
+
+  xdg_data_home = _dbus_getenv ("XDG_DATA_HOME");
+  xdg_data_dirs = _dbus_getenv ("XDG_DATA_DIRS");
+
+  if (xdg_data_dirs != NULL)
+    {
+      if (!_dbus_string_append (&servicedir_path, xdg_data_dirs))
+        goto oom;
+
+      if (!_dbus_string_append (&servicedir_path, ":"))
+        goto oom;
+    }
+  else
+    {
+      if (!_dbus_string_append (&servicedir_path, "/usr/local/share:/usr/share:"))
+        goto oom;
+    }
+
+  /* 
+   * add configured datadir to defaults
+   * this may be the same as an xdg dir
+   * however the config parser should take 
+   * care of duplicates 
+   */
+  if (!_dbus_string_append (&servicedir_path, DBUS_DATADIR":"))
+        goto oom;
+
+  if (xdg_data_home != NULL)
+    {
+      if (!_dbus_string_append (&servicedir_path, xdg_data_home))
+        goto oom;
+    }
+  else
+    {
+      const DBusString *homedir;
+      const DBusString local_share;
+
+      if (!_dbus_homedir_from_current_process (&homedir))
+        goto oom;
+       
+      if (!_dbus_string_append (&servicedir_path, _dbus_string_get_const_data (homedir)))
+        goto oom;
+
+      _dbus_string_init_const (&local_share, "/.local/share");
+      if (!_dbus_concat_dir_and_file (&servicedir_path, &local_share))
+        goto oom;
+    }
+/*	
+  if (!split_paths_and_append (&servicedir_path, 
+                               DBUS_UNIX_STANDARD_SESSION_SERVICEDIR, 
+                               dirs))*/
+    goto oom;
+
+  _dbus_string_free (&servicedir_path);  
+  return TRUE;
+
+ oom:
+  _dbus_string_free (&servicedir_path);
+  return FALSE;
 }
 
 
