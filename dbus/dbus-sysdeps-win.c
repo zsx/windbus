@@ -36,6 +36,7 @@
 #include "dbus-hash.h"
 #include "dbus-sockets-win.h"
 #include "dbus-userdb.h"
+#include "dbus-list.h"
 
 #include <stdlib.h>
 #include <string.h>
