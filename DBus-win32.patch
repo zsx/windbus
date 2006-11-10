@@ -932,7 +932,7 @@ Index: tools/dbus-monitor.c
  #include <time.h>
  
  #include <signal.h>
-@@ -276,3 +283,20 @@
+@@ -276,3 +283,21 @@
    exit (1);
  }
  
@@ -953,7 +953,7 @@ Index: tools/dbus-monitor.c
 +	return (0); 
 +}
 +#endif
-\ No newline at end of file
++
 Index: tools/dbus-send.c
 ===================================================================
 --- tools/dbus-send.c	(revision 381)
