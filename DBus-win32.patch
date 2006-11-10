@@ -252,35 +252,39 @@ Index: bus/config-parser.c
           "/testusr/testshare/dbus-1/services",
           DBUS_DATADIR"/dbus-1/services",
 -         "/testhome/foo/.testlocal/testshare/dbus-1/services",         
-+         "/testhome/foo/.testlocal/testshare/dbus-1/services",        
-+#endif          
++#endif 
++         "/testhome/foo/.testlocal/testshare/dbus-1/services",                 
           NULL
          };
  
-@@ -3078,11 +3082,29 @@
+@@ -3078,11 +3082,33 @@
  {
    DBusList *dirs;
    DBusList *link;
 +  const char *common_progs;
    int i;
  
-+       common_progs = _dbus_getenv ("CommonProgramFiles");
-+       if (common_progs) {
-+               DBusString progs;
-+         if (!_dbus_string_init (&progs))
-+      return FALSE;
++  common_progs = _dbus_getenv ("CommonProgramFiles");
++  if (common_progs) 
++    {
++      DBusString progs;
++      if (!_dbus_string_init (&progs))
++        return FALSE;
 +
-+    if (!_dbus_string_append (&progs, common_progs)) {
-+      _dbus_string_free (&progs);
-+      return FALSE;
-+    }
++      if (!_dbus_string_append (&progs, common_progs)) 
++	    {
++          _dbus_string_free (&progs);
++          return FALSE;
++        }
 +
-+    if (!_dbus_string_append (&progs, "/dbus-1/services")) {
-+      _dbus_string_free (&progs);
-+      return FALSE;
++      if (!_dbus_string_append (&progs, "/dbus-1/services")) 
++	    {
++          _dbus_string_free (&progs);
++          return FALSE;
++        }
++      test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
++	  _dbus_string_free (&progs);
 +    }
-+               test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
-+  }
    dirs = NULL;
  
 -  printf ("Testing retriving the default session service directories\n");
@@ -288,7 +292,7 @@ Index: bus/config-parser.c
    if (!_dbus_get_standard_session_servicedirs (&dirs))
      _dbus_assert_not_reached ("couldn't get stardard dirs");
  
-@@ -3093,7 +3115,7 @@
+@@ -3093,7 +3119,7 @@
        
        printf ("    default service dir: %s\n", (char *)link->data);
        _dbus_string_init_const (&path, (char *)link->data);
