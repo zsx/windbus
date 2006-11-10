@@ -120,13 +120,33 @@ Index: bus/config-loader-libxml.c
 ===================================================================
 --- bus/config-loader-libxml.c	(revision 381)
 +++ bus/config-loader-libxml.c	(working copy)
-@@ -177,13 +177,19 @@
+@@ -134,6 +134,9 @@
+     }
+ }
+ 
++#ifdef DBUS_WIN
++  DBusString *_dbus_get_working_dir(void);
++#endif
+ 
+ BusConfigParser*
+ bus_config_load (const DBusString      *file,
+@@ -147,7 +150,9 @@
+   DBusString dirname, data;
+   DBusError tmp_error;
+   int ret;
+-  
++#ifdef DBUS_WIN
++	DBusString *dbusdir;
++#endif
+   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+   
+   parser = NULL;
+@@ -177,13 +182,18 @@
        xmlSetGenericErrorFunc (NULL, xml_shut_up);
      }
  
-+#ifdef _WIN32
-+	DBusString *_dbus_get_working_dir(void);
-+	DBusString *dbusdir = _dbus_get_working_dir();
++#ifdef DBUS_WIN
++  dbusdir = _dbus_get_working_dir();
 +  parser = bus_config_parser_new (dbusdir, is_toplevel, parent);
 +#else
    if (!_dbus_string_get_dirname (file, &dirname))
@@ -893,7 +913,7 @@ Index: tools/dbus-monitor.c
 ===================================================================
 --- tools/dbus-monitor.c	(revision 381)
 +++ tools/dbus-monitor.c	(working copy)
-@@ -19,6 +19,7 @@
+@@ -19,11 +19,18 @@
   *
   */
  
@@ -901,6 +921,39 @@ Index: tools/dbus-monitor.c
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
+ 
++#ifdef DBUS_WIN
++#include <winsock2.h>
++#undef interface
++int gettimeofday(struct timeval *__p, void *__t);
++#else
+ #include <sys/time.h>
++#endif
+ #include <time.h>
+ 
+ #include <signal.h>
+@@ -276,3 +283,20 @@
+   exit (1);
+ }
+ 
++#ifdef DBUS_WIN
++#define KDE_SECONDS_SINCE_1601	11644473600LL
++#define KDE_USEC_IN_SEC			1000000LL
++int gettimeofday(struct timeval *__p, void *__t)
++{
++	union {
++		unsigned long long ns100; /*time since 1 Jan 1601 in 100ns units */
++		FILETIME ft;
++	} now;
++	
++	GetSystemTimeAsFileTime (&now.ft);
++	__p->tv_usec = (long) ((now.ns100 / 10LL) % KDE_USEC_IN_SEC);
++	__p->tv_sec  = (long)(((now.ns100 / 10LL ) / KDE_USEC_IN_SEC) - KDE_SECONDS_SINCE_1601);
++	
++	return (0); 
++}
++#endif
+\ No newline at end of file
 Index: tools/dbus-send.c
 ===================================================================
 --- tools/dbus-send.c	(revision 381)
