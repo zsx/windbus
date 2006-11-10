@@ -14,7 +14,7 @@ add_subdirectory( name-test )
 #SUBDIRS=name-test $(GLIB_SUBDIR) $(PYTHON_SUBDIR) $(QT_SUBDIR)
 #DIST_SUBDIRS=glib python qt name-test
 
-#INCLUDES=-I$(top_srcdir) $(DBUS_TEST_CFLAGS) 
+#INCLUDES=-I$(top_srcdir) $(DBUS_test-CFLAGS) 
 
 include_directories( ${CMAKE_SOURCE_DIR}/.. )
 include_directories( ${CMAKE_INCLUDE_PATH} )
@@ -23,17 +23,17 @@ if (WIN32)
 add_definitions(-Dsleep=_sleep)
 endif (WIN32)
 
-set (TEST_SERVICE_DIR "${CMAKE_BINARY_DIR}/test/data/valid-service-files")
-set (TEST_SOCKET_DIR "/")
+set (test-SERVICE_DIR "${CMAKE_BINARY_DIR}/test/data/valid-service-files")
+set (test-SOCKET_DIR "/")
 
 #if (DBUS_BUILD_TESTS)
 ## break-loader removed for now
-#TEST_BINARIES=test-service test-names test-shell-service shell-test spawn-test test-segfault test-exit test-sleep-forever
+#test-BINARIES=test-service test-names test-shell-service shell-test spawn-test test-segfault test-exit test-sleep-forever
 
 #enable stand alone make check test
 #TESTS=shell-test
 #else
-#TEST_BINARIES=
+#test-BINARIES=
 #TESTS=
 #endif
 
@@ -43,13 +43,13 @@ set (TEST_SOCKET_DIR "/")
 #GCOV_BINARIES=
 #endif
 
-set (test_service_SOURCES
+set (test-service_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-service.c				
 	${CMAKE_SOURCE_DIR}/../test/test-utils.c				
 	${CMAKE_SOURCE_DIR}/../test/test-utils.h
 )
 
-set (test_names_SOURCES
+set (test-names_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-names.c				
 	${CMAKE_SOURCE_DIR}/../test/test-utils.c				
 	${CMAKE_SOURCE_DIR}/../test/test-utils.h
@@ -59,29 +59,29 @@ set (break_loader_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/break-loader.c
 )
 
-set (test_shell_service_SOURCES
+set (test-shell-service_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-shell-service.c			
 	${CMAKE_SOURCE_DIR}/../test/test-utils.c				
 	${CMAKE_SOURCE_DIR}/../test/test-utils.h
 )
 
-set (test_shell_SOURCES
+set (test-shell_SOURCES
         ${CMAKE_SOURCE_DIR}/../test/shell-test.c
 )
 
-set (test_spawn_SOURCES
+set (test-spawn_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/spawn-test.c
 )
 
-set (test_exit_SOURCES
+set (test-exit_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-exit.c
 )
 
-set (test_segfault_SOURCES
+set (test-segfault_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-segfault.c
 )
 
-set (test_sleep_forever_SOURCES
+set (test-sleep-forever_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/test-sleep-forever.c
 )
 
@@ -89,53 +89,52 @@ set (decode_gcov_SOURCES
 	${CMAKE_SOURCE_DIR}/../test/decode-gcov.c
 )
 
-add_executable(test_service ${test_service_SOURCES})
-target_link_libraries(test_service dbus-1)
-install_targets(/bin test_service)
+add_executable(test-service ${test-service_SOURCES})
+target_link_libraries(test-service dbus-1)
+install_targets(/bin test-service)
 
 # (rh) does not work at now
-ADD_TEST(test_service ${EXECUTABLE_OUTPUT_PATH}/test_service)
+ADD_TEST(test-service ${EXECUTABLE_OUTPUT_PATH}/test-service${EXT})
 
-set (TEST_SERVICE_BINARY ${EXPANDED_BINDIR}/test_service.exe)
-set (TEST_SEGFAULT_BINARY ${EXPANDED_BINDIR}/test_segfault.exe)
 
-add_executable(test_names ${test_names_SOURCES})
-target_link_libraries(test_names dbus-1)
-install_targets(/bin test_names)
-ADD_TEST(test_names ${EXECUTABLE_OUTPUT_PATH}/test_names)
 
-add_executable(test_shell ${test_shell_SOURCES})
-target_link_libraries(test_shell dbus-1)
-install_targets(/bin test_shell)
-ADD_TEST(test_shell ${EXECUTABLE_OUTPUT_PATH}/test_shell)
+add_executable(test-names ${test-names_SOURCES})
+target_link_libraries(test-names dbus-1)
+install_targets(/bin test-names)
+ADD_TEST(test-names ${EXECUTABLE_OUTPUT_PATH}/test-names${EXT})
 
-add_executable(test_shell_service ${test_shell_SOURCES})
-target_link_libraries(test_shell_service dbus-1)
-install_targets(/bin test_shell_service)
-ADD_TEST(test_shell_service ${EXECUTABLE_OUTPUT_PATH}/test_shell_service)
+add_executable(test-shell ${test-shell_SOURCES})
+target_link_libraries(test-shell dbus-1)
+install_targets(/bin test-shell)
+ADD_TEST(test-shell ${EXECUTABLE_OUTPUT_PATH}/test-shell${EXT})
 
-add_executable(test_spawn ${test_spawn_SOURCES})
-target_link_libraries(test_spawn dbus-1)
+add_executable(test-shell-service ${test-shell_SOURCES})
+target_link_libraries(test-shell-service dbus-1)
+install_targets(/bin test-shell-service)
+ADD_TEST(test-shell-service ${EXECUTABLE_OUTPUT_PATH}/test-shell-service${EXT})
+
+add_executable(test-spawn ${test-spawn_SOURCES})
+target_link_libraries(test-spawn dbus-1)
 # (rh) does not work now
-#ADD_TEST(test_spawn ${EXECUTABLE_OUTPUT_PATH}/test_spawn)
+#ADD_TEST(test-spawn ${EXECUTABLE_OUTPUT_PATH}/test-spawn${EXT})
 
-add_executable(test_exit ${test_exit_SOURCES})
-target_link_libraries(test_exit dbus-1)
-install_targets(/bin test_exit)
-ADD_TEST(test_exit ${EXECUTABLE_OUTPUT_PATH}/test_exit)
+add_executable(test-exit ${test-exit_SOURCES})
+target_link_libraries(test-exit dbus-1)
+install_targets(/bin test-exit)
+ADD_TEST(test-exit ${EXECUTABLE_OUTPUT_PATH}/test-exit${EXT})
 
-add_executable(test_segfault ${test_segfault_SOURCES})
-target_link_libraries(test_segfault dbus-1)
-install_targets(/bin test_segfault)
-ADD_TEST(test_segfault ${EXECUTABLE_OUTPUT_PATH}/test_segfault)
+add_executable(test-segfault ${test-segfault_SOURCES})
+target_link_libraries(test-segfault dbus-1)
+install_targets(/bin test-segfault)
+ADD_TEST(test-segfault ${EXECUTABLE_OUTPUT_PATH}/test-segfault${EXT})
 
-add_executable(test_sleep_forever ${test_sleep_forever_SOURCES})
-target_link_libraries(test_sleep_forever dbus-1)
+add_executable(test-sleep-forever ${test-sleep-forever_SOURCES})
+target_link_libraries(test-sleep-forever dbus-1)
 # (rh) don't know for what this test is good 
-#ADD_TEST(test_sleep_forever ${EXECUTABLE_OUTPUT_PATH}/test_sleep_forever)
+#ADD_TEST(test-sleep-forever ${EXECUTABLE_OUTPUT_PATH}/test-sleep-forever${EXT})
 
-#add_executable(decode_gcov ${decode_gcov_SOURCES})
-#target_link_libraries(decode_gcov dbus-1)
+#add_executable(decode-gcov ${decode_gcov_SOURCES})
+#target_link_libraries(decode-gcov dbus-1)
 
 #EXTRA_DIST=
 #
