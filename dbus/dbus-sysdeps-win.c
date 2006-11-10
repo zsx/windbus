@@ -4692,6 +4692,12 @@ _dbus_generate_random_bytes (DBusString *str,
 
 #define DPRINTF _dbus_warn
 
+#ifdef _MSC_VER
+#define BOOL int
+
+#define __i386__
+#endif
+
 //#define MAKE_FUNCPTR(f) static typeof(f) * p##f
 
 //MAKE_FUNCPTR(StackWalk);
@@ -4700,7 +4706,7 @@ _dbus_generate_random_bytes (DBusString *str,
 //MAKE_FUNCPTR(SymInitialize);
 //MAKE_FUNCPTR(SymGetSymFromAddr);
 //MAKE_FUNCPTR(SymGetModuleInfo);
-static BOOL WINAPI (*pStackWalk)(
+static BOOL (WINAPI *pStackWalk)(
   DWORD MachineType,
   HANDLE hProcess,
   HANDLE hThread,
@@ -4711,31 +4717,31 @@ static BOOL WINAPI (*pStackWalk)(
   PGET_MODULE_BASE_ROUTINE GetModuleBaseRoutine,
   PTRANSLATE_ADDRESS_ROUTINE TranslateAddress
 );
-static DWORD WINAPI (*pSymGetModuleBase)(
+static DWORD (WINAPI *pSymGetModuleBase)(
   HANDLE hProcess,
   DWORD dwAddr
 );
-static PVOID WINAPI (*pSymFunctionTableAccess)(
+static PVOID  (WINAPI *pSymFunctionTableAccess)(
   HANDLE hProcess,
   DWORD AddrBase
 );
-static BOOL WINAPI (*pSymInitialize)(
+static BOOL  (WINAPI *pSymInitialize)(
   HANDLE hProcess,
   PSTR UserSearchPath,
   BOOL fInvadeProcess
 );
-static BOOL WINAPI (*pSymGetSymFromAddr)(
+static BOOL  (WINAPI *pSymGetSymFromAddr)(
   HANDLE hProcess,
   DWORD Address,
   PDWORD Displacement,
   PIMAGEHLP_SYMBOL Symbol
 );
-static BOOL WINAPI (*pSymGetModuleInfo)(
+static BOOL  (WINAPI *pSymGetModuleInfo)(
   HANDLE hProcess,
   DWORD dwAddr,
   PIMAGEHLP_MODULE ModuleInfo
 );
-static DWORD WINAPI (*pSymSetOptions)(
+static DWORD  (WINAPI *pSymSetOptions)(
   DWORD SymOptions
 );
 
@@ -4762,7 +4768,7 @@ static BOOL init_backtrace()
 
 #define FUNC(x) #x
 
-      pStackWalk = (BOOL WINAPI (*)(
+      pStackWalk = (BOOL  (WINAPI *)(
 DWORD MachineType,
 HANDLE hProcess,
 HANDLE hThread,
@@ -4773,31 +4779,31 @@ PFUNCTION_TABLE_ACCESS_ROUTINE FunctionTableAccessRoutine,
 PGET_MODULE_BASE_ROUTINE GetModuleBaseRoutine,
 PTRANSLATE_ADDRESS_ROUTINE TranslateAddress
 ))GetProcAddress (hmodDbgHelp, FUNC(StackWalk));
-    pSymGetModuleBase=(DWORD WINAPI (*)(
+    pSymGetModuleBase=(DWORD  (WINAPI *)(
   HANDLE hProcess,
   DWORD dwAddr
 ))GetProcAddress (hmodDbgHelp, FUNC(SymGetModuleBase));
-    pSymFunctionTableAccess=(PVOID WINAPI (*)(
+    pSymFunctionTableAccess=(PVOID  (WINAPI *)(
   HANDLE hProcess,
   DWORD AddrBase
 ))GetProcAddress (hmodDbgHelp, FUNC(SymFunctionTableAccess));
-    pSymInitialize = (BOOL WINAPI (*)(
+    pSymInitialize = (BOOL  (WINAPI *)(
   HANDLE hProcess,
   PSTR UserSearchPath,
   BOOL fInvadeProcess
 ))GetProcAddress (hmodDbgHelp, FUNC(SymInitialize));
-    pSymGetSymFromAddr = (BOOL WINAPI (*)(
+    pSymGetSymFromAddr = (BOOL  (WINAPI *)(
   HANDLE hProcess,
   DWORD Address,
   PDWORD Displacement,
   PIMAGEHLP_SYMBOL Symbol
 ))GetProcAddress (hmodDbgHelp, FUNC(SymGetSymFromAddr));
-    pSymGetModuleInfo = (BOOL WINAPI (*)(
+    pSymGetModuleInfo = (BOOL  (WINAPI *)(
   HANDLE hProcess,
   DWORD dwAddr,
   PIMAGEHLP_MODULE ModuleInfo
 ))GetProcAddress (hmodDbgHelp, FUNC(SymGetModuleInfo));
-pSymSetOptions = (DWORD WINAPI (*)(
+pSymSetOptions = (DWORD  (WINAPI *)(
 DWORD SymOptions
 ))GetProcAddress (hmodDbgHelp, FUNC(SymSetOptions));
 
