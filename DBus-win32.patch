@@ -966,3 +966,29 @@ Index: tools/dbus-send.c
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
+Index: dbus/dbus-bus.c
+===================================================================
+--- dbus/dbus-bus.c     (Revision 389)
++++ dbus/dbus-bus.c     (Arbeitskopie)
+@@ -350,7 +350,10 @@
+ {
+   int i;
+
++#ifndef DBUS_WIN
++       // qt example pong says "QMutex::lock: Deadlock detected"
+   _DBUS_LOCK (bus);
++#endif
+
+   /* We are expecting to have the connection saved in only one of these
+    * slots, but someone could in a pathological case set system and session
+@@ -365,8 +368,9 @@
+           bus_connections[i] = NULL;
+         }
+     }
+-
++#ifndef DBUS_WIN
+   _DBUS_UNLOCK (bus);
++#endif
+ }
+
+ static DBusConnection *
