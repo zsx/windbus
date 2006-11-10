@@ -1,3 +1,180 @@
+2006-11-09  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Released 1.0.0
+
+2006-11-09  John (J5) Palmieri  <johnp@redhat.com>
+
+	* AUTHORS: added Peter and Tor of windows porting fame
+
+2006-11-08  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.xml: add a note about protocol stability
+
+	* doc/TODO: Remove "important for 1.0" section, replace with
+	"important for 1.2" section
+	
+2006-11-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* README: remove some of the out of date flags
+
+	* doc/TODO: Remove todo items which are done
+
+2006-11-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/dbus-monitor.c: Handle sigint so we flush stdout
+	(Patch from Olli Salli <olli dot salli at collabora dot co dot uk>)
+
+2006-11-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/dbus-monitor.1: update the manpage for dbus-monitor
+	(Patch from Olli Salli <olli dot salli at collabora dot co dot uk>)
+
+2006-11-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* AUTHORS: Update with all people listed in the ChangeLog
+
+2006-11-08  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/dbus-monitor.c: add profiling tools to dbus-monitor
+	(Patch from Olli Salli <olli dot salli at collabora dot co dot uk>)
+
+2006-11-07  Havoc Pennington  <hp@redhat.com>
+
+	* HACKING: Update release instructions to include stuff about
+	stable releases, branching, etc. May not be totally correct,
+	please fix if needed, but keep instructions up-to-date so we do
+	each stable release consistently in the future.
+
+2006-11-07  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-specification.xml, doc/dbus-faq.xml, README: various
+	documentation updates. Bump faq/spec versions (not to 1.0; I don't
+	think the spec will be "finished"/1.0 when we ship the 1.0 library).
+
+2006-11-06  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/bus.c: Missed patch - pass in the context to the directory watch
+
+2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
+
+	* Released D-Bus 1.0 RC 3(0.95)
+
+2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/activation.c (bus_activation_new): don't fail if we can not read
+	the directory as it may not exist
+
+2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/config-parser.c (service_dirs_find_dir): use 
+	_dbus_list_get_next_link so we don't get stuck in an infinite loop
+	(start_busconfig_child): move processing of standard_session_servicedirs
+	tags here because they have no content
+	(bus_config_parser_content): check we don't have content in 
+	standard_session_servicedirs tag
+
+2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/Makefile.am: Make sure the /var/lib/dbus directory is created
+	Packagers need to own this directory
+
+2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
+
+	* tools/run-with-tmp-session-bus.sh: fixed script to replace the 
+	<standard_session_servicedirs> tag with a <sevicedir> tag that
+	points to the test service directory
+
+2006-11-02  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: Add a check for DIR *dirp->dd_fd
+
+	* dbus/dbus-sysdeps-util-unix: if HAVE_DDFD is defined use 
+	DIR *dirp->dd_fd else use DIR *dirp->__dd_fd.  This takes care
+	of both Solaris and Irix
+
+2006-11-01  Havoc Pennington  <hp@redhat.com>
+
+	* bus/dbus-daemon.1.in: document standard_session_servicedirs
+
+2006-11-01  John (J5) Palmieri  <johnp@redhat.com>
+
+	* configure.in: expose DBUS_DATADIR
+	
+	* bus/config-parser.c: add the standard_session_servicedirs element
+	to the parser
+	(bus_config_parser_content): process the standard_session_servicedirs
+	element by getting the standard directories from sysdeps and merging
+	them into the service directory list
+	(test_default_session_servicedirs): make sure we get what we expect
+
+	* bus/session.conf.in: replace the servicedir tag with the 
+	standard_session_servicedirs tag
+
+	* dbus/dbus-list.h: remove the typedef of DBusList and place it in
+	dbus-sysdeps.h to avoid circular header dependencies
+
+	* dbus/dbus-sysdeps.h: add the typedef of DBusList
+
+	* dbus/dbus-sysdeps-unix.c (split_paths_and_append): utility function
+	which takes a string of directories delimited by colons, parses them 
+	out, appends a suffix and puts them in a list ignoring empty elements
+	(_dbus_get_standard_session_servicedirs): returns the standard 
+	directories for a session bus to look for service activation files
+	on Unix which includes the XDG_DATA_HOME, XDG_DATA_DIRS and 
+	DBUS_DATADIR directories
+
+	* test/data/valid-config-files/many-rules.conf: add the 
+	standard_session_servicedirs tag to the valid config file tests
+
+2006-10-30  Havoc Pennington  <hp@redhat.com>
+
+	* tools/dbus-launch.1, doc/TODO: capture intent to change the
+	command line options of dbus-launch a bit post 1.0
+
+2006-10-27  Havoc Pennington  <hp@redhat.com>
+	
+	* dbus/dbus-connection.c (dbus_connection_open_private): document
+	how to choose shared vs. private connections
+
+2006-10-27  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-test.c: enclose more of the file in the
+	DBUS_BUILD_TESTS check.
+
+	* dbus/dbus-sysdeps-pthread.c (PTHREAD_CHECK): fix for
+	DBUS_DISABLE_ASSERT case.
+
+	* dbus/dbus-connection.c (dbus_connection_get_unix_user): document
+	that it only works on the server side
+
+	* dbus/dbus-bus.c: add a global lock covering the BusData we
+	attach to each connection
+	(internal_bus_get): lock our access to the BusData
+	(dbus_bus_register): lock the entire registration process
+	with _DBUS_LOCK(bus_datas). If we get the lock and 
+	registration is already complete, silently return (vs. previous
+	behavior of aborting).
+	(dbus_bus_set_unique_name): lock the BusData
+	(dbus_bus_get_unique_name): lock the BusData
+
+2006-10-27  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/config-parser.c (service_dirs_find_dir, 
+	service_dirs_append_unique_or_free, 
+	service_dirs_append_link_unique_or_free): New static methods
+	for only appending unique service directory names into
+	the service directory list
+	(merge_included, bus_config_parser_content): Only add unique
+	service directory names into the list
+
+2006-10-27  Havoc Pennington  <hp@redhat.com>
+
+	* dbus/dbus-sysdeps-pthread.c: make the "count" and "holder"
+	variables volatile, suggested by Thiago. Document struct fields.
+	(PTHREAD_CHECK): remove pthread error checking if assertions are
+	disabled, should reduce the no-assertions case to the bare
+	minimum code.
+
 2006-10-26  Havoc Pennington  <hp@redhat.com>
 	
 	* dbus/dbus-sysdeps-pthread.c (_dbus_pthread_mutex_lock): change

@@ -2381,6 +2381,11 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
  * Because this connection is shared, no user of the connection
  * may call dbus_connection_close(). However, when you are done with the
  * connection you should call dbus_connection_unref().
+ *
+ * @note Prefer dbus_connection_open() to dbus_connection_open_private()
+ * unless you have good reason; connections are expensive enough
+ * that it's wasteful to create lots of connections to the same
+ * server.
  * 
  * @param address the address.
  * @param error address where an error can be returned.
@@ -2419,7 +2424,12 @@ dbus_connection_open (const char     *address,
  * (The dbus_connection_close() can be skipped if the
  * connection is already known to be disconnected, for example
  * if you are inside a handler for the Disconnected signal.)
- * 
+ *
+ * @note Prefer dbus_connection_open() to dbus_connection_open_private()
+ * unless you have good reason; connections are expensive enough
+ * that it's wasteful to create lots of connections to the same
+ * server.
+ *
  * @param address the address.
  * @param error address where an error can be returned.
  * @returns new connection, or #NULL on failure.
@@ -4752,11 +4762,20 @@ dbus_connection_get_socket(DBusConnection              *connection,
 
 
 /**
- * Gets the UNIX user ID of the connection if any.
- * Returns #TRUE if the uid is filled in.
- * Always returns #FALSE on non-UNIX platforms.
- * Always returns #FALSE prior to authenticating the
- * connection.
+ * Gets the UNIX user ID of the connection if known.  Returns #TRUE if
+ * the uid is filled in.  Always returns #FALSE on non-UNIX platforms.
+ * Always returns #FALSE prior to authenticating the connection.
+ *
+ * The UID is only read by servers from clients; clients can't usually
+ * get the UID of servers, because servers do not authenticate to
+ * clients.  The returned UID is the UID the connection authenticated
+ * as.
+ *
+ * The message bus is a server and the apps connecting to the bus
+ * are clients.
+ *
+ * You can ask the bus to tell you the UID of another connection though
+ * if you like; this is done with dbus_bus_get_unix_user().
  *
  * @param connection the connection
  * @param uid return location for the user ID

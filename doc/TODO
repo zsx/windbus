@@ -1,12 +1,9 @@
-Important for 1.0
+Important for 1.2
 ===
 
- - update AUTHORS
+ - System bus activation
 
- - the README, FAQ, and probably other places talk about 1.0 and ABI guarantees,
-   all these places need updating
-
- - the spec should say "the protocol will not be changed incompatibly after Month DD, YYYY"
+ - Windows port
 
 Important for 1.0 GLib Bindings
 ===
@@ -40,6 +37,11 @@ Might as Well for 1.0
 
 Can Be Post 1.0
 ===
+
+ - revamp dbus-launch a bit,
+   see http://lists.freedesktop.org/archives/dbus/2006-October/005906.html
+   for some thoughts.
+
  - clean up the creds issue on *BSD's in dbus/dbus-sysdeps-unix.c.
    They should work as is but we need to rearange it to make it
    clearer which method is being used.  configure.in should
