@@ -4818,15 +4818,139 @@ _dbus_make_file_world_readable(const DBusString *filename,
 }
 
 
+#define DBUS_STANDARD_SESSION_SERVICEDIR "/dbus-1/services"
+
+// @TODO: this function is duplicated from dbus-sysdeps-unix.c
+//        and differs only in the path separator, may be we should 
+//        use a dbus path separator variable
+
+#define _dbus_path_seperator ";"
+
+static dbus_bool_t
+split_paths_and_append (DBusString *dirs, 
+                        const char *suffix, 
+                        DBusList **dir_list)
+{
+   int start;
+   int i;
+   int len;
+   char *cpath;
+   const DBusString file_suffix;
+
+   start = 0;
+   i = 0;
+
+   _dbus_string_init_const (&file_suffix, suffix);
+
+   len = _dbus_string_get_length (dirs);
+
+   while (_dbus_string_find (dirs, start, _dbus_path_seperator, &i))
+     {
+       DBusString path;
+
+       if (!_dbus_string_init (&path))
+          goto oom;
+
+       if (!_dbus_string_copy_len (dirs,
+                                   start,
+                                   i - start,
+                                   &path,
+                                   0))
+          {
+            _dbus_string_free (&path);
+            goto oom;
+          }
+
+        _dbus_string_chop_white (&path);
+
+        /* check for an empty path */
+        if (_dbus_string_get_length (&path) == 0)
+          goto next;
+
+        if (!_dbus_concat_dir_and_file (&path,
+                                        &file_suffix))
+          {
+            _dbus_string_free (&path);
+            goto oom;
+          }
+
+        if (!_dbus_string_copy_data(&path, &cpath))
+          {
+            _dbus_string_free (&path);
+            goto oom;
+          }
+
+        if (!_dbus_list_append (dir_list, cpath))
+          {
+            _dbus_string_free (&path);              
+            dbus_free (cpath);
+            goto oom;
+          }
+
+       next:
+        _dbus_string_free (&path);
+        start = i + 1;
+    } 
+      
+  if (start != len)
+    { 
+      DBusString path;
+
+      if (!_dbus_string_init (&path))
+        goto oom;
+
+      if (!_dbus_string_copy_len (dirs,
+                                  start,
+                                  len - start,
+                                  &path,
+                                  0))
+        {
+          _dbus_string_free (&path);
+          goto oom;
+        }
+
+      if (!_dbus_concat_dir_and_file (&path,
+                                      &file_suffix))
+        {
+          _dbus_string_free (&path);
+          goto oom;
+        }
+
+      if (!_dbus_string_copy_data(&path, &cpath))
+        {
+          _dbus_string_free (&path);
+          goto oom;
+        }
+
+      if (!_dbus_list_append (dir_list, cpath))
+        {
+          _dbus_string_free (&path);              
+          dbus_free (cpath);
+          goto oom;
+        }
+
+      _dbus_string_free (&path); 
+    }
+
+  return TRUE;
+
+ oom:
+  _dbus_list_foreach (dir_list, (DBusForeachFunction)dbus_free, NULL); 
+  _dbus_list_clear (dir_list);
+  return FALSE;
+}
+
 /**
  * Returns the standard directories for a session bus to look for service 
  * activation files 
  *
- * On WINDOWS this is 
+ * On Windows this should be data directories:
  *
- * DBUS_DATADIR "/dbus-1/services"
+ * %CommonProgramFiles%/dbus
  *
- * and the users home dir
+ * and
+ *
+ * DBUS_DATADIR
  *
  * @param dirs the directory list we are returning
  * @returns #FALSE on OOM 
@@ -4835,29 +4959,31 @@ _dbus_make_file_world_readable(const DBusString *filename,
 dbus_bool_t 
 _dbus_get_standard_session_servicedirs (DBusList **dirs)
 {
+  const char *common_progs;
   DBusString servicedir_path;
 
   if (!_dbus_string_init (&servicedir_path))
     return FALSE;
 
-  /* 
-   * add configured datadir to defaults
-   * this may be the same as an xdg dir
-   * however the config parser should take 
-   * care of duplicates 
-   */
-  if (!_dbus_string_append (&servicedir_path, DBUS_DATADIR"/dbus-1/services;"))
+  if (!_dbus_string_append (&servicedir_path, DBUS_DATADIR";"))
         goto oom;
 
-	{
-    const DBusString *homedir;
+  common_progs = _dbus_getenv ("CommonProgramFiles");
 
-    if (!_dbus_homedir_from_current_process (&homedir))
-      goto oom;
-     
-    if (!_dbus_string_append (&servicedir_path, _dbus_string_get_const_data (homedir)))
-      goto oom;
-	}
+  if (common_progs != NULL)
+    {
+      if (!_dbus_string_append (&servicedir_path, common_progs))
+        goto oom;
+
+      if (!_dbus_string_append (&servicedir_path, ";"))
+        goto oom;
+    }
+
+  if (!split_paths_and_append (&servicedir_path, 
+                               DBUS_STANDARD_SESSION_SERVICEDIR, 
+                               dirs))
+    goto oom;
+
   _dbus_string_free (&servicedir_path);  
   return TRUE;
 
