@@ -307,7 +307,6 @@ if (WIN32)
   set (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=12434")
   set (DBUS_SYSTEM_CONFIG_FILE "etc/system.conf")
   set (DBUS_SESSION_CONFIG_FILE "etc/session.conf")
-  set (DBUS_SERVICE_DIR "data/dbus-1/services")
   # bus-test expects a non empty string
   set (DBUS_USER "Administrator") 
   set (DBUS_DATADIR "data")

@@ -10,7 +10,6 @@
 
   <listen>@DBUS_SESSION_BUS_DEFAULT_ADDRESS@</listen>
 
-<!--  <servicedir>@DBUS_SERVICE_DIR@</servicedir> -->
   <standard_session_servicedirs />
 
   <policy context="default">
