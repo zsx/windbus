@@ -86,6 +86,7 @@ set (DBUS_LIB_HEADERS
 	${DBUS_DIR}/dbus-transport-protected.h
 	${DBUS_DIR}/dbus-transport-unix.h
 	${DBUS_DIR}/dbus-watch.h
+	${CMAKE_BINARY_DIR}/config.h
 ##dbus-md5.h
 )
 ### source code that goes in the installed client library
