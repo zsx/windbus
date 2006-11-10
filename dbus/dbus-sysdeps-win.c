@@ -83,6 +83,7 @@ static DBusHashTable *sid_atom_cache = NULL;
 
 
 static DBusString dbusdir;
+static int working_dir_init = 0;
 
 int _dbus_init_working_dir(char *s)
 {
@@ -106,13 +107,17 @@ int _dbus_init_working_dir(char *s)
   _dbus_string_get_dirname(&bin_path,&dbusdir);
   chdir(_dbus_string_get_const_data(&dbusdir));
   _dbus_verbose ("Change working path to %s\n",_dbus_string_get_const_data (&dbusdir));
+  working_dir_init = 1;
   return TRUE;
 }
 
 DBusString *_dbus_get_working_dir(void)
 {
- _dbus_verbose ("retrieving working path %s\n",_dbus_string_get_const_data (&dbusdir));
-	return &dbusdir;
+  if (!working_dir_init) 
+    return NULL;
+	
+  _dbus_verbose ("retrieving working path %s\n",_dbus_string_get_const_data (&dbusdir));
+  return &dbusdir;
 }
 
 /**
