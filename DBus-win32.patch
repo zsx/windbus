@@ -1,7 +1,7 @@
 Index: test/spawn-test.c
 ===================================================================
---- test/spawn-test.c	(revision 394)
-+++ test/spawn-test.c	(working copy)
+--- test/spawn-test.c	(Revision 399)
++++ test/spawn-test.c	(Arbeitskopie)
 @@ -31,7 +31,7 @@
      argv_copy [i] = argv[i + 1];
    argv_copy[argc - 1] = NULL;
@@ -13,8 +13,8 @@ Index: test/spawn-test.c
  	       error.message);
 Index: test/name-test/test-names.c
 ===================================================================
---- test/name-test/test-names.c	(revision 394)
-+++ test/name-test/test-names.c	(working copy)
+--- test/name-test/test-names.c	(Revision 399)
++++ test/name-test/test-names.c	(Arbeitskopie)
 @@ -1,9 +1,11 @@
  #include <stdio.h>
  #include <stdlib.h>
@@ -30,8 +30,8 @@ Index: test/name-test/test-names.c
  #define ADD_CONNECTION 1
 Index: test/name-test/test-threads-init.c
 ===================================================================
---- test/name-test/test-threads-init.c	(revision 394)
-+++ test/name-test/test-threads-init.c	(working copy)
+--- test/name-test/test-threads-init.c	(Revision 399)
++++ test/name-test/test-threads-init.c	(Arbeitskopie)
 @@ -8,7 +8,9 @@
  #include <stdlib.h>
  
@@ -44,8 +44,8 @@ Index: test/name-test/test-threads-init.c
  {
 Index: test/test-utils.c
 ===================================================================
---- test/test-utils.c	(revision 394)
-+++ test/test-utils.c	(working copy)
+--- test/test-utils.c	(Revision 399)
++++ test/test-utils.c	(Arbeitskopie)
 @@ -1,5 +1,7 @@
  #include "test-utils.h"
  
@@ -56,8 +56,8 @@ Index: test/test-utils.c
    DBusLoop *loop;
 Index: test/test-segfault.c
 ===================================================================
---- test/test-segfault.c	(revision 394)
-+++ test/test-segfault.c	(working copy)
+--- test/test-segfault.c	(Revision 399)
++++ test/test-segfault.c	(Arbeitskopie)
 @@ -1,10 +1,27 @@
  /* This is simply a process that segfaults */
 +#include <config.h>
@@ -88,8 +88,8 @@ Index: test/test-segfault.c
  {
 Index: test/Makefile.am
 ===================================================================
---- test/Makefile.am	(revision 394)
-+++ test/Makefile.am	(working copy)
+--- test/Makefile.am	(Revision 399)
++++ test/Makefile.am	(Arbeitskopie)
 @@ -117,7 +117,7 @@
  		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
  	done ;											\
@@ -101,8 +101,8 @@ Index: test/Makefile.am
  			DEST=$(top_builddir)/test/$$F ;						\
 Index: test/test-sleep-forever.c
 ===================================================================
---- test/test-sleep-forever.c	(revision 394)
-+++ test/test-sleep-forever.c	(working copy)
+--- test/test-sleep-forever.c	(Revision 399)
++++ test/test-sleep-forever.c	(Arbeitskopie)
 @@ -1,6 +1,12 @@
  /* This is a process that just sleeps infinitely. */
  
@@ -118,8 +118,8 @@ Index: test/test-sleep-forever.c
  main (int argc, char **argv)
 Index: bus/config-loader-libxml.c
 ===================================================================
---- bus/config-loader-libxml.c	(revision 394)
-+++ bus/config-loader-libxml.c	(working copy)
+--- bus/config-loader-libxml.c	(Revision 399)
++++ bus/config-loader-libxml.c	(Arbeitskopie)
 @@ -134,6 +134,9 @@
      }
  }
@@ -141,21 +141,23 @@ Index: bus/config-loader-libxml.c
    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
    
    parser = NULL;
-@@ -177,13 +182,18 @@
+@@ -177,13 +182,19 @@
        xmlSetGenericErrorFunc (NULL, xml_shut_up);
      }
  
+-  if (!_dbus_string_get_dirname (file, &dirname))
 +#ifdef DBUS_WIN
 +  dbusdir = _dbus_get_working_dir();
-+  parser = bus_config_parser_new (dbusdir, is_toplevel, parent);
-+#else
-   if (!_dbus_string_get_dirname (file, &dirname))
++	if (dbusdir)
++  	parser = bus_config_parser_new (dbusdir, is_toplevel, parent);
++  else  
++#endif
++   if (!_dbus_string_get_dirname (file, &dirname))
      {
        _DBUS_SET_OOM (error);
        goto failed;
      }
 +  parser = bus_config_parser_new (&dirname, is_toplevel, parent);
-+#endif
    
 -  parser = bus_config_parser_new (&dirname, is_toplevel, parent);
    if (parser == NULL)
@@ -163,8 +165,8 @@ Index: bus/config-loader-libxml.c
        _DBUS_SET_OOM (error);
 Index: bus/policy.c
 ===================================================================
---- bus/policy.c	(revision 394)
-+++ bus/policy.c	(working copy)
+--- bus/policy.c	(Revision 399)
++++ bus/policy.c	(Arbeitskopie)
 @@ -323,9 +323,13 @@
  
    if (!dbus_connection_get_unix_user (connection, &uid))
@@ -181,8 +183,8 @@ Index: bus/policy.c
    if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
 Index: bus/dispatch.c
 ===================================================================
---- bus/dispatch.c	(revision 394)
-+++ bus/dispatch.c	(working copy)
+--- bus/dispatch.c	(Revision 399)
++++ bus/dispatch.c	(Arbeitskopie)
 @@ -4146,9 +4146,11 @@
        _dbus_warn ("Messages were left over after setting up initial SHA-1 connection\n");
        _dbus_assert_not_reached ("initial connection setup failed");
@@ -198,8 +200,8 @@ Index: bus/dispatch.c
  
 Index: bus/activation.c
 ===================================================================
---- bus/activation.c	(revision 394)
-+++ bus/activation.c	(working copy)
+--- bus/activation.c	(Revision 399)
++++ bus/activation.c	(Arbeitskopie)
 @@ -34,7 +34,6 @@
  #include <dbus/dbus-spawn.h>
  #include <dbus/dbus-timeout.h>
@@ -226,8 +228,8 @@ Index: bus/activation.c
      {
 Index: bus/dir-watch.c
 ===================================================================
---- bus/dir-watch.c	(revision 394)
-+++ bus/dir-watch.c	(working copy)
+--- bus/dir-watch.c	(Revision 399)
++++ bus/dir-watch.c	(Arbeitskopie)
 @@ -103,7 +103,7 @@
  }
  
@@ -239,8 +241,8 @@ Index: bus/dir-watch.c
  
 Index: bus/config-parser.c
 ===================================================================
---- bus/config-parser.c	(revision 394)
-+++ bus/config-parser.c	(working copy)
+--- bus/config-parser.c	(Revision 399)
++++ bus/config-parser.c	(Arbeitskopie)
 @@ -3066,10 +3066,15 @@
  
  static const char *test_service_dir_matches[] = 
@@ -311,8 +313,8 @@ Index: bus/config-parser.c
  			   
 Index: bus/main.c
 ===================================================================
---- bus/main.c	(revision 394)
-+++ bus/main.c	(working copy)
+--- bus/main.c	(Revision 399)
++++ bus/main.c	(Arbeitskopie)
 @@ -234,6 +234,12 @@
    dbus_bool_t print_pid;
    int force_fork;
@@ -328,8 +330,8 @@ Index: bus/main.c
  
 Index: bus/desktop-file.c
 ===================================================================
---- bus/desktop-file.c	(revision 394)
-+++ bus/desktop-file.c	(working copy)
+--- bus/desktop-file.c	(Revision 399)
++++ bus/desktop-file.c	(Arbeitskopie)
 @@ -360,15 +360,15 @@
  static void
  parse_comment_or_blank (BusDesktopFileParser *parser)
@@ -412,8 +414,8 @@ Index: bus/desktop-file.c
  
 Index: dbus/dbus-string.c
 ===================================================================
---- dbus/dbus-string.c	(revision 394)
-+++ dbus/dbus-string.c	(working copy)
+--- dbus/dbus-string.c	(Revision 399)
++++ dbus/dbus-string.c	(Arbeitskopie)
 @@ -1790,6 +1790,72 @@
  }
  
@@ -545,8 +547,8 @@ Index: dbus/dbus-string.c
  #ifdef DBUS_BUILD_TESTS
 Index: dbus/dbus-string.h
 ===================================================================
---- dbus/dbus-string.h	(revision 394)
-+++ dbus/dbus-string.h	(working copy)
+--- dbus/dbus-string.h	(Revision 399)
++++ dbus/dbus-string.h	(Arbeitskopie)
 @@ -215,6 +215,10 @@
                                                    int                start,
                                                    const char        *substr,
@@ -560,8 +562,8 @@ Index: dbus/dbus-string.h
                                                    int                end,
 Index: dbus/dbus-server-unix.c
 ===================================================================
---- dbus/dbus-server-unix.c	(revision 394)
-+++ dbus/dbus-server-unix.c	(working copy)
+--- dbus/dbus-server-unix.c	(Revision 399)
++++ dbus/dbus-server-unix.c	(Arbeitskopie)
 @@ -24,9 +24,9 @@
  #include "dbus-internals.h"
  #include "dbus-server-unix.h"
@@ -672,8 +674,8 @@ Index: dbus/dbus-server-unix.c
  
 Index: dbus/dbus-connection.c
 ===================================================================
---- dbus/dbus-connection.c	(revision 394)
-+++ dbus/dbus-connection.c	(working copy)
+--- dbus/dbus-connection.c	(Revision 399)
++++ dbus/dbus-connection.c	(Arbeitskopie)
 @@ -4720,7 +4720,7 @@
  
  #ifdef DBUS_WIN
@@ -703,8 +705,8 @@ Index: dbus/dbus-connection.c
    CONNECTION_LOCK (connection);
 Index: dbus/dbus-test.c
 ===================================================================
---- dbus/dbus-test.c	(revision 394)
-+++ dbus/dbus-test.c	(working copy)
+--- dbus/dbus-test.c	(Revision 399)
++++ dbus/dbus-test.c	(Arbeitskopie)
 @@ -154,7 +154,9 @@
    
    run_test ("hash", specific_test, _dbus_hash_test);
@@ -717,8 +719,8 @@ Index: dbus/dbus-test.c
    
 Index: dbus/dbus-spawn.h
 ===================================================================
---- dbus/dbus-spawn.h	(revision 394)
-+++ dbus/dbus-spawn.h	(working copy)
+--- dbus/dbus-spawn.h	(Revision 399)
++++ dbus/dbus-spawn.h	(Arbeitskopie)
 @@ -37,6 +37,7 @@
  
  dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
@@ -729,8 +731,8 @@ Index: dbus/dbus-spawn.h
                                                     DBusError                 *error);
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 394)
-+++ dbus/dbus-sysdeps-util.c	(working copy)
+--- dbus/dbus-sysdeps-util.c	(Revision 399)
++++ dbus/dbus-sysdeps-util.c	(Arbeitskopie)
 @@ -81,7 +81,28 @@
    DBusString str;
    double val;
@@ -812,8 +814,8 @@ Index: dbus/dbus-sysdeps-util.c
  }
 Index: dbus/dbus-transport-unix.c
 ===================================================================
---- dbus/dbus-transport-unix.c	(revision 394)
-+++ dbus/dbus-transport-unix.c	(working copy)
+--- dbus/dbus-transport-unix.c	(Revision 399)
++++ dbus/dbus-transport-unix.c	(Arbeitskopie)
 @@ -23,11 +23,16 @@
  
  #include "dbus-internals.h"
@@ -834,8 +836,8 @@ Index: dbus/dbus-transport-unix.c
   * @defgroup DBusTransportUnix DBusTransport implementations for UNIX
 Index: dbus/dbus-bus.c
 ===================================================================
---- dbus/dbus-bus.c	(revision 394)
-+++ dbus/dbus-bus.c	(working copy)
+--- dbus/dbus-bus.c	(Revision 399)
++++ dbus/dbus-bus.c	(Arbeitskopie)
 @@ -382,7 +382,10 @@
    _dbus_return_val_if_fail (type >= 0 && type < N_BUS_TYPES, NULL);
    _dbus_return_val_if_error_is_set (error, NULL);
@@ -849,8 +851,8 @@ Index: dbus/dbus-bus.c
      {
 Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus/dbus-sysdeps.c	(revision 394)
-+++ dbus/dbus-sysdeps.c	(working copy)
+--- dbus/dbus-sysdeps.c	(Revision 399)
++++ dbus/dbus-sysdeps.c	(Arbeitskopie)
 @@ -119,11 +119,14 @@
         * will get upset about.
         */
@@ -880,8 +882,8 @@ Index: dbus/dbus-sysdeps.c
    struct lconv *locale_data;
 Index: dbus/dbus-internals.c
 ===================================================================
---- dbus/dbus-internals.c	(revision 394)
-+++ dbus/dbus-internals.c	(working copy)
+--- dbus/dbus-internals.c	(Revision 399)
++++ dbus/dbus-internals.c	(Arbeitskopie)
 @@ -294,7 +294,7 @@
  #include <pthread.h>
  #endif
@@ -893,8 +895,8 @@ Index: dbus/dbus-internals.c
    if (!verbose_initted)
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 394)
-+++ dbus/dbus-sysdeps.h	(working copy)
+--- dbus/dbus-sysdeps.h	(Revision 399)
++++ dbus/dbus-sysdeps.h	(Arbeitskopie)
 @@ -313,6 +313,9 @@
  
  void _dbus_fd_set_close_on_exec (int fd);
@@ -907,8 +909,8 @@ Index: dbus/dbus-sysdeps.h
  /**
 Index: dbus/dbus-string-util.c
 ===================================================================
---- dbus/dbus-string-util.c	(revision 394)
-+++ dbus/dbus-string-util.c	(working copy)
+--- dbus/dbus-string-util.c	(Revision 399)
++++ dbus/dbus-string-util.c	(Arbeitskopie)
 @@ -702,7 +702,27 @@
    test_roundtrips (test_hex_roundtrip);
    
@@ -940,8 +942,8 @@ Index: dbus/dbus-string-util.c
  
 Index: dbus/dbus-transport-socket.h
 ===================================================================
---- dbus/dbus-transport-socket.h	(revision 394)
-+++ dbus/dbus-transport-socket.h	(working copy)
+--- dbus/dbus-transport-socket.h	(Revision 399)
++++ dbus/dbus-transport-socket.h	(Arbeitskopie)
 @@ -25,6 +25,10 @@
  
  #include <dbus/dbus-transport-protected.h>
@@ -955,8 +957,8 @@ Index: dbus/dbus-transport-socket.h
  DBusTransport*          _dbus_transport_new_for_socket     (int                fd,
 Index: dbus/dbus-sysdeps-win-thread.c
 ===================================================================
---- dbus/dbus-sysdeps-win-thread.c	(revision 394)
-+++ dbus/dbus-sysdeps-win-thread.c	(working copy)
+--- dbus/dbus-sysdeps-win-thread.c	(Revision 399)
++++ dbus/dbus-sysdeps-win-thread.c	(Arbeitskopie)
 @@ -24,6 +24,7 @@
  #include "dbus-internals.h"
  #include "dbus-sysdeps.h"
@@ -985,8 +987,8 @@ Index: dbus/dbus-sysdeps-win-thread.c
    /* We reuse this over several generations, because we can't
 Index: dbus/dbus-marshal-recursive.c
 ===================================================================
---- dbus/dbus-marshal-recursive.c	(revision 394)
-+++ dbus/dbus-marshal-recursive.c	(working copy)
+--- dbus/dbus-marshal-recursive.c	(Revision 399)
++++ dbus/dbus-marshal-recursive.c	(Arbeitskopie)
 @@ -690,7 +690,7 @@
    base_reader_next
  };
@@ -998,8 +1000,8 @@ Index: dbus/dbus-marshal-recursive.c
    &body_types_only_reader_class,
 Index: tools/dbus-monitor.c
 ===================================================================
---- tools/dbus-monitor.c	(revision 394)
-+++ tools/dbus-monitor.c	(working copy)
+--- tools/dbus-monitor.c	(Revision 399)
++++ tools/dbus-monitor.c	(Arbeitskopie)
 @@ -19,11 +19,18 @@
   *
   */
@@ -1043,8 +1045,8 @@ Index: tools/dbus-monitor.c
 +
 Index: tools/dbus-send.c
 ===================================================================
---- tools/dbus-send.c	(revision 394)
-+++ tools/dbus-send.c	(working copy)
+--- tools/dbus-send.c	(Revision 399)
++++ tools/dbus-send.c	(Arbeitskopie)
 @@ -19,6 +19,7 @@
   *
   */
