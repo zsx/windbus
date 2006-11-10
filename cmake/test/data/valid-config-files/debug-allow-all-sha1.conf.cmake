@@ -4,9 +4,8 @@
  "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
 <busconfig>
   <listen>debug-pipe:name=test-server</listen>
-  <listen>unix:tmpdir=@TEST_SOCKET_DIR@</listen>
   <listen>tcp:port=1234</listen>
-  <servicedir>@TEST_SERVICE_DIR@</servicedir>
+  <standard_session_servicedirs />
   <auth>DBUS_COOKIE_SHA1</auth>
   <policy context="default">
     <allow send_interface="*"/>
