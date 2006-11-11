@@ -23,8 +23,7 @@ if (WIN32)
 add_definitions(-Dsleep=_sleep)
 endif (WIN32)
 
-set (test-SERVICE_DIR "${CMAKE_BINARY_DIR}/test/data/valid-service-files")
-set (test-SOCKET_DIR "/")
+set (TEST_SOCKET_DIR "/")
 
 #if (DBUS_BUILD_TESTS)
 ## break-loader removed for now
@@ -193,6 +192,9 @@ FOREACH(FILE ${FILES})
 	ENDIF (CONFIG_VERBOSE)
 ENDFOREACH(FILE)
 
+# todo: for installation the TEST_..._BINARY variables must reflect the 
+#       installation dir or has to be defined relative
+#
 SET (SERVICE_FILES test/data/valid-service-files)
 FILE(GLOB FILES "${CMAKE_SOURCE_DIR}/../${SERVICE_FILES}/*.service.in" )
 FOREACH(FILE ${FILES})	
