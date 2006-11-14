@@ -10,7 +10,7 @@ if (DBUS_INSTALL_SYSTEM_LIBS)
 			# xml2
 			install_files(/bin FILES ${LIBXML2_LIBRARIES})	
 			install_files(/bin FILES ${LIBICONV_LIBRARIES})	
-		endif (NOT DBUS_USE_EXPAT)
+		endif (DBUS_USE_EXPAT)
 	else (MINGW)
 		INCLUDE(InstallRequiredSystemLibraries)
 	endif (MINGW)
