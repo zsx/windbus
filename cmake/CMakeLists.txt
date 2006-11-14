@@ -364,8 +364,7 @@ if (DBUS_BUILD_TESTS)
 	add_subdirectory( test )
 endif (DBUS_BUILD_TESTS)
 add_subdirectory( tools )
-# is now located in kde svn
-#add_subdirectory( qt )
+add_subdirectory( pkg-config )
 
 
 OPTION(DBUS_INSTALL_SYSTEM_LIBS "install required system libraries" OFF)
@@ -455,5 +454,6 @@ if (DBUS_DISABLE_CHECKS)
     message("NOTE: building without checks for arguments passed to public API makes it harder to debug apps using D-BUS, but will slightly decrease D-BUS library size and _very_ slightly improve performance.")
 endif(DBUS_DISABLE_CHECKS)
 MESSAGE(" ")
+
 
 INCLUDE(modules/CPackInstallConfig.cmake)
