@@ -3,7 +3,10 @@ if (DBUS_INSTALL_SYSTEM_LIBS)
 	if (MINGW)
 		GET_FILENAME_COMPONENT(MINGW_BIN_PATH ${CMAKE_MAKE_PROGRAM} PATH)
 		install_files(/bin FILES ${MINGW_BIN_PATH}/mingwm10.dll)
-		if (NOT DBUS_USE_EXPAT)
+		if (DBUS_USE_EXPAT)
+			# expat
+			install_files(/bin FILES ${LIBEXPAT_LIBRARIES})	
+		else (DBUS_USE_EXPAT)
 			# xml2
 			install_files(/bin FILES ${LIBXML2_LIBRARIES})	
 			install_files(/bin FILES ${LIBICONV_LIBRARIES})	
