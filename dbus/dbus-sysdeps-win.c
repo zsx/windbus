@@ -51,6 +51,8 @@
 #include <time.h>
 #include <locale.h>
 #include <sys/stat.h>
+#include <windows.h>
+#include <process.h>
 
 #ifdef HAVE_WRITEV
 #include <sys/uio.h>
@@ -271,6 +273,16 @@ _dbus_write_stream (DBusStream        stream,
 	DBusFile file;
 	file.FDATA = stream;
 	return _dbus_write_file(&file, buffer, start, len);
+}
+
+int
+_dbus_read_stream(DBusStream  stream,
+                  DBusString *buffer,
+                  int         count)
+{
+	DBusFile file;
+	file.FDATA = stream;
+	return _dbus_read_file(&file, buffer, count);
 }
 
 #undef FDATA
@@ -4672,7 +4684,7 @@ _dbus_generate_random_bytes (DBusString *str,
 
 #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
 
-#define BACKTRACES
+//#define BACKTRACES
 #ifdef BACKTRACES
 /*
  * Backtrace Generator
@@ -5039,12 +5051,145 @@ dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
     return TRUE;
 }
 
+#ifdef _MSC_VER
+typedef int pid_t;
+#else
+void _searchenv(
+   const char *filename,
+   const char *varname,
+   char *pathname 
+);
+#endif
+
 dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
-					  DBusError *error)
+                                          DBusError *error)
 {
-  // TODO
-  return TRUE;
-}
+  static char *argv[5];
+  int address_pipe[2];
+  pid_t pid;
+  int ret;
+  int status;
+  int orig_len;
+  int i;
+  DBusString uuid;
+  dbus_bool_t retval;
+  HANDLE hProcess;
+  int fdStdOut;
+  int nExitCode = STILL_ACTIVE;
+  char dbus_exe_path[MAX_PATH];
+
+  
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  retval = FALSE;
+
+  _dbus_string_init (&uuid);
+  
+  if (!_dbus_get_local_machine_uuid_encoded (&uuid))
+    {
+      _DBUS_SET_OOM (error);
+      goto out;
+    }
+ 
+  _searchenv("dbus-daemon.exe","PATH", dbus_exe_path);
+
+  if (!*dbus_exe_path)
+    {
+      _dbus_verbose ("could not find dbus-daemon executable\n");
+      goto out;
+    }
+
+  
+  i = 0;
+  argv[i] = dbus_exe_path;
+  ++i;
+  argv[i] = "--print-address";
+  ++i;
+//  argv[i] = "--config-file=bus\\session.conf";
+  argv[i] = "--session";
+  ++i;
+//  argv[i] = _dbus_string_get_data (&uuid);
+//  ++i;
+//  argv[i] = "--binary-syntax";
+//  ++i;
+  argv[i] = NULL;
+
+/*
+  i = 0;
+  argv[i] = "dbus-launch";
+  ++i;
+  argv[i] = "--autolaunch";
+  ++i;
+  argv[i] = _dbus_string_get_data (&uuid);
+  ++i;
+  argv[i] = "--binary-syntax";
+  ++i;
+  argv[i] = NULL;
+  ++i;
+*/
+
+//  _dbus_assert (i == _DBUS_N_ELEMENTS (argv));
+  
+  orig_len = _dbus_string_get_length (address);
+  
+  if(_pipe(address_pipe, 512, O_NOINHERIT) == -1)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to create a pipe: %s",
+                      _dbus_strerror (errno));
+      _dbus_verbose ("Failed to create a pipe to call dbus-daemon: %s\n",
+                     _dbus_strerror (errno));
+      goto out;
+    }
+
+  // Duplicate stdout file descriptor (next line will close original)
+  fdStdOut = _dup(_fileno(stdout));
+
+  if(_dup2(address_pipe[1], _fileno(stdout)) != 0) 
+    {
+      _dbus_verbose ("Duplicate write end of pipe to stdout file descriptor: %s\n",
+                     _dbus_strerror (errno));
+      goto out;
+    }
+  
+  // Close original write end of pipe
+  _close(address_pipe[1]);
+
+  // Spawn process
+  hProcess = (HANDLE)_spawnvp(P_NOWAIT, "dbus-daemon",argv);
+
+  // Duplicate copy of original stdout back into stdout
+  if(_dup2(fdStdOut, _fileno(stdout)) != 0)
+     return   3;
+
+  // Close duplicate copy of original stdout
+  _close(fdStdOut);
+
+  if (hProcess) 
+    {
+      ret = _dbus_read_stream (address_pipe[0], address, 1024);
+      if (ret <= 0) 
+      {
+        _dbus_verbose ("could not read address from process: %s\n",
+                       _dbus_strerror (errno));
+        goto out; 
+      }
+    // remove trailing '\n'
+    _dbus_string_set_length (address, _dbus_string_get_length (address)-1);
+    }      
+// _dbus_string_get_const_data(&dbusdir)
+
+  retval = TRUE;
+  
+ out:
+  if (retval)
+    _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+  else
+    _DBUS_ASSERT_ERROR_IS_SET (error);
+  
+  _dbus_string_free (&uuid);
+  return retval;
+ }
+
 
 /** Makes the file readable by every user in the system.
  *
