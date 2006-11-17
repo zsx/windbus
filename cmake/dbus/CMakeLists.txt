@@ -43,6 +43,7 @@ set (DBUS_LIB_SOURCES
 	${DBUS_DIR}/dbus-marshal-recursive.c
 	${DBUS_DIR}/dbus-marshal-validate.c
 	${DBUS_DIR}/dbus-message.c
+	${DBUS_DIR}/dbus-misc.c
 	${DBUS_DIR}/dbus-object-tree.c
 	${DBUS_DIR}/dbus-pending-call.c
 	${DBUS_DIR}/dbus-resources.c
@@ -74,6 +75,7 @@ set (DBUS_LIB_HEADERS
 	${DBUS_DIR}/dbus-marshal-validate.h
 	${DBUS_DIR}/dbus-message-internal.h
 	${DBUS_DIR}/dbus-message-private.h
+	${DBUS_DIR}/dbus-misc.h
 	${DBUS_DIR}/dbus-object-tree.h
 	${DBUS_DIR}/dbus-resources.h
 	${DBUS_DIR}/dbus-server-debug-pipe.h
