@@ -4672,7 +4672,7 @@ _dbus_generate_random_bytes (DBusString *str,
 
 #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
 
-//#define BACKTRACES
+#define BACKTRACES
 #ifdef BACKTRACES
 /*
  * Backtrace Generator
