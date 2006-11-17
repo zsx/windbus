@@ -262,9 +262,18 @@ dbus_bool_t _dbus_fstat (DBusFile    *file,
   return fstat(file->FDATA, sb) >= 0;
 }
 
+int
+_dbus_write_stream (DBusStream        stream,
+                    const DBusString *buffer,
+                    int               start,
+                    int               len)
+{
+	DBusFile file;
+	file.FDATA = stream;
+	return _dbus_write_file(&file, buffer, start, len);
+}
+
 #undef FDATA
-
-
 
 /**
  * Socket interface
@@ -4663,7 +4672,7 @@ _dbus_generate_random_bytes (DBusString *str,
 
 #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
 
-#define BACKTRACES
+//#define BACKTRACES
 #ifdef BACKTRACES
 /*
  * Backtrace Generator
