@@ -434,6 +434,59 @@ Index: bus/bus.c
          {
            dbus_set_error (error, DBUS_ERROR_FAILED,
                            "Printing message bus PID: %s\n",
+Index: dbus/dbus-spawn.h
+===================================================================
+--- dbus/dbus-spawn.h	(revision 428)
++++ dbus/dbus-spawn.h	(working copy)
+@@ -37,6 +37,7 @@
+ 
+ dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
+                                                    char                     **argv,
++                                                   char                     **env,
+                                                    DBusSpawnChildSetupFunc    child_setup,
+                                                    void                      *user_data,
+                                                    DBusError                 *error);
+Index: dbus/dbus-bus.c
+===================================================================
+--- dbus/dbus-bus.c	(revision 428)
++++ dbus/dbus-bus.c	(working copy)
+@@ -350,8 +350,10 @@
+ {
+   int i;
+   
++#ifndef DBUS_WIN
++   // qt example pong says "QMutex::lock: Deadlock detected"
+   _DBUS_LOCK (bus);
+-
++#endif
+   /* We are expecting to have the connection saved in only one of these
+    * slots, but someone could in a pathological case set system and session
+    * bus to the same bus or something. Or set one of them to the starter
+@@ -366,7 +368,9 @@
+         }
+     }
+ 
++#ifndef DBUS_WIN
+   _DBUS_UNLOCK (bus);
++#endif
+ }
+ 
+ static DBusConnection *
+Index: dbus/dbus-transport-socket.h
+===================================================================
+--- dbus/dbus-transport-socket.h	(revision 428)
++++ dbus/dbus-transport-socket.h	(working copy)
+@@ -25,6 +25,10 @@
+ 
+ #include <dbus/dbus-transport-protected.h>
+ 
++#ifdef DBUS_WIN
++#include <dbus/dbus-sockets-win.h>
++#endif
++
+ DBUS_BEGIN_DECLS
+ 
+ DBusTransport*          _dbus_transport_new_for_socket     (int                fd,
 Index: dbus/dbus-string.c
 ===================================================================
 --- dbus/dbus-string.c	(revision 428)
@@ -696,7 +749,7 @@ Index: dbus/dbus-server-unix.c
  
 Index: dbus/dbus-connection.c
 ===================================================================
---- dbus/dbus-connection.c	(revision 428)
+--- dbus/dbus-connection.c	(revision 433)
 +++ dbus/dbus-connection.c	(working copy)
 @@ -4720,7 +4720,7 @@
  
@@ -727,9 +780,9 @@ Index: dbus/dbus-connection.c
    CONNECTION_LOCK (connection);
 Index: dbus/dbus-test.c
 ===================================================================
---- dbus/dbus-test.c	(revision 428)
+--- dbus/dbus-test.c	(revision 433)
 +++ dbus/dbus-test.c	(working copy)
-@@ -154,7 +154,9 @@
+@@ -156,7 +156,9 @@
    
    run_test ("hash", specific_test, _dbus_hash_test);
  
@@ -739,18 +792,6 @@ Index: dbus/dbus-test.c
    
    run_data_test ("userdb", specific_test, _dbus_userdb_test, test_data_dir);
    
-Index: dbus/dbus-spawn.h
-===================================================================
---- dbus/dbus-spawn.h	(revision 428)
-+++ dbus/dbus-spawn.h	(working copy)
-@@ -37,6 +37,7 @@
- 
- dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
-                                                    char                     **argv,
-+                                                   char                     **env,
-                                                    DBusSpawnChildSetupFunc    child_setup,
-                                                    void                      *user_data,
-                                                    DBusError                 *error);
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
 --- dbus/dbus-sysdeps-util.c	(revision 428)
@@ -876,32 +917,6 @@ Index: dbus/dbus-transport-unix.c
  
  /**
   * @defgroup DBusTransportUnix DBusTransport implementations for UNIX
-Index: dbus/dbus-bus.c
-===================================================================
---- dbus/dbus-bus.c	(revision 428)
-+++ dbus/dbus-bus.c	(working copy)
-@@ -350,8 +350,10 @@
- {
-   int i;
-   
-+#ifndef DBUS_WIN
-+   // qt example pong says "QMutex::lock: Deadlock detected"
-   _DBUS_LOCK (bus);
--
-+#endif
-   /* We are expecting to have the connection saved in only one of these
-    * slots, but someone could in a pathological case set system and session
-    * bus to the same bus or something. Or set one of them to the starter
-@@ -366,7 +368,9 @@
-         }
-     }
- 
-+#ifndef DBUS_WIN
-   _DBUS_UNLOCK (bus);
-+#endif
- }
- 
- static DBusConnection *
 Index: dbus/dbus-sysdeps.c
 ===================================================================
 --- dbus/dbus-sysdeps.c	(revision 428)
@@ -933,19 +948,6 @@ Index: dbus/dbus-sysdeps.c
    char *fail_pos;
    double val;
    struct lconv *locale_data;
-Index: dbus/dbus-internals.c
-===================================================================
---- dbus/dbus-internals.c	(revision 428)
-+++ dbus/dbus-internals.c	(working copy)
-@@ -294,7 +294,7 @@
- #include <pthread.h>
- #endif
- 
--static inline void
-+static void
- _dbus_verbose_init (void)
- {
-   if (!verbose_initted)
 Index: dbus/dbus-sysdeps.h
 ===================================================================
 --- dbus/dbus-sysdeps.h	(revision 428)
@@ -973,6 +975,19 @@ Index: dbus/dbus-sysdeps.h
  const char* _dbus_get_tmpdir      (void);
  
  /**
+Index: dbus/dbus-internals.c
+===================================================================
+--- dbus/dbus-internals.c	(revision 433)
++++ dbus/dbus-internals.c	(working copy)
+@@ -295,7 +295,7 @@
+ #include <pthread.h>
+ #endif
+ 
+-static inline void
++static void
+ _dbus_verbose_init (void)
+ {
+   if (!verbose_initted)
 Index: dbus/dbus-string-util.c
 ===================================================================
 --- dbus/dbus-string-util.c	(revision 428)
@@ -1006,21 +1021,6 @@ Index: dbus/dbus-string-util.c
    return TRUE;
  }
  
-Index: dbus/dbus-transport-socket.h
-===================================================================
---- dbus/dbus-transport-socket.h	(revision 428)
-+++ dbus/dbus-transport-socket.h	(working copy)
-@@ -25,6 +25,10 @@
- 
- #include <dbus/dbus-transport-protected.h>
- 
-+#ifdef DBUS_WIN
-+#include <dbus/dbus-sockets-win.h>
-+#endif
-+
- DBUS_BEGIN_DECLS
- 
- DBusTransport*          _dbus_transport_new_for_socket     (int                fd,
 Index: dbus/dbus-sysdeps-win-thread.c
 ===================================================================
 --- dbus/dbus-sysdeps-win-thread.c	(revision 428)
