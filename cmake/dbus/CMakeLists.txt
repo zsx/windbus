@@ -18,6 +18,7 @@ set (dbusinclude_HEADERS
 	${DBUS_DIR}/dbus-macros.h
 	${DBUS_DIR}/dbus-memory.h
 	${DBUS_DIR}/dbus-message.h
+	${DBUS_DIR}/dbus-misc.h
 	${DBUS_DIR}/dbus-pending-call.h
 	${DBUS_DIR}/dbus-protocol.h
 	${DBUS_DIR}/dbus-server.h
