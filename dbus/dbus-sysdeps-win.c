@@ -5143,6 +5143,40 @@ _dbus_daemon_already_runs (DBusString *adress)
   return TRUE;
 }
 
+static
+HANDLE _dbus_global_lock (const char *mutexname)
+{
+  HANDLE mutex;
+  DWORD gotMutex; 
+
+  mutex = CreateMutex( NULL, FALSE, mutexname );
+  if( !mutex )
+    {
+      return FALSE;
+    }
+
+   gotMutex = WaitForSingleObject( mutex, 10 );
+   switch( gotMutex )
+     {
+       case WAIT_ABANDONED:
+               ReleaseMutex (mutex);
+               CloseHandle (mutex);
+               return 0;
+       case WAIT_FAILED:
+       case WAIT_TIMEOUT:
+               return 0;
+     }
+
+   return mutex;
+}
+
+static
+void _dbus_global_unlock (HANDLE mutex)
+{
+  ReleaseMutex (mutex);
+  CloseHandle (mutex); 
+}
+
 dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
                                           DBusError *error)
 {
@@ -5156,11 +5190,13 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
   DBusString uuid;
   dbus_bool_t retval;
   HANDLE hProcess;
+  HANDLE mutex;
   int fdStdOut;
   int nExitCode = STILL_ACTIVE;
   char dbus_exe_path[MAX_PATH];
 
-  
+  mutex = _dbus_global_lock ("UniqueDBusInstanceMutex");
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = FALSE;
 
@@ -5276,6 +5312,9 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
     _DBUS_ASSERT_ERROR_IS_SET (error);
   
   _dbus_string_free (&uuid);
+
+  _dbus_global_unlock (mutex);
+
   return retval;
  }
 
