@@ -5202,10 +5202,10 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
 
   _dbus_string_init (&uuid);
 
-  // FIXME: need global lock here!
   if (_dbus_daemon_already_runs(address))
     {
       _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+      _dbus_global_unlock (mutex);
       return TRUE;
     }
   
@@ -5284,7 +5284,10 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
 
   // Duplicate copy of original stdout back into stdout
   if(_dup2(fdStdOut, _fileno(stdout)) != 0)
-     return   3;
+    {
+      _dbus_global_unlock (mutex);
+      return   3;
+    }
 
   // Close duplicate copy of original stdout
   _close(fdStdOut);
