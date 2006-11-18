@@ -4,6 +4,9 @@
  * Copyright (C) 2002, 2003  Red Hat, Inc.
  * Copyright (C) 2003 CodeFactory AB
  * Copyright (C) 2005 Novell, Inc.
+ * Copyright (C) 2006 Ralf Habacker <ralf.habacker@freenet.de>
+ * Copyright (C) 2006 Peter Kümmel  <syntheticpp@gmx.net>
+ * Copyright (C) 2006 Christian Ehrlicher <ch.ehrlicher@gmx.de>
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -5061,6 +5064,85 @@ void _searchenv(
 );
 #endif
 
+static UINT GlobalMsgDBusDaemon = 0;
+static WNDPROC oldWndProc = 0;
+static const char *DBusAdress = "tcp:host=localhost,port=12434";  // For now
+
+LRESULT CALLBACK DBusWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+    if( GlobalMsgDBusDaemon != 0)
+      {
+        if(msg == GlobalMsgDBusDaemon)
+          {
+            return (LRESULT)DBusAdress; 
+          }        
+      }
+    return DefWindowProcA(hWnd, msg, wParam, lParam);
+}
+
+void _dbus_init_windows_messageloop()
+{
+  WNDCLASSA wc;
+  HWND wnd;
+  DWORD lastErr;
+
+  memset( &wc, 0, sizeof(WNDCLASSA) );
+  wc.style = 0;
+  wc.lpfnWndProc = DBusWndProc;
+  wc.cbClsExtra = 0;
+  wc.cbWndExtra = 0;
+  wc.hInstance = GetModuleHandle(NULL);
+  wc.hIcon = 0;
+  wc.hCursor = 0;
+  wc.hbrBackground = 0;
+  wc.lpszMenuName = NULL;
+  wc.lpszClassName = "GlobalMsgDBusDaemonWindowClass";
+  _dbus_assert(RegisterClassA(&wc));
+
+  wnd = CreateWindowA(wc.lpszClassName,  // classname
+                      wc.lpszClassName,  // window name
+                      0,                 // style
+                      0, 0, 0, 0,        // geometry
+                      0,                 // parent
+                      0,                 // menu handle
+                      wc.hInstance,      // application
+                      0);                // windows creation data.
+
+  _dbus_assert(wnd);
+
+  // Register the message
+  GlobalMsgDBusDaemon = RegisterWindowMessageA("DBusSessionInstanceMessage");
+  
+  // check for failure
+  _dbus_assert(GlobalMsgDBusDaemon > 0xC000 && GlobalMsgDBusDaemon < 0xFFFF);
+
+}
+
+static dbus_bool_t
+_dbus_daemon_already_runs (DBusString *adress)
+{
+  UINT msgDBusDaemon;
+  LRESULT lResult;
+  
+  // Register the message
+  msgDBusDaemon = RegisterWindowMessageA("DBusSessionInstanceMessage");
+  
+  // check for failure
+  _dbus_assert(msgDBusDaemon > 0xC000 && msgDBusDaemon < 0xFFFF);
+  
+  // try to get the adress as char*
+  lResult = SendMessageA(HWND_BROADCAST, msgDBusDaemon, 0, 0);
+  
+  // no retval -> dbus-daemon not running
+  if( lResult == 0 )
+    return FALSE;
+  
+  // set 
+  _dbus_string_init_const( adress, (const char *)lResult );
+  
+  return TRUE;
+}
+
 dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
                                           DBusError *error)
 {
@@ -5083,6 +5165,13 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
   retval = FALSE;
 
   _dbus_string_init (&uuid);
+
+  // FIXME: need global lock here!
+  if (_dbus_daemon_already_runs(address))
+    {
+      _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+      return TRUE;
+    }
   
   if (!_dbus_get_local_machine_uuid_encoded (&uuid))
     {
