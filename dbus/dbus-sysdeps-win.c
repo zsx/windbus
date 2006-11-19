@@ -5105,6 +5105,8 @@ _dbus_daemon_init(const char *address)
 {
   HANDLE lock;
   const char *adr = NULL;
+  char szUserName[64];
+  DWORD dwUserNameSize = sizeof(szUserName);
   char szDBusDaemonMutex[128];
   char szDBusDaemonAddressInfo[128];
 
@@ -5113,10 +5115,11 @@ _dbus_daemon_init(const char *address)
   if(strncmp(address, "tcp:host=", 9) != 0)
       return;
   
-  snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%d",
-           cDBusDaemonMutex, _dbus_getuid());
-  snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%d",
-           cDBusDaemonAddressInfo, _dbus_getuid());
+  _dbus_assert( GetUserName(szUserName, &dwUserNameSize) != 0);
+  _snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%s",
+            cDBusDaemonMutex, szUserName);
+  _snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%s",
+            cDBusDaemonAddressInfo, szUserName);
 
   // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
@@ -5168,10 +5171,14 @@ _dbus_get_autolaunch_shm(DBusString *adress)
 {
   HANDLE sharedMem;
   const char *adr;
+  char szUserName[64];
+  DWORD dwUserNameSize = sizeof(szUserName);
   char szDBusDaemonAddressInfo[128];
 
-  snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%d",
-           cDBusDaemonAddressInfo, _dbus_getuid());
+  if( !GetUserName(szUserName, &dwUserNameSize) )
+      return FALSE;
+  _snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%s",
+            cDBusDaemonAddressInfo, szUserName);
 
   // read shm
   do {
@@ -5207,13 +5214,17 @@ _dbus_daemon_already_runs (DBusString *adress)
   HANDLE lock;
   HANDLE daemon;
   dbus_bool_t bRet = TRUE;
+  char szUserName[64];
+  DWORD dwUserNameSize = sizeof(szUserName);
   char szDBusDaemonMutex[128];
 
   // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
-  snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%d",
-           cDBusDaemonMutex, _dbus_getuid());
+  if( !GetUserName(szUserName, &dwUserNameSize) )
+      return FALSE;
+  _snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%s",
+            cDBusDaemonMutex, szUserName);
 
   // do checks
   daemon = CreateMutex( NULL, FALSE, szDBusDaemonMutex );
