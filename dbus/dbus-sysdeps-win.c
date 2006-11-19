@@ -5054,16 +5054,6 @@ dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
     return TRUE;
 }
 
-#ifdef _MSC_VER
-typedef int pid_t;
-#else
-void _searchenv(
-   const char *filename,
-   const char *varname,
-   char *pathname 
-);
-#endif
-
 static
 HANDLE _dbus_global_lock (const char *mutexname)
 {
@@ -5228,31 +5218,28 @@ _dbus_daemon_already_runs (DBusString *adress)
   return bRet;
 }
 
-dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
-                                          DBusError *error)
+dbus_bool_t
+_dbus_get_autolaunch_address (DBusString *address, 
+                              DBusError *error)
 {
   HANDLE mutex;
   STARTUPINFOA si;
   PROCESS_INFORMATION pi;
-  dbus_bool_t retval;
+  dbus_bool_t retval = FALSE;
+  LPSTR lpFile;
   char dbus_exe_path[MAX_PATH];
   char dbus_args[MAX_PATH * 2];
 
   mutex = _dbus_global_lock ( cDBusAutolaunchMutex );
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-  retval = FALSE;
 
   if (_dbus_daemon_already_runs(address))
     {
-      _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-      _dbus_global_unlock (mutex);
-      return TRUE;
+      goto out;
     }
- 
-  _searchenv("dbus-daemon.exe","PATH", dbus_exe_path);
 
-  if (!*dbus_exe_path)
+  if (!SearchPathA(NULL, "dbus-daemon.exe", NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
     {
       _dbus_verbose ("could not find dbus-daemon executable\n");
       goto out;
