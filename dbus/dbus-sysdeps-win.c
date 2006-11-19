@@ -5098,9 +5098,18 @@ void _dbus_global_unlock (HANDLE mutex)
   CloseHandle (mutex); 
 }
 
-static HANDLE DBusDaemonMutex = NULL;
-static HANDLE DBusSharedMem = NULL;
+// for proper cleanup in dbus-daemon
+static HANDLE hDBusDaemonMutex = NULL;
+static HANDLE hDBusSharedMem = NULL;
 static const char *DBusAdress = "tcp:host=localhost,port=12434";  // For now
+// sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
+static const char *cUniqueDBusInitMutex = "UniqueDBusInitMutex";
+// sync _dbus_get_autolaunch_address
+static const char *cDBusAutolaunchMutex = "DBusAutolaunchMutex";
+// mutex to determine if dbus-daemon is already started
+static const char *cDBusDaemonMutex = "DBusDaemonMutex";
+// named shm for dbus adress info
+static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfo";
 
 void
 _dbus_daemon_init()
@@ -5108,23 +5117,25 @@ _dbus_daemon_init()
   HANDLE lock;
   const char *adr = NULL;
 
-  lock = _dbus_global_lock("UniqueDBusInitMutex");
+  // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
+  lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
-  DBusDaemonMutex = CreateMutex( NULL, FALSE, "DBusDaemonMutex" );
+  hDBusDaemonMutex = CreateMutex( NULL, FALSE, cDBusDaemonMutex );
 
-  _dbus_assert(WaitForSingleObject( DBusDaemonMutex, INFINITE ) == WAIT_OBJECT_0);
+  _dbus_assert(WaitForSingleObject( hDBusDaemonMutex, INFINITE ) == WAIT_OBJECT_0);
 
   // create shm
-  DBusSharedMem = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                     0, strlen(DBusAdress) + 1, "DBusDaemonAddressInfo" );
-  _dbus_assert( DBusSharedMem );
+  hDBusSharedMem = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
+                                      0, strlen(DBusAdress) + 1, cDBusDaemonAddressInfo );
+  _dbus_assert( hDBusSharedMem );
 
-  adr = MapViewOfFile( DBusSharedMem, FILE_MAP_WRITE, 0, 0, 0 );
+  adr = MapViewOfFile( hDBusSharedMem, FILE_MAP_WRITE, 0, 0, 0 );
 
   _dbus_assert( adr );
 
   strcpy(adr, DBusAdress);
 
+  // cleanup
   UnmapViewOfFile( adr );
 
   _dbus_global_unlock( lock );
@@ -5135,19 +5146,49 @@ _dbus_daemon_uninit()
 {
   HANDLE lock;
 
-  lock = _dbus_global_lock("UniqueDBusInitMutex");
+  // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
+  lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
-  CloseHandle( DBusSharedMem );
+  CloseHandle( hDBusSharedMem );
 
-  DBusSharedMem = NULL;
+  hDBusSharedMem = NULL;
 
-  ReleaseMutex( DBusDaemonMutex );
+  ReleaseMutex( hDBusDaemonMutex );
 
-  CloseHandle( DBusDaemonMutex );
+  CloseHandle( hDBusDaemonMutex );
 
-  DBusDaemonMutex = NULL;
+  hDBusDaemonMutex = NULL;
 
   _dbus_global_unlock( lock );
+}
+
+static dbus_bool_t
+_dbus_get_autolaunch_shm(DBusString *adress)
+{
+  HANDLE sharedMem;
+  const char *adr;
+
+  // read shm
+  sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, cDBusDaemonAddressInfo );
+
+  if( sharedMem == 0 )
+      return FALSE;
+
+  adr = MapViewOfFile( sharedMem, FILE_MAP_READ, 0, 0, 0 );
+
+  if( adr == 0 )
+      return FALSE;
+
+  _dbus_string_init( adress );
+
+  _dbus_string_append( adress, adr ); 
+
+  // cleanup
+  UnmapViewOfFile( adr );
+
+  CloseHandle( sharedMem );
+
+  return TRUE;
 }
 
 static dbus_bool_t
@@ -5155,13 +5196,13 @@ _dbus_daemon_already_runs (DBusString *adress)
 {
   HANDLE lock;
   HANDLE daemon;
-  DWORD gotMutex;
-  const char *adr;
+  dbus_bool_t bRet = TRUE;
   
-  lock = _dbus_global_lock("UniqueDBusInitMutex");
+  // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
+  lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
   // do checks
-  daemon = CreateMutex( NULL, FALSE, "DBusDaemonMutex" );
+  daemon = CreateMutex( NULL, FALSE, cDBusDaemonMutex );
   if(WaitForSingleObject( daemon, 10 ) != WAIT_TIMEOUT)
     {
       ReleaseMutex (daemon);
@@ -5172,27 +5213,14 @@ _dbus_daemon_already_runs (DBusString *adress)
     }
 
   // read shm
-  DBusSharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, "DBusDaemonAddressInfo" );
+  bRet = _dbus_get_autolaunch_shm(adress);
 
-  _dbus_assert( DBusSharedMem );
-
-  adr = MapViewOfFile( DBusSharedMem, FILE_MAP_READ, 0, 0, 0 );
-
-  _dbus_assert( adr );
-
-  _dbus_string_init( adress );
-
-  _dbus_string_append( adress, adr ); 
-
-  UnmapViewOfFile( adr );
-
+  // cleanup
   CloseHandle ( daemon );
-
-  CloseHandle( DBusSharedMem );
 
   _dbus_global_unlock( lock );
 
-  return TRUE;
+  return bRet;
 }
 
 dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
@@ -5213,7 +5241,7 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
   int nExitCode = STILL_ACTIVE;
   char dbus_exe_path[MAX_PATH];
 
-  mutex = _dbus_global_lock ("DBusAutolaunchMutex");
+  mutex = _dbus_global_lock ( cDBusAutolaunchMutex );
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = FALSE;
@@ -5245,8 +5273,8 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
   i = 0;
   argv[i] = dbus_exe_path;
   ++i;
-  argv[i] = "--print-address";
-  ++i;
+//  argv[i] = "--print-address";
+//  ++i;
 //  argv[i] = "--config-file=bus\\session.conf";
   argv[i] = "--session";
   ++i;
@@ -5271,7 +5299,7 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
 */
 
 //  _dbus_assert (i == _DBUS_N_ELEMENTS (argv));
-  
+#if 0  
   orig_len = _dbus_string_get_length (address);
   
   if(_pipe(address_pipe, 512, O_NOINHERIT) == -1)
@@ -5296,10 +5324,10 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
   
   // Close original write end of pipe
   _close(address_pipe[1]);
-
+#endif
   // Spawn process
   hProcess = (HANDLE)_spawnvp(P_NOWAIT, "dbus-daemon",argv);
-
+#if 0
   // Duplicate copy of original stdout back into stdout
   if(_dup2(fdStdOut, _fileno(stdout)) != 0)
     {
@@ -5323,8 +5351,15 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
     _dbus_string_set_length (address, _dbus_string_get_length (address)-1);
     }      
 // _dbus_string_get_const_data(&dbusdir)
+#endif
+  if(hProcess)
+  {
+      retval = TRUE;
 
-  retval = TRUE;
+      retval = _dbus_get_autolaunch_shm( address );
+  } else {
+      retval = FALSE;
+  }
   
  out:
   if (retval)
