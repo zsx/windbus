@@ -5091,7 +5091,6 @@ void _dbus_global_unlock (HANDLE mutex)
 // for proper cleanup in dbus-daemon
 static HANDLE hDBusDaemonMutex = NULL;
 static HANDLE hDBusSharedMem = NULL;
-static const char *DBusAdress = "tcp:host=localhost,port=12434";  // For now
 // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
 static const char *cUniqueDBusInitMutex = "UniqueDBusInitMutex";
 // sync _dbus_get_autolaunch_address
@@ -5102,7 +5101,7 @@ static const char *cDBusDaemonMutex = "DBusDaemonMutex";
 static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfo";
 
 void
-_dbus_daemon_init()
+_dbus_daemon_init(const char *address)
 {
   HANDLE lock;
   const char *adr = NULL;
@@ -5116,14 +5115,14 @@ _dbus_daemon_init()
 
   // create shm
   hDBusSharedMem = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                      0, strlen(DBusAdress) + 1, cDBusDaemonAddressInfo );
+                                      0, strlen(address) + 1, cDBusDaemonAddressInfo );
   _dbus_assert( hDBusSharedMem );
 
   adr = MapViewOfFile( hDBusSharedMem, FILE_MAP_WRITE, 0, 0, 0 );
 
   _dbus_assert( adr );
 
-  strcpy(adr, DBusAdress);
+  strcpy(adr, address);
 
   // cleanup
   UnmapViewOfFile( adr );
@@ -5157,14 +5156,14 @@ _dbus_get_autolaunch_shm(DBusString *adress)
 {
   HANDLE sharedMem;
   const char *adr;
-  unsigned numRetries = 20; // 2sec
 
   // read shm
   do {
+      // we know that dbus-daemon is available, so we wait until shm is available
       sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, cDBusDaemonAddressInfo );
       if( sharedMem == 0 )
           Sleep( 100 );
-  } while( numRetries-- && sharedMem == 0 );
+  } while( sharedMem == 0 );
 
   if( sharedMem == 0 )
       return FALSE;
@@ -5236,7 +5235,8 @@ _dbus_get_autolaunch_address (DBusString *address,
 
   if (_dbus_daemon_already_runs(address))
     {
-      goto out;
+        retval = TRUE;
+        goto out;
     }
 
   if (!SearchPathA(NULL, "dbus-daemon.exe", NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
