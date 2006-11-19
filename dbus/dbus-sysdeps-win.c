@@ -5064,90 +5064,11 @@ void _searchenv(
 );
 #endif
 
-static UINT GlobalMsgDBusDaemon = 0;
-static WNDPROC oldWndProc = 0;
-static const char *DBusAdress = "tcp:host=localhost,port=12434";  // For now
-
-LRESULT CALLBACK DBusWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
-{
-    if( GlobalMsgDBusDaemon != 0)
-      {
-        if(msg == GlobalMsgDBusDaemon)
-          {
-            return (LRESULT)DBusAdress; 
-          }        
-      }
-    return DefWindowProcA(hWnd, msg, wParam, lParam);
-}
-
-void _dbus_init_windows_messageloop()
-{
-  WNDCLASSA wc;
-  HWND wnd;
-  DWORD lastErr;
-
-  memset( &wc, 0, sizeof(WNDCLASSA) );
-  wc.style = 0;
-  wc.lpfnWndProc = DBusWndProc;
-  wc.cbClsExtra = 0;
-  wc.cbWndExtra = 0;
-  wc.hInstance = GetModuleHandle(NULL);
-  wc.hIcon = 0;
-  wc.hCursor = 0;
-  wc.hbrBackground = 0;
-  wc.lpszMenuName = NULL;
-  wc.lpszClassName = "GlobalMsgDBusDaemonWindowClass";
-  _dbus_assert(RegisterClassA(&wc));
-
-  wnd = CreateWindowA(wc.lpszClassName,  // classname
-                      wc.lpszClassName,  // window name
-                      0,                 // style
-                      0, 0, 0, 0,        // geometry
-                      0,                 // parent
-                      0,                 // menu handle
-                      wc.hInstance,      // application
-                      0);                // windows creation data.
-
-  _dbus_assert(wnd);
-
-  // Register the message
-  GlobalMsgDBusDaemon = RegisterWindowMessageA("DBusSessionInstanceMessage");
-  
-  // check for failure
-  _dbus_assert(GlobalMsgDBusDaemon > 0xC000 && GlobalMsgDBusDaemon < 0xFFFF);
-
-}
-
-static dbus_bool_t
-_dbus_daemon_already_runs (DBusString *adress)
-{
-  UINT msgDBusDaemon;
-  LRESULT lResult;
-  
-  // Register the message
-  msgDBusDaemon = RegisterWindowMessageA("DBusSessionInstanceMessage");
-  
-  // check for failure
-  _dbus_assert(msgDBusDaemon > 0xC000 && msgDBusDaemon < 0xFFFF);
-  
-  // try to get the adress as char*
-  lResult = SendMessageA(HWND_BROADCAST, msgDBusDaemon, 0, 0);
-  
-  // no retval -> dbus-daemon not running
-  if( lResult == 0 )
-    return FALSE;
-  
-  // set 
-  _dbus_string_init_const( adress, (const char *)lResult );
-  
-  return TRUE;
-}
-
 static
 HANDLE _dbus_global_lock (const char *mutexname)
 {
   HANDLE mutex;
-  DWORD gotMutex; 
+  DWORD gotMutex;
 
   mutex = CreateMutex( NULL, FALSE, mutexname );
   if( !mutex )
@@ -5155,7 +5076,7 @@ HANDLE _dbus_global_lock (const char *mutexname)
       return FALSE;
     }
 
-   gotMutex = WaitForSingleObject( mutex, 10 );
+   gotMutex = WaitForSingleObject( mutex, INFINITE );
    switch( gotMutex )
      {
        case WAIT_ABANDONED:
@@ -5177,6 +5098,52 @@ void _dbus_global_unlock (HANDLE mutex)
   CloseHandle (mutex); 
 }
 
+static HANDLE DBusDaemonMutex = NULL;
+
+void
+_dbus_daemon_init()
+{
+  HANDLE lock;
+
+  lock = _dbus_global_lock("UniqueDBusInitMutex");
+
+  DBusDaemonMutex = CreateMutex( NULL, FALSE, "DBusDaemonMutex" );
+
+  _dbus_assert(WaitForSingleObject( DBusDaemonMutex, INFINITE ) == WAIT_OBJECT_0);
+
+  // create shm
+
+  _dbus_global_unlock( lock );
+}
+
+static dbus_bool_t
+_dbus_daemon_already_runs (DBusString *adress)
+{
+  HANDLE lock;
+  HANDLE daemon;
+  DWORD gotMutex;
+  
+  lock = _dbus_global_lock("UniqueDBusInitMutex");
+
+  // do checks
+  daemon = CreateMutex( NULL, FALSE, "DBusDaemonMutex" );
+  if(WaitForSingleObject( daemon, 10 ) != WAIT_TIMEOUT)
+    {
+      ReleaseMutex (daemon);
+      CloseHandle (daemon);
+
+      _dbus_global_unlock( lock );
+      return FALSE;
+    }
+  CloseHandle (daemon);
+  _dbus_global_unlock( lock );
+
+  // read shm
+
+
+  return TRUE;
+}
+
 dbus_bool_t _dbus_get_autolaunch_address (DBusString *address, 
                                           DBusError *error)
 {
@@ -5195,7 +5162,7 @@ dbus_bool_t _dbus_get_autolaunch_address (DBusString *address,
   int nExitCode = STILL_ACTIVE;
   char dbus_exe_path[MAX_PATH];
 
-  mutex = _dbus_global_lock ("UniqueDBusInstanceMutex");
+  mutex = _dbus_global_lock ("DBusAutolaunchMutex");
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = FALSE;
