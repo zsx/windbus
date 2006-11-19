@@ -5167,9 +5167,14 @@ _dbus_get_autolaunch_shm(DBusString *adress)
 {
   HANDLE sharedMem;
   const char *adr;
+  unsigned numRetries = 20; // 2sec
 
   // read shm
-  sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, cDBusDaemonAddressInfo );
+  do {
+      sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, cDBusDaemonAddressInfo );
+      if( sharedMem == 0 )
+          Sleep( 100 );
+  } while( numRetries-- && sharedMem == 0 );
 
   if( sharedMem == 0 )
       return FALSE;
@@ -5213,7 +5218,7 @@ _dbus_daemon_already_runs (DBusString *adress)
     }
 
   // read shm
-  bRet = _dbus_get_autolaunch_shm(adress);
+  bRet = _dbus_get_autolaunch_shm( adress );
 
   // cleanup
   CloseHandle ( daemon );
