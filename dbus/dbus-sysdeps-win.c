@@ -5095,9 +5095,9 @@ static HANDLE hDBusSharedMem = NULL;
 static const char *cUniqueDBusInitMutex = "UniqueDBusInitMutex";
 // sync _dbus_get_autolaunch_address
 static const char *cDBusAutolaunchMutex = "DBusAutolaunchMutex";
-// mutex to determine if dbus-daemon is already started
+// mutex to determine if dbus-daemon is already started (per user)
 static const char *cDBusDaemonMutex = "DBusDaemonMutex";
-// named shm for dbus adress info
+// named shm for dbus adress info (per user)
 static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfo";
 
 void
@@ -5105,17 +5105,29 @@ _dbus_daemon_init(const char *address)
 {
   HANDLE lock;
   const char *adr = NULL;
+  char szDBusDaemonMutex[128];
+  char szDBusDaemonAddressInfo[128];
+
+  // this is just a hack - we have to take care that no testserver is added here
+  // because we only allow one dbus per userid
+  if(strncmp(address, "tcp:host=", 9) != 0)
+      return;
+  
+  snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%d",
+           cDBusDaemonMutex, _dbus_getuid());
+  snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%d",
+           cDBusDaemonAddressInfo, _dbus_getuid());
 
   // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
-  hDBusDaemonMutex = CreateMutex( NULL, FALSE, cDBusDaemonMutex );
+  hDBusDaemonMutex = CreateMutex( NULL, FALSE, szDBusDaemonMutex );
 
-  _dbus_assert(WaitForSingleObject( hDBusDaemonMutex, INFINITE ) == WAIT_OBJECT_0);
+  _dbus_assert(WaitForSingleObject( hDBusDaemonMutex, 1000 ) == WAIT_OBJECT_0);
 
   // create shm
   hDBusSharedMem = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                      0, strlen(address) + 1, cDBusDaemonAddressInfo );
+                                      0, strlen(address) + 1, szDBusDaemonAddressInfo );
   _dbus_assert( hDBusSharedMem );
 
   adr = MapViewOfFile( hDBusSharedMem, FILE_MAP_WRITE, 0, 0, 0 );
@@ -5156,11 +5168,15 @@ _dbus_get_autolaunch_shm(DBusString *adress)
 {
   HANDLE sharedMem;
   const char *adr;
+  char szDBusDaemonAddressInfo[128];
+
+  snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%d",
+           cDBusDaemonAddressInfo, _dbus_getuid());
 
   // read shm
   do {
       // we know that dbus-daemon is available, so we wait until shm is available
-      sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, cDBusDaemonAddressInfo );
+      sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, szDBusDaemonAddressInfo );
       if( sharedMem == 0 )
           Sleep( 100 );
   } while( sharedMem == 0 );
@@ -5191,12 +5207,16 @@ _dbus_daemon_already_runs (DBusString *adress)
   HANDLE lock;
   HANDLE daemon;
   dbus_bool_t bRet = TRUE;
-  
+  char szDBusDaemonMutex[128];
+
   // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
+  snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%d",
+           cDBusDaemonMutex, _dbus_getuid());
+
   // do checks
-  daemon = CreateMutex( NULL, FALSE, cDBusDaemonMutex );
+  daemon = CreateMutex( NULL, FALSE, szDBusDaemonMutex );
   if(WaitForSingleObject( daemon, 10 ) != WAIT_TIMEOUT)
     {
       ReleaseMutex (daemon);
@@ -5235,13 +5255,14 @@ _dbus_get_autolaunch_address (DBusString *address,
 
   if (_dbus_daemon_already_runs(address))
     {
+        printf("dbus daemon already exists\n");
         retval = TRUE;
         goto out;
     }
 
   if (!SearchPathA(NULL, "dbus-daemon.exe", NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
     {
-      _dbus_verbose ("could not find dbus-daemon executable\n");
+      printf ("could not find dbus-daemon executable\n");
       goto out;
     }
 
@@ -5250,9 +5271,10 @@ _dbus_get_autolaunch_address (DBusString *address,
   si.cb = sizeof(si);
   ZeroMemory( &pi, sizeof(pi) );
 
-  _snprintf(dbus_args, sizeof(dbus_args) - 1, "%s %s", dbus_exe_path,  " --session");
+  _snprintf(dbus_args, sizeof(dbus_args) - 1, "%s %s\n", dbus_exe_path,  " --session");
 
 //  argv[i] = "--config-file=bus\\session.conf";
+  printf("create process %s %s", dbus_exe_path, dbus_args);
   if(CreateProcessA(dbus_exe_path, dbus_args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
     {
       retval = TRUE;
