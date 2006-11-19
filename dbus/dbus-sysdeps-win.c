@@ -5271,10 +5271,10 @@ _dbus_get_autolaunch_address (DBusString *address,
   si.cb = sizeof(si);
   ZeroMemory( &pi, sizeof(pi) );
 
-  _snprintf(dbus_args, sizeof(dbus_args) - 1, "%s %s\n", dbus_exe_path,  " --session");
+  _snprintf(dbus_args, sizeof(dbus_args) - 1, "%s %s", dbus_exe_path,  " --session");
 
 //  argv[i] = "--config-file=bus\\session.conf";
-  printf("create process %s %s", dbus_exe_path, dbus_args);
+  printf("create process %s %s\n", dbus_exe_path, dbus_args);
   if(CreateProcessA(dbus_exe_path, dbus_args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
     {
       retval = TRUE;
