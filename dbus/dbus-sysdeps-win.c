@@ -5099,11 +5099,14 @@ void _dbus_global_unlock (HANDLE mutex)
 }
 
 static HANDLE DBusDaemonMutex = NULL;
+static HANDLE DBusSharedMem = NULL;
+static const char *DBusAdress = "tcp:host=localhost,port=12434";  // For now
 
 void
 _dbus_daemon_init()
 {
   HANDLE lock;
+  const char *adr = NULL;
 
   lock = _dbus_global_lock("UniqueDBusInitMutex");
 
@@ -5112,6 +5115,37 @@ _dbus_daemon_init()
   _dbus_assert(WaitForSingleObject( DBusDaemonMutex, INFINITE ) == WAIT_OBJECT_0);
 
   // create shm
+  DBusSharedMem = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
+                                     0, strlen(DBusAdress) + 1, "DBusDaemonAddressInfo" );
+  _dbus_assert( DBusSharedMem );
+
+  adr = MapViewOfFile( DBusSharedMem, FILE_MAP_WRITE, 0, 0, 0 );
+
+  _dbus_assert( adr );
+
+  strcpy(adr, DBusAdress);
+
+  UnmapViewOfFile( adr );
+
+  _dbus_global_unlock( lock );
+}
+
+void
+_dbus_daemon_uninit()
+{
+  HANDLE lock;
+
+  lock = _dbus_global_lock("UniqueDBusInitMutex");
+
+  CloseHandle( DBusSharedMem );
+
+  DBusSharedMem = NULL;
+
+  ReleaseMutex( DBusDaemonMutex );
+
+  CloseHandle( DBusDaemonMutex );
+
+  DBusDaemonMutex = NULL;
 
   _dbus_global_unlock( lock );
 }
@@ -5122,6 +5156,7 @@ _dbus_daemon_already_runs (DBusString *adress)
   HANDLE lock;
   HANDLE daemon;
   DWORD gotMutex;
+  const char *adr;
   
   lock = _dbus_global_lock("UniqueDBusInitMutex");
 
@@ -5135,11 +5170,27 @@ _dbus_daemon_already_runs (DBusString *adress)
       _dbus_global_unlock( lock );
       return FALSE;
     }
-  CloseHandle (daemon);
-  _dbus_global_unlock( lock );
 
   // read shm
+  DBusSharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, "DBusDaemonAddressInfo" );
 
+  _dbus_assert( DBusSharedMem );
+
+  adr = MapViewOfFile( DBusSharedMem, FILE_MAP_READ, 0, 0, 0 );
+
+  _dbus_assert( adr );
+
+  _dbus_string_init( adress );
+
+  _dbus_string_append( adress, adr ); 
+
+  UnmapViewOfFile( adr );
+
+  CloseHandle ( daemon );
+
+  CloseHandle( DBusSharedMem );
+
+  _dbus_global_unlock( lock );
 
   return TRUE;
 }
