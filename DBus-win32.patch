@@ -908,6 +908,16 @@ Index: dbus/dbus-sysdeps-unix.c
  /**
   * Like _dbus_write_two() but only works on sockets and is thus
   * available on Windows.
+@@ -2734,4 +2743,9 @@
+   return FALSE;
+ }
+ 
++// non empty implementation in the Windows code
++void _dbus_daemon_release()
++{
++}
++
+ /* tests in dbus-sysdeps-util.c */
 Index: dbus/dbus-transport-unix.c
 ===================================================================
 --- dbus/dbus-transport-unix.c	(revision 452)
