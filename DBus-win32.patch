@@ -764,6 +764,15 @@ Index: dbus/dbus-connection.c
 ===================================================================
 --- dbus/dbus-connection.c	(revision 456)
 +++ dbus/dbus-connection.c	(working copy)
+@@ -62,7 +62,7 @@
+ #define TRACE_LOCKS 1
+ 
+ #define CONNECTION_LOCK(connection)   do {                                      \
+-    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
++    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK  : %s\n", _DBUS_FUNCTION_NAME); }   \
+     _dbus_mutex_lock ((connection)->mutex);                                      \
+     TOOK_LOCK_CHECK (connection);                                               \
+   } while (0)
 @@ -4720,7 +4720,7 @@
  
  #ifdef DBUS_WIN
@@ -971,6 +980,19 @@ Index: dbus/dbus-sysdeps.c
    char *fail_pos;
    double val;
    struct lconv *locale_data;
+Index: dbus/dbus-internals.c
+===================================================================
+--- dbus/dbus-internals.c	(revision 456)
++++ dbus/dbus-internals.c	(working copy)
+@@ -295,7 +295,7 @@
+ #include <pthread.h>
+ #endif
+ 
+-static inline void
++static void
+ _dbus_verbose_init (void)
+ {
+   if (!verbose_initted)
 Index: dbus/dbus-sysdeps.h
 ===================================================================
 --- dbus/dbus-sysdeps.h	(revision 456)
@@ -1006,19 +1028,6 @@ Index: dbus/dbus-sysdeps.h
  const char* _dbus_get_tmpdir      (void);
  
  /**
-Index: dbus/dbus-internals.c
-===================================================================
---- dbus/dbus-internals.c	(revision 456)
-+++ dbus/dbus-internals.c	(working copy)
-@@ -295,7 +295,7 @@
- #include <pthread.h>
- #endif
- 
--static inline void
-+static void
- _dbus_verbose_init (void)
- {
-   if (!verbose_initted)
 Index: dbus/dbus-internals.h
 ===================================================================
 --- dbus/dbus-internals.h	(revision 456)
