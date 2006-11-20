@@ -971,6 +971,19 @@ Index: dbus/dbus-sysdeps.c
    char *fail_pos;
    double val;
    struct lconv *locale_data;
+Index: dbus/dbus-internals.c
+===================================================================
+--- dbus/dbus-internals.c	(revision 452)
++++ dbus/dbus-internals.c	(working copy)
+@@ -295,7 +295,7 @@
+ #include <pthread.h>
+ #endif
+ 
+-static inline void
++static void
+ _dbus_verbose_init (void)
+ {
+   if (!verbose_initted)
 Index: dbus/dbus-sysdeps.h
 ===================================================================
 --- dbus/dbus-sysdeps.h	(revision 452)
@@ -998,19 +1011,6 @@ Index: dbus/dbus-sysdeps.h
  const char* _dbus_get_tmpdir      (void);
  
  /**
-Index: dbus/dbus-internals.c
-===================================================================
---- dbus/dbus-internals.c	(revision 452)
-+++ dbus/dbus-internals.c	(working copy)
-@@ -295,7 +295,7 @@
- #include <pthread.h>
- #endif
- 
--static inline void
-+static void
- _dbus_verbose_init (void)
- {
-   if (!verbose_initted)
 Index: dbus/dbus-string-util.c
 ===================================================================
 --- dbus/dbus-string-util.c	(revision 452)
