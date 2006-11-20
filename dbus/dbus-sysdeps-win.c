@@ -3225,16 +3225,19 @@ _dbus_connect_tcp_socket (const char     *host,
   return handle;
 }
 
+void
+_dbus_daemon_init(const char *host, dbus_uint32_t port);
 /**
  * Creates a socket and binds it to the given port,
  * then listens on the socket. The socket is
  * set to be nonblocking. 
  *
  * @param host the interface to listen on, NULL for loopback, empty for any
- * @param port the port to listen on
+ * @param port the port to listen on, unused
  * @param error return location for errors
  * @returns the listening file descriptor or -1 on error
  */
+
 int
 _dbus_listen_tcp_socket (const char     *host,
                          dbus_uint32_t   port,
@@ -3245,6 +3248,7 @@ _dbus_listen_tcp_socket (const char     *host,
   struct sockaddr_in addr;
   struct hostent *he;
   struct in_addr *haddr;
+  int len =  sizeof (struct sockaddr);
 #ifdef DBUS_WIN
   struct in_addr ina;
 #endif
@@ -3302,7 +3306,7 @@ _dbus_listen_tcp_socket (const char     *host,
   _DBUS_ZERO (addr);
   memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = htons (port);
+  addr.sin_port = 0;
 
   if (bind (slisten.fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
     {
@@ -3323,6 +3327,11 @@ _dbus_listen_tcp_socket (const char     *host,
       DBUS_CLOSE_SOCKET (slisten.fd);
       return -1;
     }
+
+
+  getsockname(slisten.fd, (struct sockaddr*) &addr, &len);
+
+  _dbus_daemon_init(host, ntohs(addr.sin_port));
 
   handle = _dbus_socket_to_handle (&slisten);
 
@@ -5101,7 +5110,7 @@ static const char *cDBusDaemonMutex = "DBusDaemonMutex";
 static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfo";
 
 void
-_dbus_daemon_init(const char *address)
+_dbus_daemon_init(const char *host, dbus_uint32_t port)
 {
   HANDLE lock;
   const char *adr = NULL;
@@ -5109,12 +5118,13 @@ _dbus_daemon_init(const char *address)
   DWORD dwUserNameSize = sizeof(szUserName);
   char szDBusDaemonMutex[128];
   char szDBusDaemonAddressInfo[128];
+  char szAddress[128];
 
-  // this is just a hack - we have to take care that no testserver is added here
-  // because we only allow one dbus per userid
-  if(strncmp(address, "tcp:host=", 9) != 0)
-      return;
-  
+  _dbus_assert(host);
+  _dbus_assert(port);
+
+  _snprintf(szAddress, sizeof(szAddress) - 1, "tcp:host=%s,port=%d", host, port);
+
   _dbus_assert( GetUserName(szUserName, &dwUserNameSize) != 0);
   _snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%s",
             cDBusDaemonMutex, szUserName);
@@ -5130,14 +5140,14 @@ _dbus_daemon_init(const char *address)
 
   // create shm
   hDBusSharedMem = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                      0, strlen(address) + 1, szDBusDaemonAddressInfo );
+                                      0, strlen( szAddress ) + 1, szDBusDaemonAddressInfo );
   _dbus_assert( hDBusSharedMem );
 
   adr = MapViewOfFile( hDBusSharedMem, FILE_MAP_WRITE, 0, 0, 0 );
 
   _dbus_assert( adr );
 
-  strcpy(adr, address);
+  strcpy(adr, szAddress);
 
   // cleanup
   UnmapViewOfFile( adr );
