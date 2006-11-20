@@ -988,7 +988,15 @@ Index: dbus/dbus-sysdeps.h
 ===================================================================
 --- dbus/dbus-sysdeps.h	(revision 452)
 +++ dbus/dbus-sysdeps.h	(working copy)
-@@ -298,6 +298,12 @@
+@@ -119,6 +119,7 @@
+  * 
+  */
+ 
++void        _dbus_daemon_release   (void);
+ dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
+                                     DBusError        *error);
+ dbus_bool_t _dbus_close_socket     (int               fd,
+@@ -298,6 +299,12 @@
  
  dbus_bool_t _dbus_get_standard_session_servicedirs (DBusList **dirs);
  
@@ -1001,7 +1009,7 @@ Index: dbus/dbus-sysdeps.h
  /** Opaque type for reading a directory listing */
  typedef struct DBusDirIter DBusDirIter;
  
-@@ -313,6 +319,9 @@
+@@ -313,6 +320,9 @@
  
  void _dbus_fd_set_close_on_exec (int fd);
  
