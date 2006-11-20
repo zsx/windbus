@@ -5156,7 +5156,7 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
 }
 
 void
-_dbus_daemon_uninit()
+_dbus_daemon_release()
 {
   HANDLE lock;
 
