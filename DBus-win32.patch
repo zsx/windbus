@@ -434,6 +434,22 @@ Index: bus/bus.c
          {
            dbus_set_error (error, DBUS_ERROR_FAILED,
                            "Printing message bus PID: %s\n",
+Index: dbus/dbus-threads.c
+===================================================================
+--- dbus/dbus-threads.c	(revision 466)
++++ dbus/dbus-threads.c	(working copy)
+@@ -810,7 +810,11 @@
+ dbus_bool_t
+ _dbus_threads_init_debug (void)
+ {
++#ifdef DBUS_WIN
++  return _dbus_threads_init_platform_specific();
++#else
+   return dbus_threads_init (&fake_functions);
++#endif
+ }
+ 
+ #endif /* DBUS_BUILD_TESTS */
 Index: dbus/dbus-spawn.h
 ===================================================================
 --- dbus/dbus-spawn.h	(revision 466)
