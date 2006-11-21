@@ -177,9 +177,9 @@ ENDFOREACH(FILE_TYPE)
 
 ### generate test files
 SET (CONFIG_FILES test/data/valid-config-files)
-
-configure_file(${CMAKE_SOURCE_DIR}/../${CONFIG_FILES}/debug-allow-all-sha1.conf.in ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all-sha1.conf )
-configure_file(${CMAKE_SOURCE_DIR}/../${CONFIG_FILES}/debug-allow-all.conf.in ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all.conf )
+SET (TEST_SERVICE_DIR ${CMAKE_BINARY_DIR}/test/data/valid-service-files)
+configure_file(${CMAKE_SOURCE_DIR}/${CONFIG_FILES}/debug-allow-all-sha1.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all-sha1.conf )
+configure_file(${CMAKE_SOURCE_DIR}/${CONFIG_FILES}/debug-allow-all.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all.conf )
 
 # (rh) disabled copying because bus-test could not parse this files for unknown reasons
 FILE(GLOB FILES "${CMAKE_BINARY_DIR}/bus/*.conf" )

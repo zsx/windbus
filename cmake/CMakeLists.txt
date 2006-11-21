@@ -254,7 +254,7 @@ endif(WIN32)
 #TEST_PATH(SEGFAULT_BINARY,      test-segfault)
 #TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
 
-set(TEST_SERVICE_DIR          ${EXPANDED_DATADIR}/valid-service-files     CACHE STRING "Full path to test file test/data/valid-service-files in builddir")
+set(TEST_SERVICE_DIR          ${CMAKE_BINARY_DIR}/test/data/valid-service-files     CACHE STRING "Full path to test file test/data/valid-service-files in builddir")
 set(TEST_SERVICE_BINARY       ${EXPANDED_BINDIR}/test-service${EXT}       CACHE STRING "Full path to test file test/test-service in builddir")
 set(TEST_SHELL_SERVICE_BINARY ${EXPANDED_BINDIR}/test-shell-service${EXT} CACHE STRING "Full path to test file test/test-shell-service in builddir")    
 set(TEST_EXIT_BINARY          ${EXPANDED_BINDIR}/test-exit${EXT}          CACHE STRING "Full path to test file test/test-exit in builddir")
