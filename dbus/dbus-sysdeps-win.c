@@ -3233,7 +3233,7 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port);
  * set to be nonblocking. 
  *
  * @param host the interface to listen on, NULL for loopback, empty for any
- * @param port the port to listen on, unused
+ * @param port the port to listen on, if zero a free port will be used
  * @param error return location for errors
  * @returns the listening file descriptor or -1 on error
  */
@@ -3306,7 +3306,7 @@ _dbus_listen_tcp_socket (const char     *host,
   _DBUS_ZERO (addr);
   memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = 0;
+  addr.sin_port = htons (port);
 
   if (bind (slisten.fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
     {
