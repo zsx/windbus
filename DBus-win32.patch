@@ -502,7 +502,19 @@ Index: dbus/dbus-transport-socket.c
 ===================================================================
 --- dbus/dbus-transport-socket.c	(revision 460)
 +++ dbus/dbus-transport-socket.c	(working copy)
-@@ -1294,7 +1294,7 @@
+@@ -1286,15 +1286,19 @@
+           
+       if (port == NULL)
+         {
++#ifdef DBUS_WIN
++          port = "0";
++#else
+           _dbus_set_bad_address (error, "tcp", "port", NULL);
+           return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
++#endif
+         }
+ 
+       _dbus_string_init_const (&str, port);
        sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
        _dbus_string_free (&str);
            
@@ -844,7 +856,19 @@ Index: dbus/dbus-server-socket.c
 ===================================================================
 --- dbus/dbus-server-socket.c	(revision 460)
 +++ dbus/dbus-server-socket.c	(working copy)
-@@ -401,7 +401,7 @@
+@@ -393,15 +393,19 @@
+           
+       if (port == NULL)
+         {
++#ifdef DBUS_WIN
++          port = "0";
++#else
+           _dbus_set_bad_address(error, "tcp", "port", NULL);
+           return DBUS_SERVER_LISTEN_BAD_ADDRESS;
++#endif
+         }
+ 
+       _dbus_string_init_const (&str, port);
        sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
        _dbus_string_free (&str);
            
@@ -1019,19 +1043,6 @@ Index: dbus/dbus-sysdeps.c
    char *fail_pos;
    double val;
    struct lconv *locale_data;
-Index: dbus/dbus-internals.c
-===================================================================
---- dbus/dbus-internals.c	(revision 460)
-+++ dbus/dbus-internals.c	(working copy)
-@@ -295,7 +295,7 @@
- #include <pthread.h>
- #endif
- 
--static inline void
-+static void
- _dbus_verbose_init (void)
- {
-   if (!verbose_initted)
 Index: dbus/dbus-sysdeps.h
 ===================================================================
 --- dbus/dbus-sysdeps.h	(revision 460)
@@ -1067,6 +1078,19 @@ Index: dbus/dbus-sysdeps.h
  const char* _dbus_get_tmpdir      (void);
  
  /**
+Index: dbus/dbus-internals.c
+===================================================================
+--- dbus/dbus-internals.c	(revision 460)
++++ dbus/dbus-internals.c	(working copy)
+@@ -295,7 +295,7 @@
+ #include <pthread.h>
+ #endif
+ 
+-static inline void
++static void
+ _dbus_verbose_init (void)
+ {
+   if (!verbose_initted)
 Index: dbus/dbus-internals.h
 ===================================================================
 --- dbus/dbus-internals.h	(revision 460)
