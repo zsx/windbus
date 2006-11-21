@@ -84,6 +84,7 @@ set (DBUS_LIB_HEADERS
 	${DBUS_DIR}/dbus-server-unix.h
 	${DBUS_DIR}/dbus-sha.h
 	${DBUS_DIR}/dbus-timeout.h
+	${DBUS_DIR}/dbus-threads.h
 	${DBUS_DIR}/dbus-threads-internal.h
 	${DBUS_DIR}/dbus-transport.h
 	${DBUS_DIR}/dbus-transport-protected.h
