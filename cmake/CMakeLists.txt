@@ -1,5 +1,5 @@
 set (PACKAGE dbus)
-set (VERSION 0.94)
+set (VERSION 1.01)
 project(${PACKAGE})
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
