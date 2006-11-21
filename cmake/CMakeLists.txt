@@ -243,26 +243,23 @@ endif(X11_FOUND)
 
 # test binary names
 if (WIN32)
-set (EXT ".exe")
+	set (EXT ".exe")
 endif(WIN32)
-set(TEST_EXIT_BINARY
-    ${EXPANDED_BINDIR}/test-exit${EXT}
-    CACHE STRING "Full path to test file test/test-exit in builddir")
-set(TEST_SEGFAULT_BINARY
-    ${EXPANDED_BINDIR}/test-segfault${EXT}
-    CACHE STRING "Full path to test file test/test-segfault in builddir")
-set(TEST_SERVICE_BINARY
-    ${EXPANDED_BINDIR}/test-service${EXT}
-    CACHE STRING "Full path to test file test/test-service in builddir")
-set(TEST_SERVICE_DIR
-    ${CMAKE_SOURCE_DIR}/../test/data/valid-service-files${EXT}
-    CACHE STRING "Full path to test file test/data/valid-service-files in builddir")
-set(TEST_SHELL_SERVICE_BINARY
-    ${EXPANDED_BINDIR}/test-shell-service${EXT}
-    CACHE STRING "Full path to test file test/test-shell-service in builddir")
-set(TEST_SLEEP_FOREVER_BINARY
-    ${EXPANDED_BINDIR}/test-sleep-forever${EXT}
-    CACHE STRING "Full path to test file test/test-sleep-forever in builddir")
+
+# confirure.in:
+#TEST_PATH(SERVICE_DIR,          data/valid-service-files)
+#TEST_PATH(SERVICE_BINARY,       test-service)
+#TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
+#TEST_PATH(EXIT_BINARY,          test-exit)
+#TEST_PATH(SEGFAULT_BINARY,      test-segfault)
+#TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
+
+set(TEST_SERVICE_DIR          ${EXPANDED_DATADIR}/valid-service-files     CACHE STRING "Full path to test file test/data/valid-service-files in builddir")
+set(TEST_SERVICE_BINARY       ${EXPANDED_BINDIR}/test-service${EXT}       CACHE STRING "Full path to test file test/test-service in builddir")
+set(TEST_SHELL_SERVICE_BINARY ${EXPANDED_BINDIR}/test-shell-service${EXT} CACHE STRING "Full path to test file test/test-shell-service in builddir")    
+set(TEST_EXIT_BINARY          ${EXPANDED_BINDIR}/test-exit${EXT}          CACHE STRING "Full path to test file test/test-exit in builddir")
+set(TEST_SEGFAULT_BINARY      ${EXPANDED_BINDIR}/test-segfault${EXT}      CACHE STRING "Full path to test file test/test-segfault in builddir")
+set(TEST_SLEEP_FOREVER_BINARY ${EXPANDED_BINDIR}/test-sleep-forever${EXT} CACHE STRING "Full path to test file test/test-sleep-forever in builddir")
 
 #### Find socket directories
 if (NOT WIN32)
