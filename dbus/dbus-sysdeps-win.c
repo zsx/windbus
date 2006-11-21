@@ -81,6 +81,21 @@
 _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
+
+void 
+_dbus_lock_sockets()
+{
+	_dbus_assert (win_fds!=0); 
+	_DBUS_LOCK   (win_fds);
+}
+
+void 
+_dbus_unlock_sockets()
+{
+	_dbus_assert (win_fds!=0); 
+	_DBUS_UNLOCK (win_fds);
+}
+
 #ifdef _DBUS_WIN_USE_RANDOMIZER
 static int  win_encap_randomizer;
 #endif
@@ -529,9 +544,9 @@ _dbus_read_socket (int               handle,
 
   data = _dbus_string_get_data_len (buffer, start, count);
 
-  _DBUS_LOCK (win_fds);
+  _dbus_lock_sockets();
   _dbus_handle_to_socket(handle, &s);
-  _DBUS_UNLOCK (win_fds);
+  _dbus_unlock_sockets();
 
   if(s->is_used)
     {
@@ -595,9 +610,9 @@ _dbus_write_socket (int               handle,
 
   data = _dbus_string_get_const_data_len (buffer, start, len);
 
-  _DBUS_LOCK (win_fds);
+  _dbus_lock_sockets();
   _dbus_handle_to_socket(handle, &s);
-  _DBUS_UNLOCK (win_fds);
+  _dbus_unlock_sockets();
 
   if (s->is_used)
     {
@@ -641,7 +656,7 @@ _dbus_close_socket (int        handle,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  _DBUS_LOCK (win_fds);
+  _dbus_lock_sockets();
 
   _dbus_handle_to_socket (handle, &s);
 
@@ -663,7 +678,7 @@ _dbus_close_socket (int        handle,
           dbus_set_error (error, _dbus_error_from_errno (errno),
               "Could not close socket: socket=%d, handle=%d, %s",
                           s->fd, handle, _dbus_strerror (errno));
-          _DBUS_UNLOCK (win_fds);
+          _dbus_unlock_sockets();
           return FALSE;
         }
       _dbus_verbose ("_dbus_close_socket: socket=%d, handle=%d\n",
@@ -674,7 +689,7 @@ _dbus_close_socket (int        handle,
       _dbus_assert_not_reached ("unhandled fd type");
     }
 
-  _DBUS_UNLOCK (win_fds);
+  _dbus_unlock_sockets();
 
   _dbus_win_deallocate_fd (handle);
 
@@ -696,12 +711,12 @@ _dbus_fd_set_close_on_exec (int handle)
   if (handle < 0)
     return;
 
-  _DBUS_LOCK (win_fds);
+  _dbus_lock_sockets();
 
   _dbus_handle_to_socket (handle, &s);
   s->close_on_exec = TRUE;
 
-  _DBUS_UNLOCK (win_fds);
+  _dbus_unlock_sockets();
 }
 
 /**
@@ -720,7 +735,7 @@ _dbus_set_fd_nonblocking (int             handle,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  _DBUS_LOCK (win_fds);
+  _dbus_lock_sockets();
 
   _dbus_handle_to_socket(handle, &s);
 
@@ -731,7 +746,7 @@ _dbus_set_fd_nonblocking (int             handle,
           dbus_set_error (error, _dbus_error_from_errno (WSAGetLastError ()),
                           "Failed to set socket %d:%d to nonblocking: %s", s->fd,
                           _dbus_strerror (WSAGetLastError ()));
-          _DBUS_UNLOCK (win_fds);
+          _dbus_unlock_sockets();
           return FALSE;
         }
     }
@@ -740,7 +755,7 @@ _dbus_set_fd_nonblocking (int             handle,
       _dbus_assert_not_reached ("unhandled fd type");
     }
 
-  _DBUS_UNLOCK (win_fds);
+  _dbus_unlock_sockets();
 
   return TRUE;
 }
@@ -789,9 +804,9 @@ _dbus_write_socket_two (int               handle,
   _dbus_assert (len1 >= 0);
   _dbus_assert (len2 >= 0);
 
-  _DBUS_LOCK (win_fds);
+  _dbus_lock_sockets();
   _dbus_handle_to_socket(handle, &s);
-  _DBUS_UNLOCK (win_fds);
+  _dbus_unlock_sockets();
 
   data1 = _dbus_string_get_const_data_len (buffer1, start1, len1);
 
@@ -963,9 +978,9 @@ _dbus_listen_unix_socket (const char     *path,
   if (listen_handle == -1)
     return -1;
 
-  _DBUS_LOCK (win_fds);
+  _dbus_lock_sockets();
   _dbus_handle_to_socket(listen_handle, &s);
-  _DBUS_UNLOCK (win_fds);  
+  _dbus_unlock_sockets();
 
   addr_len = sizeof (sa);
   if (getsockname (s->fd, &sa, &addr_len) == SOCKET_ERROR)
@@ -991,10 +1006,10 @@ _dbus_listen_unix_socket (const char     *path,
       return -1;
     }
 
-  _DBUS_LOCK (win_fds);
+  _dbus_lock_sockets();
   _dbus_handle_to_socket(listen_handle, &s);
   s->port_file_fd = filefd;
-  _DBUS_UNLOCK (win_fds);
+  _dbus_unlock_sockets();
 
   /* Use strdup() to avoid memory leak in dbus-test */
   path = strdup (path);
@@ -2105,7 +2120,7 @@ _dbus_poll (DBusPollFD *fds,
   FD_ZERO (&write_set);
   FD_ZERO (&err_set);
 
-  _DBUS_LOCK (win_fds);
+  _dbus_lock_sockets();
 
 
   msgp = msg;
@@ -2164,7 +2179,7 @@ _dbus_poll (DBusPollFD *fds,
       max_fd = MAX (max_fd, s->fd);
     }
 
-  _DBUS_UNLOCK (win_fds);
+  _dbus_unlock_sockets();
 
   tv.tv_sec = timeout_milliseconds / 1000;
   tv.tv_usec = (timeout_milliseconds % 1000) * 1000;
@@ -2185,7 +2200,7 @@ _dbus_poll (DBusPollFD *fds,
       {
         msgp = msg;
         msgp += sprintf (msgp, "select: = %d:", ready);
-        _DBUS_LOCK (win_fds);
+        _dbus_lock_sockets();
         for (i = 0; i < n_fds; i++)
           {
             DBusSocket *s;
@@ -2223,7 +2238,7 @@ _dbus_poll (DBusPollFD *fds,
             if (FD_ISSET (s->fd, &err_set))
               fdp->revents |= _DBUS_POLLERR;
           }
-        _DBUS_UNLOCK (win_fds);
+        _dbus_unlock_sockets();
       }
   return ready;
 }
@@ -3359,9 +3374,9 @@ _dbus_accept  (int listen_handle)
   struct sockaddr addr;
   socklen_t addrlen;
 
-  _DBUS_LOCK (win_fds);
+  _dbus_lock_sockets();
   _dbus_handle_to_socket(listen_handle, &slisten);
-  _DBUS_UNLOCK (win_fds);
+  _dbus_unlock_sockets();
 
   addrlen = sizeof (addr);
 
