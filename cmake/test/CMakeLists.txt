@@ -177,7 +177,6 @@ ENDFOREACH(FILE_TYPE)
 
 ### generate test files
 SET (CONFIG_FILES test/data/valid-config-files)
-SET (TEST_SERVICE_DIR ${CMAKE_BINARY_DIR}/test/data/valid-service-files)
 configure_file(${CMAKE_SOURCE_DIR}/${CONFIG_FILES}/debug-allow-all-sha1.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all-sha1.conf )
 configure_file(${CMAKE_SOURCE_DIR}/${CONFIG_FILES}/debug-allow-all.conf.cmake ${CMAKE_BINARY_DIR}/${CONFIG_FILES}/debug-allow-all.conf )
 
