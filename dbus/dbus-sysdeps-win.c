@@ -82,6 +82,7 @@ _DBUS_DEFINE_GLOBAL_LOCK (win_fds);
 _DBUS_DEFINE_GLOBAL_LOCK (sid_atom_cache);
 
 
+static
 void 
 _dbus_lock_sockets()
 {
@@ -89,6 +90,7 @@ _dbus_lock_sockets()
 	_DBUS_LOCK   (win_fds);
 }
 
+static
 void 
 _dbus_unlock_sockets()
 {
@@ -496,7 +498,6 @@ _dbus_handle_to_socket (int          handle,
   _dbus_handle_to_socket_unlocked (handle, ptr);
   _dbus_unlock_sockets();
 }
-
 
 #undef TO_HANDLE
 #undef IS_HANDLE
