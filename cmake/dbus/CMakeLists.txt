@@ -78,6 +78,7 @@ set (DBUS_LIB_HEADERS
 	${DBUS_DIR}/dbus-message-private.h
 	${DBUS_DIR}/dbus-misc.h
 	${DBUS_DIR}/dbus-object-tree.h
+	${DBUS_DIR}/dbus-protocol.h
 	${DBUS_DIR}/dbus-resources.h
 	${DBUS_DIR}/dbus-server-debug-pipe.h
 	${DBUS_DIR}/dbus-server-protected.h
