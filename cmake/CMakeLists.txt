@@ -1,5 +1,8 @@
 set (PACKAGE dbus)
-set (VERSION 1.01)
+set (VERSION_MAJOR "1")
+set (VERSION_MINOR "0")
+set (VERSION_PATCH "1")
+set (VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH} )
 project(${PACKAGE})
 
 # we need to be up to date
