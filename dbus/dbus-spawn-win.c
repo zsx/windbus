@@ -93,13 +93,18 @@ _dbus_babysitter_new (void)
 
   sitter->start_sync_event = CreateEvent (NULL, FALSE, FALSE, NULL);
   if (sitter->start_sync_event == NULL)
-    goto out0;
+    {
+      _dbus_babysitter_unref (sitter);
+      return NULL;
+    }
 
 #ifdef DBUS_BUILD_TESTS
-
   sitter->end_sync_event = CreateEvent (NULL, FALSE, FALSE, NULL);
   if (sitter->end_sync_event == NULL)
-    goto out1;
+    {
+      _dbus_babysitter_unref (sitter);
+      return NULL;
+    }
 #endif
 
   sitter->child_handle = NULL;
@@ -112,24 +117,15 @@ _dbus_babysitter_new (void)
 
   sitter->watches = _dbus_watch_list_new ();
   if (sitter->watches == NULL)
-    goto out2;
+    {
+      _dbus_babysitter_unref (sitter);
+      return NULL;
+    }
 
   sitter->have_spawn_errno = FALSE;
   sitter->have_child_status = FALSE;
 
   return sitter;
-
-out2:
-#ifdef DBUS_BUILD_TESTS
-
-  CloseHandle (sitter->end_sync_event);
-#endif
-
-out1:
-  CloseHandle (sitter->start_sync_event);
-out0:
-  _dbus_babysitter_unref (sitter);
-  return NULL;
 }
 
 /**
@@ -219,11 +215,19 @@ _dbus_babysitter_unref (DBusBabysitter *sitter)
       if (sitter->watches)
         _dbus_watch_list_free (sitter->watches);
 
-      PING();
-      CloseHandle (sitter->start_sync_event);
-#ifdef DBUS_BUILD_TESTS
+      if (sitter->start_sync_event != NULL)
+        {
+          PING();
+          CloseHandle (sitter->start_sync_event);
+          sitter->end_sync_event = NULL;
+        }
 
-      CloseHandle (sitter->end_sync_event);
+#ifdef DBUS_BUILD_TESTS
+      if (sitter->end_sync_event != NULL)
+        {
+          CloseHandle (sitter->end_sync_event);
+          sitter->end_sync_event = NULL;
+        }
 #endif
 
       dbus_free (sitter->executable);
