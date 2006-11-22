@@ -27,6 +27,8 @@ SET(CPACK_PACKAGE_VERSION_PATCH ${VERSION_PATCH})
 #SET(CPACK_PACKAGE_INSTALL_DIRECTORY "dbus ${CMake_VERSION_MAJOR}.${CMake_VERSION_MINOR}")
 SET(CPACK_PACKAGE_INSTALL_DIRECTORY "dbus")
 IF(WIN32 AND NOT UNIX)
+  SET(CPACK_GENERATOR NSIS)     # can be NSIS, STGZ, TBZ2, TGZ, TZ and ZIP
+  SET(CPACK_NSIS_COMPRESSOR "/SOLID lzma")
   # There is a bug in NSI that does not handle full unix paths properly. Make
   # sure there is at least one set of four (4) backlasshes.
 # SET(CPACK_PACKAGE_ICON "${CMake_SOURCE_DIR}/Utilities/Release\\\\InstallIcon.bmp")
