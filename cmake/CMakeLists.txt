@@ -2,6 +2,9 @@ set (PACKAGE dbus)
 set (VERSION 1.01)
 project(${PACKAGE})
 
+# we need to be up to date
+CMAKE_MINIMUM_REQUIRED(VERSION 2.4.4)
+
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/modules")
 
