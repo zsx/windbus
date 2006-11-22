@@ -23,8 +23,6 @@
 #define TEST_SEGFAULT_BINARY      "@TEST_SEGFAULT_BINARY@"
 /* Full path to test file test/test-service in builddir */
 #define TEST_SERVICE_BINARY       "@TEST_SERVICE_BINARY@"
-/* Full path to test file test/data/valid-service-files in builddir */
-#define TEST_SERVICE_DIR          "@TEST_SERVICE_DIR@"
 /* Full path to test file test/test-shell-service in builddir */
 #define TEST_SHELL_SERVICE_BINARY "@TEST_SHELL_SERVICE_BINARY@"
 /* Full path to test file test/test-sleep-forever in builddir */
