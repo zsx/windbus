@@ -461,10 +461,10 @@ _dbus_socket_to_handle (DBusSocket *s)
   return handle;
 }
 
-
+static
 void 
-_dbus_handle_to_socket (int          handle,
-                        DBusSocket **ptr)
+_dbus_handle_to_socket_unlocked (int          handle,
+                                 DBusSocket **ptr)
 {
   int i;
 
@@ -485,7 +485,16 @@ _dbus_handle_to_socket (int          handle,
   // get socket from index: index->socket
   *ptr = &win_fds[i];
 
-  _dbus_verbose ("_dbus_socket_to_handle: socket=%d, handle=%d, index=%d\n", (*ptr)->fd, handle, i);
+  _dbus_verbose ("_dbus_socket_to_handle_unlocked: socket=%d, handle=%d, index=%d\n", (*ptr)->fd, handle, i);
+}
+
+void 
+_dbus_handle_to_socket (int          handle,
+                        DBusSocket **ptr)
+{
+  _dbus_lock_sockets();
+  _dbus_handle_to_socket_unlocked (handle, ptr);
+  _dbus_unlock_sockets();
 }
 
 
@@ -544,9 +553,7 @@ _dbus_read_socket (int               handle,
 
   data = _dbus_string_get_data_len (buffer, start, count);
 
-  _dbus_lock_sockets();
   _dbus_handle_to_socket(handle, &s);
-  _dbus_unlock_sockets();
 
   if(s->is_used)
     {
@@ -610,9 +617,7 @@ _dbus_write_socket (int               handle,
 
   data = _dbus_string_get_const_data_len (buffer, start, len);
 
-  _dbus_lock_sockets();
   _dbus_handle_to_socket(handle, &s);
-  _dbus_unlock_sockets();
 
   if (s->is_used)
     {
@@ -658,7 +663,7 @@ _dbus_close_socket (int        handle,
 
   _dbus_lock_sockets();
 
-  _dbus_handle_to_socket (handle, &s);
+  _dbus_handle_to_socket_unlocked (handle, &s);
 
 
   if (s->is_used)
@@ -713,7 +718,7 @@ _dbus_fd_set_close_on_exec (int handle)
 
   _dbus_lock_sockets();
 
-  _dbus_handle_to_socket (handle, &s);
+  _dbus_handle_to_socket_unlocked (handle, &s);
   s->close_on_exec = TRUE;
 
   _dbus_unlock_sockets();
@@ -737,7 +742,7 @@ _dbus_set_fd_nonblocking (int             handle,
 
   _dbus_lock_sockets();
 
-  _dbus_handle_to_socket(handle, &s);
+  _dbus_handle_to_socket_unlocked(handle, &s);
 
   if (s->is_used)
     {
@@ -804,9 +809,7 @@ _dbus_write_socket_two (int               handle,
   _dbus_assert (len1 >= 0);
   _dbus_assert (len2 >= 0);
 
-  _dbus_lock_sockets();
   _dbus_handle_to_socket(handle, &s);
-  _dbus_unlock_sockets();
 
   data1 = _dbus_string_get_const_data_len (buffer1, start1, len1);
 
@@ -978,9 +981,7 @@ _dbus_listen_unix_socket (const char     *path,
   if (listen_handle == -1)
     return -1;
 
-  _dbus_lock_sockets();
   _dbus_handle_to_socket(listen_handle, &s);
-  _dbus_unlock_sockets();
 
   addr_len = sizeof (sa);
   if (getsockname (s->fd, &sa, &addr_len) == SOCKET_ERROR)
@@ -1007,7 +1008,7 @@ _dbus_listen_unix_socket (const char     *path,
     }
 
   _dbus_lock_sockets();
-  _dbus_handle_to_socket(listen_handle, &s);
+  _dbus_handle_to_socket_unlocked(listen_handle, &s);
   s->port_file_fd = filefd;
   _dbus_unlock_sockets();
 
@@ -2131,7 +2132,7 @@ _dbus_poll (DBusPollFD *fds,
       DBusSocket *s;
       DBusPollFD *fdp = &fds[i];
 
-      _dbus_handle_to_socket(fdp->fd, &s);  
+      _dbus_handle_to_socket_unlocked(fdp->fd, &s);  
 
       if (s->is_used == 0)
         {
@@ -2163,7 +2164,7 @@ _dbus_poll (DBusPollFD *fds,
       DBusSocket *s;
       DBusPollFD *fdp = &fds[i];
 
-      _dbus_handle_to_socket(fdp->fd, &s); 
+      _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
 
       if (s->is_used != 1)
         continue;
@@ -2206,7 +2207,7 @@ _dbus_poll (DBusPollFD *fds,
             DBusSocket *s;
             DBusPollFD *fdp = &fds[i];
 
-            _dbus_handle_to_socket(fdp->fd, &s); 
+            _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
 
             if (FD_ISSET (s->fd, &read_set))
               msgp += sprintf (msgp, "R:%d ", s->fd);
@@ -2225,7 +2226,7 @@ _dbus_poll (DBusPollFD *fds,
             DBusSocket *s;
             DBusPollFD *fdp = &fds[i];
 
-            _dbus_handle_to_socket(fdp->fd, &s); 
+            _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
 
             fdp->revents = 0;
 
@@ -3374,9 +3375,7 @@ _dbus_accept  (int listen_handle)
   struct sockaddr addr;
   socklen_t addrlen;
 
-  _dbus_lock_sockets();
   _dbus_handle_to_socket(listen_handle, &slisten);
-  _dbus_unlock_sockets();
 
   addrlen = sizeof (addr);
 
