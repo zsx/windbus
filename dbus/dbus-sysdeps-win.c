@@ -2124,7 +2124,7 @@ _dbus_poll (DBusPollFD *fds,
 
   _dbus_lock_sockets();
 
-
+#ifdef DBUS_ENABLE_VERBOSE_MODE
   msgp = msg;
   msgp += sprintf (msgp, "select: to=%d ", timeout_milliseconds);
   for (i = 0; i < n_fds; i++)
@@ -2159,7 +2159,7 @@ _dbus_poll (DBusPollFD *fds,
 
   msgp += sprintf (msgp, "\n");
   _dbus_verbose ("%s",msg);
-
+#endif
   for (i = 0; i < n_fds; i++)
     {
       DBusSocket *s;
@@ -2200,6 +2200,7 @@ _dbus_poll (DBusPollFD *fds,
   else
     if (ready > 0)
       {
+#ifdef DBUS_ENABLE_VERBOSE_MODE
         msgp = msg;
         msgp += sprintf (msgp, "select: = %d:", ready);
         _dbus_lock_sockets();
@@ -2221,6 +2222,7 @@ _dbus_poll (DBusPollFD *fds,
           }
         msgp += sprintf (msgp, "\n");
         _dbus_verbose ("%s",msg);
+#endif
 
         for (i = 0; i < n_fds; i++)
           {
@@ -3122,12 +3124,7 @@ Original CVS version of dbus-sysdeps.c
 int _dbus_mkdir (const char *path,
                  mode_t mode)
 {
-#ifdef DBUS_WIN
   return _mkdir(path);
-#else
-
-  return mkdir(path, mode);
-#endif
 }
 
 /**
@@ -3161,16 +3158,11 @@ _dbus_connect_tcp_socket (const char     *host,
   struct sockaddr_in addr;
   struct hostent *he;
   struct in_addr *haddr;
-#ifdef DBUS_WIN
-
   struct in_addr ina;
-#endif
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-#ifdef DBUS_WIN
   _dbus_win_startup_winsock ();
-#endif
 
   s.fd = socket (AF_INET, SOCK_STREAM, 0);
 
@@ -3188,11 +3180,8 @@ _dbus_connect_tcp_socket (const char     *host,
   if (host == NULL)
     {
       host = "localhost";
-#ifdef DBUS_WIN
       ina.s_addr = htonl (INADDR_LOOPBACK);
       haddr = &ina;
-#endif
-
     }
 
   he = gethostbyname (host);
@@ -3266,16 +3255,12 @@ _dbus_listen_tcp_socket (const char     *host,
   struct hostent *he;
   struct in_addr *haddr;
   int len =  sizeof (struct sockaddr);
-#ifdef DBUS_WIN
   struct in_addr ina;
-#endif
 
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-#ifdef DBUS_WIN
   _dbus_win_startup_winsock ();
-#endif
 
   slisten.fd = socket (AF_INET, SOCK_STREAM, 0);
 
@@ -3287,7 +3272,6 @@ _dbus_listen_tcp_socket (const char     *host,
                       host, port, _dbus_strerror (errno));
       return -1;
     }
-#ifdef DBUS_WIN
   if (host == NULL)
     {
       host = "localhost";
@@ -3301,7 +3285,6 @@ _dbus_listen_tcp_socket (const char     *host,
     }
   else
     {
-#endif
       he = gethostbyname (host);
       if (he == NULL)
         {
@@ -3315,10 +3298,7 @@ _dbus_listen_tcp_socket (const char     *host,
         }
 
       haddr = ((struct in_addr *) (he->h_addr_list)[0]);
-#ifdef DBUS_WIN
-
     }
-#endif
 
   _DBUS_ZERO (addr);
   memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
@@ -3407,7 +3387,6 @@ dbus_bool_t
 write_credentials_byte (int             server_fd,
                         DBusError      *error)
 {
-#ifdef DBUS_WIN
   /* FIXME: for the session bus credentials shouldn't matter (?), but
    * for the system bus they are presumably essential. A rough outline
    * of a way to implement the credential transfer would be this:
@@ -3430,77 +3409,6 @@ write_credentials_byte (int             server_fd,
    */
 
   return TRUE;
-
-#else
-
-
-  int bytes_written;
-  char buf[1] = { '\0' };
-#if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
-
-  struct
-    {
-      struct cmsghdr hdr;
-      struct cmsgcred cred;
-    }
-  cmsg;
-  struct iovec iov;
-  struct msghdr msg;
-#endif
-
-#if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
-
-  iov.iov_base = buf;
-  iov.iov_len = 1;
-
-  memset (&msg, 0, sizeof (msg));
-  msg.msg_iov = &iov;
-  msg.msg_iovlen = 1;
-
-  msg.msg_control = &cmsg;
-  msg.msg_controllen = sizeof (cmsg);
-  memset (&cmsg, 0, sizeof (cmsg));
-  cmsg.hdr.cmsg_len = sizeof (cmsg);
-  cmsg.hdr.cmsg_level = SOL_SOCKET;
-  cmsg.hdr.cmsg_type = SCM_CREDS;
-#endif
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-again:
-
-#if defined(HAVE_CMSGCRED) && !defined(LOCAL_CREDS)
-
-  bytes_written = sendmsg (server_fd, &msg, 0);
-#else
-
-  bytes_written = write (server_fd, buf, 1);
-#endif
-
-  if (bytes_written < 0 && errno == EINTR)
-    goto again;
-
-  if (bytes_written < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to write credentials byte: %s",
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-  else if (bytes_written == 0)
-    {
-      dbus_set_error (error, DBUS_ERROR_IO_ERROR,
-                      "wrote zero bytes writing credentials byte");
-      return FALSE;
-    }
-  else
-    {
-      _dbus_assert (bytes_written == 1);
-      _dbus_verbose ("wrote credentials byte\n");
-      return TRUE;
-    }
-
-#endif
 }
 
 /**
@@ -3526,163 +3434,10 @@ _dbus_read_credentials_unix_socket  (int              client_fd,
                                      DBusCredentials *credentials,
                                      DBusError       *error)
 {
-#ifndef DBUS_WIN
-
-  struct msghdr msg;
-  struct iovec iov;
-  char buf;
-
-#ifdef HAVE_CMSGCRED
-
-  struct
-    {
-      struct cmsghdr hdr;
-      struct cmsgcred cred;
-    }
-  cmsg;
-#endif
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  /* The POSIX spec certainly doesn't promise this, but
-   * we need these assertions to fail as soon as we're wrong about
-   * it so we can do the porting fixups
-   */
-  _dbus_assert (sizeof (pid_t) <= sizeof (credentials->pid));
-  _dbus_assert (sizeof (uid_t) <= sizeof (credentials->uid));
-  _dbus_assert (sizeof (gid_t) <= sizeof (credentials->gid));
-
-  _dbus_credentials_clear (credentials);
-
-#if defined(LOCAL_CREDS) && defined(HAVE_CMSGCRED)
-  /* Set the socket to receive credentials on the next message */
-  {
-    int on = 1;
-    if (setsockopt (client_fd, 0, LOCAL_CREDS, &on, sizeof (on)) < 0)
-      {
-        _dbus_verbose ("Unable to set LOCAL_CREDS socket option\n");
-        return FALSE;
-      }
-  }
-#endif
-
-  iov.iov_base = &buf;
-  iov.iov_len = 1;
-
-  memset (&msg, 0, sizeof (msg));
-  msg.msg_iov = &iov;
-  msg.msg_iovlen = 1;
-
-#ifdef HAVE_CMSGCRED
-
-  memset (&cmsg, 0, sizeof (cmsg));
-  msg.msg_control = &cmsg;
-  msg.msg_controllen = sizeof (cmsg);
-#endif
-
-again:
-  if (recvmsg (client_fd, &msg, 0) < 0)
-    {
-      if (errno == EINTR)
-        goto again;
-
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to read credentials byte: %s",
-                      _dbus_strerror (errno));
-      return FALSE;
-    }
-
-  if (buf != '\0')
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Credentials byte was not nul");
-      return FALSE;
-    }
-
-#ifdef HAVE_CMSGCRED
-  if (cmsg.hdr.cmsg_len < sizeof (cmsg) || cmsg.hdr.cmsg_type != SCM_CREDS)
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "Message from recvmsg() was not SCM_CREDS");
-      return FALSE;
-    }
-#endif
-
-  _dbus_verbose ("read credentials byte\n");
-
-  {
-#ifdef SO_PEERCRED
-    struct ucred cr;
-    int cr_len = sizeof (cr);
-
-    if (getsockopt (client_fd, SOL_SOCKET, SO_PEERCRED, &cr, &cr_len) == 0 &&
-        cr_len == sizeof (cr))
-      {
-        credentials->pid = cr.pid;
-        credentials->uid = cr.uid;
-        credentials->gid = cr.gid;
-      }
-    else
-      {
-        _dbus_verbose ("Failed to getsockopt() credentials, returned len %d/%d: %s\n",
-                       cr_len, (int) sizeof (cr), _dbus_strerror (errno));
-      }
-#elif defined(HAVE_CMSGCRED)
-    credentials->pid = cmsg.cred.cmcred_pid;
-    credentials->uid = cmsg.cred.cmcred_euid;
-    credentials->gid = cmsg.cred.cmcred_groups[0];
-#elif defined(HAVE_GETPEEREID)
-
-    uid_t euid;
-    gid_t egid;
-    if (getpeereid (client_fd, &euid, &egid) == 0)
-      {
-        credentials->uid = euid;
-        credentials->gid = egid;
-      }
-    else
-      {
-        _dbus_verbose ("Failed to getpeereid() credentials: %s\n", _dbus_strerror (errno));
-      }
-#elif defined(HAVE_GETPEERUCRED)
-    ucred_t * ucred = NULL;
-    if (getpeerucred (client_fd, &ucred) == 0)
-      {
-        credentials->pid = ucred_getpid (ucred);
-        credentials->uid = ucred_geteuid (ucred);
-        credentials->gid = ucred_getegid (ucred);
-      }
-    else
-      {
-        _dbus_verbose ("Failed to getpeerucred() credentials: %s\n", _dbus_strerror (errno));
-      }
-    if (ucred != NULL)
-      ucred_free (ucred);
-#else /* !SO_PEERCRED && !HAVE_CMSGCRED && !HAVE_GETPEEREID && !HAVE_GETPEERUCRED */
-
-    _dbus_verbose ("Socket credentials not supported on this OS\n");
-#endif
-
-  }
-
-  _dbus_verbose ("Credentials:"
-                 "  pid "DBUS_PID_FORMAT
-                 "  uid "DBUS_UID_FORMAT
-                 "  gid "DBUS_GID_FORMAT"\n",
-                 credentials->pid,
-                 credentials->uid,
-                 credentials->gid);
-
-  return TRUE;
-
-#else
-
   /* FIXME bogus testing credentials */
   _dbus_credentials_from_current_process (credentials);
 
   return TRUE;
-
-#endif
 }
 
 /**
@@ -3701,61 +3456,9 @@ _dbus_check_dir_is_private_to_user (DBusString *dir, DBusError *error)
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-#ifndef DBUS_WIN
-
-  directory = _dbus_string_get_const_data (dir);
-
-  if (stat (directory, &sb) < 0)
-    {
-      dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "%s", _dbus_strerror (errno));
-
-      return FALSE;
-    }
-
-  if ((S_IROTH & sb.st_mode) || (S_IWOTH & sb.st_mode) ||
-      (S_IRGRP & sb.st_mode) || (S_IWGRP & sb.st_mode))
-    {
-      dbus_set_error (error, DBUS_ERROR_FAILED,
-                      "%s directory is not private to the user", directory);
-      return FALSE;
-    }
-#endif
   return TRUE;
 }
 
-
-
-/**
- * @addtogroup DBusInternalsUtils
- * @{
- */
-
-#ifndef DBUS_WIN
-
-static dbus_bool_t
-fill_user_info_from_passwd (struct passwd *p,
-                            DBusUserInfo  *info,
-                            DBusError     *error)
-{
-  _dbus_assert (p->pw_name != NULL);
-  _dbus_assert (p->pw_dir != NULL);
-
-  info->uid = p->pw_uid;
-  info->primary_gid = p->pw_gid;
-  info->username = _dbus_strdup (p->pw_name);
-  info->homedir = _dbus_strdup (p->pw_dir);
-
-  if (info->username == NULL ||
-      info->homedir == NULL)
-    {
-      dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-      return FALSE;
-    }
-
-  return TRUE;
-}
-#endif
 
 /**
  * Gets user info for the given user ID.
@@ -3816,166 +3519,6 @@ fill_user_info (DBusUserInfo       *info,
   else
     username_c = NULL;
 
-#ifndef DBUS_WIN
-  /* For now assuming that the getpwnam() and getpwuid() flavors
-   * are always symmetrical, if not we have to add more configure
-   * checks
-   */
-
-#if defined (HAVE_POSIX_GETPWNAM_R) || defined (HAVE_NONPOSIX_GETPWNAM_R)
-
-  {
-    struct passwd *p;
-    int result;
-    char buf[1024];
-    struct passwd p_str;
-
-    p = NULL;
-#ifdef HAVE_POSIX_GETPWNAM_R
-
-    if (uid != DBUS_UID_UNSET)
-      result = getpwuid_r (uid, &p_str, buf, sizeof (buf),
-                           &p);
-    else
-      result = getpwnam_r (username_c, &p_str, buf, sizeof (buf),
-                           &p);
-#else
-
-    if (uid != DBUS_UID_UNSET)
-      p = getpwuid_r (uid, &p_str, buf, sizeof (buf));
-    else
-      p = getpwnam_r (username_c, &p_str, buf, sizeof (buf));
-    result = 0;
-#endif /* !HAVE_POSIX_GETPWNAM_R */
-
-    if (result == 0 && p == &p_str)
-      {
-        if (!fill_user_info_from_passwd (p, info, error))
-          return FALSE;
-      }
-    else
-      {
-        dbus_set_error (error, _dbus_error_from_errno (errno),
-                        "User \"%s\" unknown or no memory to allocate password entry\n",
-                        username_c ? username_c : "???");
-        _dbus_verbose ("User %s unknown\n", username_c ? username_c : "???");
-        return FALSE;
-      }
-  }
-#else /* ! HAVE_GETPWNAM_R */
-
-  {
-    /* I guess we're screwed on thread safety here */
-    struct passwd *p;
-
-    if (uid != DBUS_UID_UNSET)
-      p = getpwuid (uid);
-    else
-      p = getpwnam (username_c);
-
-    if (p != NULL)
-      {
-        if (!fill_user_info_from_passwd (p, info, error))
-          return FALSE;
-      }
-    else
-      {
-        dbus_set_error (error, _dbus_error_from_errno (errno),
-                        "User \"%s\" unknown or no memory to allocate password entry\n",
-                        username_c ? username_c : "???");
-        _dbus_verbose ("User %s unknown\n", username_c ? username_c : "???");
-        return FALSE;
-      }
-  }
-#endif  /* ! HAVE_GETPWNAM_R */
-
-  /* Fill this in so we can use it to get groups */
-  username_c = info->username;
-
-#ifdef HAVE_GETGROUPLIST
-
-  {
-    gid_t *buf;
-    int buf_count;
-    int i;
-
-    buf_count = 17;
-    buf = dbus_new (gid_t, buf_count);
-    if (buf == NULL)
-      {
-        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-        goto failed;
-      }
-
-    if (getgrouplist (username_c,
-                      info->primary_gid,
-                      buf, &buf_count) < 0)
-      {
-        gid_t *new = dbus_realloc (buf, buf_count * sizeof (buf[0]));
-        if (new == NULL)
-          {
-            dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-            dbus_free (buf);
-            goto failed;
-          }
-
-        buf = new;
-
-        errno = 0;
-        if (getgrouplist (username_c, info->primary_gid, buf, &buf_count) < 0)
-          {
-            dbus_set_error (error,
-                            _dbus_error_from_errno (errno),
-                            "Failed to get groups for username \"%s\" primary GID "
-                            DBUS_GID_FORMAT ": %s\n",
-                            username_c, info->primary_gid,
-                            _dbus_strerror (errno));
-            dbus_free (buf);
-            goto failed;
-          }
-      }
-
-    info->group_ids = dbus_new (dbus_gid_t, buf_count);
-    if (info->group_ids == NULL)
-      {
-        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-        dbus_free (buf);
-        goto failed;
-      }
-
-    for (i = 0; i < buf_count; ++i)
-      info->group_ids[i] = buf[i];
-
-    info->n_group_ids = buf_count;
-
-    dbus_free (buf);
-  }
-#else  /* HAVE_GETGROUPLIST */
-  {
-    /* We just get the one group ID */
-    info->group_ids = dbus_new (dbus_gid_t, 1);
-    if (info->group_ids == NULL)
-      {
-        dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
-        goto failed;
-      }
-
-    info->n_group_ids = 1;
-
-    (info->group_ids)[0] = info->primary_gid;
-  }
-#endif /* HAVE_GETGROUPLIST */
-
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-
-  return TRUE;
-
-failed:
-  _DBUS_ASSERT_ERROR_IS_SET (error);
-  return FALSE;
-
-#else  /* DBUS_WIN */
-
   if (uid != DBUS_UID_UNSET)
     {
       if (!fill_win_user_info_from_uid (uid, info, error))
@@ -4000,7 +3543,6 @@ failed:
     }
 
   return TRUE;
-#endif  /* DBUS_WIN */
 }
 
 
@@ -4025,23 +3567,6 @@ _dbus_concat_dir_and_file (DBusString       *dir,
       _dbus_string_get_length (next_component) == 0)
     return TRUE;
 
-#ifndef DBUS_WIN
-
-  dir_ends_in_slash = '/' == _dbus_string_get_byte (dir,
-                      _dbus_string_get_length (dir) - 1);
-
-  file_starts_with_slash = '/' == _dbus_string_get_byte (next_component, 0);
-
-  if (dir_ends_in_slash && file_starts_with_slash)
-    {
-      _dbus_string_shorten (dir, 1);
-    }
-  else if (!(dir_ends_in_slash || file_starts_with_slash))
-    {
-      if (!_dbus_string_append_byte (dir, '/'))
-        return FALSE;
-    }
-#else
   dir_ends_in_slash =
     ('/' == _dbus_string_get_byte (dir, _dbus_string_get_length (dir) - 1) ||
      '\\' == _dbus_string_get_byte (dir, _dbus_string_get_length (dir) - 1));
@@ -4059,7 +3584,6 @@ _dbus_concat_dir_and_file (DBusString       *dir,
       if (!_dbus_string_append_byte (dir, '\\'))
         return FALSE;
     }
-#endif
 
   return _dbus_string_copy (next_component, 0, dir,
                             _dbus_string_get_length (dir));
@@ -4075,12 +3599,7 @@ _dbus_concat_dir_and_file (DBusString       *dir,
 unsigned long
 _dbus_getpid (void)
 {
-#ifndef DBUS_WIN
-  return getpid ();
-#else
-
   return GetCurrentProcessId ();
-#endif
 }
 
 /** nanoseconds in a second */
@@ -4101,29 +3620,7 @@ _dbus_getpid (void)
 void
 _dbus_sleep_milliseconds (int milliseconds)
 {
-#ifndef DBUS_WIN
-#ifdef HAVE_NANOSLEEP
-  struct timespec req;
-  struct timespec rem;
-
-  req.tv_sec = milliseconds / MILLISECONDS_PER_SECOND;
-  req.tv_nsec = (milliseconds % MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND;
-  rem.tv_sec = 0;
-  rem.tv_nsec = 0;
-
-  while (nanosleep (&req, &rem) < 0 && errno == EINTR)
-    req = rem;
-#elif defined (HAVE_USLEEP)
-
-  usleep (milliseconds * MICROSECONDS_PER_MILLISECOND);
-#else /* ! HAVE_USLEEP */
-
-  sleep (MAX (milliseconds / 1000, 1));
-#endif
-#else  /* DBUS_WIN */
-
   Sleep (milliseconds);
-#endif /* !DBUS_WIN */
 }
 
 
@@ -4137,17 +3634,6 @@ void
 _dbus_get_current_time (long *tv_sec,
                         long *tv_usec)
 {
-#ifndef DBUS_WIN
-  struct timeval t;
-
-  gettimeofday (&t, NULL);
-
-  if (tv_sec)
-    *tv_sec = t.tv_sec;
-  if (tv_usec)
-    *tv_usec = t.tv_usec;
-#else
-
   FILETIME ft;
   dbus_uint64_t *time64 = (dbus_uint64_t *) &ft;
 
@@ -4164,7 +3650,6 @@ _dbus_get_current_time (long *tv_sec,
 
   if (tv_usec)
     *tv_usec = *time64 % 1000000;
-#endif
 }
 
 
@@ -4174,32 +3659,8 @@ _dbus_get_current_time (long *tv_sec,
 void
 _dbus_disable_sigpipe (void)
 {
-#ifndef DBUS_WIN
-  signal (SIGPIPE, SIG_IGN);
-#endif
+    _dbus_verbose("FIXME: implement _dbus_disable_sigpipe (void)");
 }
-
-
-
-
-#ifndef DBUS_WIN
-/**
- * Measure the length of the given format string and arguments,
- * not including the terminating nul.
- *
- * @param format a printf-style format string
- * @param args arguments for the format string
- * @returns length of the given format string and args
- */
-int
-_dbus_printf_string_upper_bound (const char *format,
-                                 va_list     args)
-{
-  char c;
-  return vsnprintf (&c, 1, format, args);
-}
-#endif
-
 
 /**
  * Gets the credentials of the current process.
@@ -4213,9 +3674,6 @@ _dbus_credentials_from_current_process (DBusCredentials *credentials)
   credentials->uid = _dbus_getuid ();
   credentials->gid = _dbus_getgid ();
 }
-
-
-
 
 /**
  * Appends the contents of the given file to the string,
@@ -4425,11 +3883,8 @@ _dbus_string_save_to_file (const DBusString *str,
     }
 
 
-  if (
-#ifdef DBUS_WIN
-    (unlink (filename_c) == -1 && errno != ENOENT) ||
-#endif
-    rename (tmp_filename_c, filename_c) < 0)
+  if ((unlink (filename_c) == -1 && errno != ENOENT) ||
+       rename (tmp_filename_c, filename_c) < 0)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not rename %s to %s: %s",
@@ -4711,7 +4166,7 @@ _dbus_generate_random_bytes (DBusString *str,
 
 #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
 
-//#define BACKTRACES
+#define BACKTRACES
 #ifdef BACKTRACES
 /*
  * Backtrace Generator
