@@ -2103,6 +2103,142 @@ out0:
  * @param timeout_milliseconds timeout or -1 for infinite
  * @returns numbers of fds with revents, or <0 on error
  */
+#define USE_CHRIS_IMPL 0
+#if USE_CHRIS_IMPL
+int
+_dbus_poll (DBusPollFD *fds,
+            int         n_fds,
+            int         timeout_milliseconds)
+{
+#define DBUS_POLL_CHAR_BUFFER_SIZE 2000
+  char msg[DBUS_POLL_CHAR_BUFFER_SIZE];
+  char *msgp;
+
+  int ret = 0;
+  int i;
+  struct timeval tv;
+  int ready;
+  WSAEVENT *pEvents = calloc(sizeof(WSAEVENT), n_fds);
+
+  _dbus_lock_sockets();
+
+#ifdef DBUS_ENABLE_VERBOSE_MODE
+  msgp = msg;
+  msgp += sprintf (msgp, "select: to=%d\n\t", timeout_milliseconds);
+  for (i = 0; i < n_fds; i++)
+    {
+      static dbus_bool_t warned = FALSE;
+      DBusSocket *s;
+      DBusPollFD *fdp = &fds[i];
+
+      _dbus_handle_to_socket_unlocked(fdp->fd, &s);  
+
+      if (s->is_used == 0)
+        {
+          _dbus_warn ("no valid socket");
+          warned = TRUE;
+        }
+
+      if (fdp->events & _DBUS_POLLIN)
+        msgp += sprintf (msgp, "R:%d ", s->fd);
+
+      if (fdp->events & _DBUS_POLLOUT)
+        msgp += sprintf (msgp, "W:%d ", s->fd);
+
+      msgp += sprintf (msgp, "E:%d\n\t", s->fd);
+
+      // FIXME: more robust code for long  msg
+      //        create on heap when msg[] becomes too small
+      if (msgp >= msg + DBUS_POLL_CHAR_BUFFER_SIZE)
+        {
+          _dbus_assert_not_reached ("buffer overflow in _dbus_poll");
+        }
+    }
+
+  msgp += sprintf (msgp, "\n");
+  _dbus_verbose ("%s",msg);
+#endif
+  for (i = 0; i < n_fds; i++)
+    {
+      DBusSocket *s;
+      DBusPollFD *fdp = &fds[i];
+      WSAEVENT ev;
+      long lNetworkEvents = FD_OOB;
+
+      _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
+
+      if (s->is_used == 0)
+        continue;
+
+      ev = WSACreateEvent();
+
+      if (fdp->events & _DBUS_POLLIN)
+        lNetworkEvents |= FD_READ | FD_ACCEPT | FD_CLOSE;
+
+      if (fdp->events & _DBUS_POLLOUT)
+        lNetworkEvents |= FD_WRITE | FD_CONNECT;
+
+      WSAEventSelect(s->fd, ev, lNetworkEvents);
+
+      pEvents[i] = ev;
+    }
+
+  _dbus_unlock_sockets();
+
+  ready = WSAWaitForMultipleEvents (n_fds, pEvents, FALSE, timeout_milliseconds, FALSE);
+
+  if (DBUS_SOCKET_API_RETURNS_ERROR (ready))
+    {
+      DBUS_SOCKET_SET_ERRNO ();
+      if (errno != EWOULDBLOCK)
+        _dbus_verbose ("WSAWaitForMultipleEvents: failed: %s\n", _dbus_strerror (errno));
+      ret = -1;
+    }
+  else if (ready == WSA_WAIT_TIMEOUT)
+    {
+      _dbus_verbose ("WSAWaitForMultipleEvents: WSA_WAIT_TIMEOUT\n");
+      ret = 0;
+    }
+  else
+    if (ready >= WSA_WAIT_EVENT_0)
+      {
+        for (i = 0; i < n_fds; i++)
+          {
+            DBusSocket *s;
+            DBusPollFD *fdp = &fds[i];
+            WSANETWORKEVENTS ne;
+
+            _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
+
+            fdp->revents = 0;
+
+            WSAEnumNetworkEvents(s->fd, pEvents[i], &ne);
+
+            if (ne.lNetworkEvents & (FD_READ | FD_ACCEPT | FD_CLOSE))
+              fdp->revents |= _DBUS_POLLIN;
+
+            if (ne.lNetworkEvents & (FD_WRITE | FD_CONNECT))
+              fdp->revents |= _DBUS_POLLOUT;
+
+            if (ne.lNetworkEvents & (FD_OOB))
+              fdp->revents |= _DBUS_POLLERR;
+
+            if(ne.lNetworkEvents)
+              ret++;
+          }
+        _dbus_unlock_sockets();
+      }
+  for(i = 0; i < n_fds; i++)
+    {
+      WSAResetEvent(pEvents[i]);
+      WSACloseEvent(pEvents[i]);
+    }
+  free(pEvents);
+  return ret;
+}
+
+#else   // USE_CHRIS_IMPL
+
 int
 _dbus_poll (DBusPollFD *fds,
             int         n_fds,
@@ -2126,7 +2262,7 @@ _dbus_poll (DBusPollFD *fds,
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
   msgp = msg;
-  msgp += sprintf (msgp, "select: to=%d ", timeout_milliseconds);
+  msgp += sprintf (msgp, "select: to=%d\n\t", timeout_milliseconds);
   for (i = 0; i < n_fds; i++)
     {
       static dbus_bool_t warned = FALSE;
@@ -2147,7 +2283,7 @@ _dbus_poll (DBusPollFD *fds,
       if (fdp->events & _DBUS_POLLOUT)
         msgp += sprintf (msgp, "W:%d ", s->fd);
 
-      msgp += sprintf (msgp, "E:%d ", s->fd);
+      msgp += sprintf (msgp, "E:%d\n\t", s->fd);
 
       // FIXME: more robust code for long  msg
       //        create on heap when msg[] becomes too small
@@ -2202,7 +2338,7 @@ _dbus_poll (DBusPollFD *fds,
       {
 #ifdef DBUS_ENABLE_VERBOSE_MODE
         msgp = msg;
-        msgp += sprintf (msgp, "select: = %d:", ready);
+        msgp += sprintf (msgp, "select: = %d:\n\t", ready);
         _dbus_lock_sockets();
         for (i = 0; i < n_fds; i++)
           {
@@ -2218,7 +2354,7 @@ _dbus_poll (DBusPollFD *fds,
               msgp += sprintf (msgp, "W:%d ", s->fd);
 
             if (FD_ISSET (s->fd, &err_set))
-              msgp += sprintf (msgp, "E:%d ", s->fd);
+              msgp += sprintf (msgp, "E:%d\n\t", s->fd);
           }
         msgp += sprintf (msgp, "\n");
         _dbus_verbose ("%s",msg);
@@ -2246,7 +2382,7 @@ _dbus_poll (DBusPollFD *fds,
       }
   return ready;
 }
-
+#endif  // USE_CHRIS_IMPL
 
 
 /************************************************************************
