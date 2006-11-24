@@ -185,7 +185,18 @@ Index: bus/dispatch.c
 ===================================================================
 --- bus/dispatch.c	(revision 488)
 +++ bus/dispatch.c	(working copy)
-@@ -2698,9 +2698,12 @@
+@@ -439,6 +439,10 @@
+       bus_test_run_bus_loop (context, FALSE);
+       bus_test_run_clients_loop (FALSE);
+     }
++
++  if ( dbus_connection_get_dispatch_status(connection) != DBUS_DISPATCH_COMPLETE)
++    _dbus_assert_not_reached ("spin_connection_until_authenticated failed\n ");
++
+   _dbus_verbose (" ... done spinning to auth connection %p\n", connection);
+ }
+ 
+@@ -2698,9 +2702,12 @@
          }
        else
          {
@@ -198,7 +209,7 @@ Index: bus/dispatch.c
          }
      }
    else
-@@ -4146,9 +4149,11 @@
+@@ -4146,9 +4153,11 @@
        _dbus_warn ("Messages were left over after setting up initial SHA-1 connection\n");
        _dbus_assert_not_reached ("initial connection setup failed");
      }
