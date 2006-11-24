@@ -4055,24 +4055,14 @@ _dbus_get_tmpdir(void)
 
   if (tmpdir == NULL)
     {
-      /* TMPDIR is what glibc uses, then
-       * glibc falls back to the P_tmpdir macro which
-       * just expands to "/tmp"
-       */
-      if (tmpdir == NULL)
-        tmpdir = getenv("TMPDIR");
-
-      /* These two env variables are probably
-       * broken, but maybe some OS uses them?
-       */
       if (tmpdir == NULL)
         tmpdir = getenv("TMP");
       if (tmpdir == NULL)
         tmpdir = getenv("TEMP");
-
-      /* And this is the sane fallback. */
       if (tmpdir == NULL)
-        tmpdir = "/tmp";
+        tmpdir = getenv("TMPDIR");
+      if (tmpdir == NULL)
+          tmpdir = "C:\\Temp";
     }
 
   _dbus_assert(tmpdir != NULL);
@@ -4122,46 +4112,7 @@ dbus_bool_t
 _dbus_generate_random_bytes (DBusString *str,
                              int         n_bytes)
 {
-  int old_len;
-  int fd;
-
-  /* FALSE return means "no memory", if it could
-   * mean something else then we'd need to return
-   * a DBusError. So we always fall back to pseudorandom
-   * if the I/O fails.
-   */
-
-  old_len = _dbus_string_get_length (str);
-  fd = -1;
-
-#ifndef DBUS_WIN
-  /* note, urandom on linux will fall back to pseudorandom */
-  fd = open ("/dev/urandom", O_RDONLY);
-#endif
-
-  if (fd < 0)
-    return pseudorandom_generate_random_bytes (str, n_bytes);
-
-#ifndef DBUS_WIN
-
-  if (_dbus_read (fd, str, n_bytes) != n_bytes)
-    {
-      _dbus_close_socket (fd, NULL);
-      _dbus_string_set_length (str, old_len);
-      return _dbus_generate_pseudorandom_bytes (str, n_bytes);
-    }
-
-  _dbus_verbose ("Read %d bytes from /dev/urandom\n",
-                 n_bytes);
-
-  _dbus_close_socket (fd, NULL);
-
-  return TRUE;
-#else
-
-  _dbus_assert_not_reached ("_dbus_generate_random_bytes fails");
-  return FALSE;
-#endif
+  return pseudorandom_generate_random_bytes (str, n_bytes);
 }
 
 #if !defined (DBUS_DISABLE_ASSERT) || defined(DBUS_BUILD_TESTS)
