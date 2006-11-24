@@ -6,7 +6,7 @@ set (VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH} )
 project(${PACKAGE})
 
 # we need to be up to date
-CMAKE_MINIMUM_REQUIRED(VERSION 2.4.4)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.4.4 FATAL_ERROR)
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/modules")
