@@ -122,7 +122,6 @@ set (DBUS_SHARED_HEADERS
 	${DBUS_DIR}/dbus-string.h
 	${DBUS_DIR}/dbus-string-private.h
 	${DBUS_DIR}/dbus-sysdeps.h
-	${DBUS_DIR}/dbus-sysdeps-win.h
 	${DBUS_DIR}/dbus-userdb.h
 )
 
@@ -167,6 +166,10 @@ if (WIN32)
 		${DBUS_DIR}/dbus-sysdeps-util-win.c
 		${DBUS_DIR}/dbus-spawn-win.c
 	)
+	set (DBUS_SHARED_HEADERS ${DBUS_SHARED_HEADERS} 
+    ${DBUS_DIR}/dbus-sockets-win.h
+    ${DBUS_DIR}/dbus-sysdeps-win.h
+  )
 	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)
 
 else (WIN32)
@@ -176,6 +179,11 @@ else (WIN32)
 		${DBUS_DIR}/dbus-sysdeps-util-unix.c
 		${DBUS_DIR}/dbus-spawn.c
 	)
+	set (DBUS_SHARED_HEADERS ${DBUS_SHARED_HEADERS} 
+    ${DBUS_DIR}/dbus-server-unix.h
+    ${DBUS_DIR}/dbus-transport-unix.h
+    ${DBUS_DIR}/dbus-sysdeps-unix.h
+  )
 endif (WIN32)
 
 set(libdbus_SOURCES
