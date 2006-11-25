@@ -2124,7 +2124,7 @@ _dbus_poll (DBusPollFD *fds,
 
 #ifdef DBUS_ENABLE_VERBOSE_MODE
   msgp = msg;
-  msgp += sprintf (msgp, "select: to=%d\n\t", timeout_milliseconds);
+  msgp += sprintf (msgp, "WSAEventSelect: to=%d\n\t", timeout_milliseconds);
   for (i = 0; i < n_fds; i++)
     {
       static dbus_bool_t warned = FALSE;
@@ -2199,38 +2199,62 @@ _dbus_poll (DBusPollFD *fds,
       _dbus_verbose ("WSAWaitForMultipleEvents: WSA_WAIT_TIMEOUT\n");
       ret = 0;
     }
+  else if (ready >= WSA_WAIT_EVENT_0 && ready < (int)(WSA_WAIT_EVENT_0 + n_fds))
+    {
+      msgp = msg;
+      msgp += sprintf (msgp, "WSAWaitForMultipleEvents: =%d\n\t", ready);
+
+      _dbus_lock_sockets();
+      for (i = 0; i < n_fds; i++)
+        {
+          DBusSocket *s;
+          DBusPollFD *fdp = &fds[i];
+          WSANETWORKEVENTS ne;
+
+          _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
+
+          fdp->revents = 0;
+
+          WSAEnumNetworkEvents(s->fd, pEvents[i], &ne);
+
+          if (ne.lNetworkEvents & (FD_READ | FD_ACCEPT | FD_CLOSE))
+            fdp->revents |= _DBUS_POLLIN;
+
+          if (ne.lNetworkEvents & (FD_WRITE | FD_CONNECT))
+            fdp->revents |= _DBUS_POLLOUT;
+
+          if (ne.lNetworkEvents & (FD_OOB))
+            fdp->revents |= _DBUS_POLLERR;
+
+          if (ne.lNetworkEvents & (FD_READ | FD_ACCEPT | FD_CLOSE))
+              msgp += sprintf (msgp, "R:%d ", s->fd);
+
+          if (ne.lNetworkEvents & (FD_WRITE | FD_CONNECT))
+              msgp += sprintf (msgp, "W:%d ", s->fd);
+
+          if (ne.lNetworkEvents & (FD_OOB))
+              msgp += sprintf (msgp, "E:%d ", s->fd);
+
+          msgp += sprintf (msgp, "lNetworkEvents:%d ", ne.lNetworkEvents);
+
+          if(ne.lNetworkEvents)
+            ret++;
+
+          WSAEventSelect(s->fd, pEvents[i], 0);
+        }
+      _dbus_unlock_sockets();
+
+      msgp += sprintf (msgp, "\n");
+      _dbus_verbose ("%s",msg);
+    }
   else
-    if (ready >= WSA_WAIT_EVENT_0)
-      {
-        for (i = 0; i < n_fds; i++)
-          {
-            DBusSocket *s;
-            DBusPollFD *fdp = &fds[i];
-            WSANETWORKEVENTS ne;
+    {
+      _dbus_verbose ("WSAWaitForMultipleEvents: failed for unknown reason!");
+      ret = -1;
+    }
 
-            _dbus_handle_to_socket_unlocked(fdp->fd, &s); 
-
-            fdp->revents = 0;
-
-            WSAEnumNetworkEvents(s->fd, pEvents[i], &ne);
-
-            if (ne.lNetworkEvents & (FD_READ | FD_ACCEPT | FD_CLOSE))
-              fdp->revents |= _DBUS_POLLIN;
-
-            if (ne.lNetworkEvents & (FD_WRITE | FD_CONNECT))
-              fdp->revents |= _DBUS_POLLOUT;
-
-            if (ne.lNetworkEvents & (FD_OOB))
-              fdp->revents |= _DBUS_POLLERR;
-
-            if(ne.lNetworkEvents)
-              ret++;
-          }
-        _dbus_unlock_sockets();
-      }
   for(i = 0; i < n_fds; i++)
     {
-      WSAResetEvent(pEvents[i]);
       WSACloseEvent(pEvents[i]);
     }
   free(pEvents);
@@ -3795,7 +3819,7 @@ _dbus_get_current_time (long *tv_sec,
 void
 _dbus_disable_sigpipe (void)
 {
-    _dbus_verbose("FIXME: implement _dbus_disable_sigpipe (void)");
+    _dbus_verbose("FIXME: implement _dbus_disable_sigpipe (void)\n");
 }
 
 /**
