@@ -2118,7 +2118,14 @@ _dbus_poll (DBusPollFD *fds,
   int i;
   struct timeval tv;
   int ready;
-  WSAEVENT *pEvents = calloc(sizeof(WSAEVENT), n_fds);
+
+#define DBUS_STACK_WSAEVENTS 256
+  WSAEVENT eventsOnStack[DBUS_STACK_WSAEVENTS];
+  WSAEVENT *pEvents = NULL;
+  if (n_fds > DBUS_STACK_WSAEVENTS)
+    pEvents = calloc(sizeof(WSAEVENT), n_fds);
+  else
+    pEvents = eventsOnStack;
 
   _dbus_lock_sockets();
 
@@ -2257,7 +2264,10 @@ _dbus_poll (DBusPollFD *fds,
     {
       WSACloseEvent(pEvents[i]);
     }
-  free(pEvents);
+
+  if (n_fds > DBUS_STACK_WSAEVENTS)
+    free(pEvents);
+
   return ret;
 }
 
