@@ -144,4 +144,10 @@
 #define SIGHUP	1
 #endif
 
+#ifdef _MSC_VER
+#define DBUS_UNSIGNED_CHAR 
+#else
+#define DBUS_UNSIGNED_CHAR  unsigned
+#endif
+
 #endif  // _DBUS_CONFIG_H
