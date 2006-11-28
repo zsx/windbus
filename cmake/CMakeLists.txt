@@ -150,6 +150,9 @@ if (DBUS_BUILD_TESTS)
 	endif(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
 endif (DBUS_BUILD_TESTS)	
 
+# win32 dbus service support - this support is not complete
+OPTION(DBUS_SERVICE "enable dbus service installer" OFF)
+
 #AC_ARG_ENABLE(ansi, AS_HELP_STRING([--enable-ansi],[enable -ansi -pedantic gcc flags]),enable_ansi=$enableval,enable_ansi=no)
 OPTION(DBUS_ENABLE_ANSI "enable -ansi -pedantic gcc flags" OFF)
 if(DBUS_ENABLE_ANSI)

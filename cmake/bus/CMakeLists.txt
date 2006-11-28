@@ -87,6 +87,20 @@ target_link_libraries(dbus-daemon dbus-1 ${LIBS})
 install_targets(/bin dbus-daemon )
 install_files(/etc FILES ${config_DATA})
 
+if (DBUS_SERVICE)
+	set (dbus_service_SOURCES 
+		${BUS_DIR}/bus-service-win.c
+  # TODO: add additional files
+	#	${BUS_DIR}/service-main.c
+	#	${BUS_SOURCES} 
+	)
+
+	add_executable(dbus-service ${dbus_service_SOURCES} )
+	target_link_libraries(dbus-service dbus-1 ${LIBS})
+	install_targets(/bin dbus-service )
+
+endif (DBUS_SERVICE)
+
 ## note that TESTS has special meaning (stuff to use in make check)
 ## so if adding tests not to be run in make check, don't add them to 
 ## TESTS
