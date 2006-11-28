@@ -217,15 +217,6 @@ Index: bus/dispatch.c
    _dbus_verbose (" ... done spinning to auth connection %p\n", connection);
  }
  
-@@ -719,7 +737,7 @@
-   
-   if (nmd.failed)
-     {
--      _dbus_verbose ("%s: leftover message found\n",
-+      _dbus_verbose_C_S ("%s: leftover message found\n",
-                      _DBUS_FUNCTION_NAME);
-       return FALSE;
-     }
 @@ -2698,9 +2716,12 @@
          }
        else
