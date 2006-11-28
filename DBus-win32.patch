@@ -528,19 +528,6 @@ Index: bus/bus.c
          {
            dbus_set_error (error, DBUS_ERROR_FAILED,
                            "Printing message bus PID: %s\n",
-Index: dbus/dbus-object-tree.c
-===================================================================
---- dbus/dbus-object-tree.c	(Revision 504)
-+++ dbus/dbus-object-tree.c	(Arbeitskopie)
-@@ -910,7 +910,7 @@
- 
-   if ((subtree == NULL) || !exact_match)
-     {
--      _dbus_verbose ("%s: No object at specified path found\n",
-+      _dbus_verbose_C_S ("%s: No object at specified path found\n",
-                      _DBUS_FUNCTION_NAME);
-       return NULL;
-     }
 Index: dbus/dbus-auth.c
 ===================================================================
 --- dbus/dbus-auth.c	(Revision 504)
@@ -1387,15 +1374,6 @@ Index: dbus/dbus-transport.c
 ===================================================================
 --- dbus/dbus-transport.c	(Revision 504)
 +++ dbus/dbus-transport.c	(Arbeitskopie)
-@@ -431,7 +431,7 @@
-   transport->refcount -= 1;
-   if (transport->refcount == 0)
-     {
--      _dbus_verbose ("%s: finalizing\n", _DBUS_FUNCTION_NAME);
-+      _dbus_verbose_C_S ("%s: finalizing\n", _DBUS_FUNCTION_NAME);
-       
-       _dbus_assert (transport->vtable->finalize != NULL);
-       
 @@ -674,7 +674,7 @@
    if (transport->disconnected)
      return TRUE;
