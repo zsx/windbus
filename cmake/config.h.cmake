@@ -144,7 +144,7 @@
 #define SIGHUP	1
 #endif
 
-//#define DBUS_VERBOSE_C_S
+#cmakedefine DBUS_VERBOSE_C_S 1
 #ifdef DBUS_VERBOSE_C_S
 #define _dbus_verbose_C_S printf
 #else

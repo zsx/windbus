@@ -33,6 +33,11 @@ SET(DBUS_SOURCE_DIR ${CMAKE_SOURCE_DIR}/..)
 # make some more macros available
 include (MacroLibrary)
 
+if(VCS)
+	set(DBUS_VERBOSE_C_S 1 CACHE TYPE STRING FORCE)
+	set(DBUS_VERBOSE_C_S 1)
+endif(VCS)
+
 if(MSVC)
 	# controll folders in msvc projects
 	include(ProjectSourceGroup)
