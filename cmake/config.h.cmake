@@ -144,10 +144,11 @@
 #define SIGHUP	1
 #endif
 
-#ifdef _MSC_VER
-#define DBUS_UNSIGNED_CHAR 
+//#define DBUS_VERBOSE_C_S
+#ifdef DBUS_VERBOSE_C_S
+#define _dbus_verbose_C_S printf
 #else
-#define DBUS_UNSIGNED_CHAR  unsigned
-#endif
+#define _dbus_verbose_C_S _dbus_verbose
+#endif 
 
 #endif  // _DBUS_CONFIG_H

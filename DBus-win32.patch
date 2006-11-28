@@ -1,7 +1,7 @@
 Index: test/spawn-test.c
 ===================================================================
---- test/spawn-test.c	(revision 497)
-+++ test/spawn-test.c	(working copy)
+--- test/spawn-test.c	(Revision 502)
++++ test/spawn-test.c	(Arbeitskopie)
 @@ -31,7 +31,7 @@
      argv_copy [i] = argv[i + 1];
    argv_copy[argc - 1] = NULL;
@@ -13,8 +13,8 @@ Index: test/spawn-test.c
  	       error.message);
 Index: test/name-test/test-names.c
 ===================================================================
---- test/name-test/test-names.c	(revision 497)
-+++ test/name-test/test-names.c	(working copy)
+--- test/name-test/test-names.c	(Revision 502)
++++ test/name-test/test-names.c	(Arbeitskopie)
 @@ -1,9 +1,11 @@
  #include <stdio.h>
  #include <stdlib.h>
@@ -30,8 +30,8 @@ Index: test/name-test/test-names.c
  #define ADD_CONNECTION 1
 Index: test/name-test/test-threads-init.c
 ===================================================================
---- test/name-test/test-threads-init.c	(revision 497)
-+++ test/name-test/test-threads-init.c	(working copy)
+--- test/name-test/test-threads-init.c	(Revision 502)
++++ test/name-test/test-threads-init.c	(Arbeitskopie)
 @@ -8,7 +8,9 @@
  #include <stdlib.h>
  
@@ -44,8 +44,8 @@ Index: test/name-test/test-threads-init.c
  {
 Index: test/test-utils.c
 ===================================================================
---- test/test-utils.c	(revision 497)
-+++ test/test-utils.c	(working copy)
+--- test/test-utils.c	(Revision 502)
++++ test/test-utils.c	(Arbeitskopie)
 @@ -1,5 +1,7 @@
  #include "test-utils.h"
  
@@ -56,8 +56,8 @@ Index: test/test-utils.c
    DBusLoop *loop;
 Index: test/test-segfault.c
 ===================================================================
---- test/test-segfault.c	(revision 497)
-+++ test/test-segfault.c	(working copy)
+--- test/test-segfault.c	(Revision 502)
++++ test/test-segfault.c	(Arbeitskopie)
 @@ -1,10 +1,27 @@
  /* This is simply a process that segfaults */
 +#include <config.h>
@@ -88,8 +88,8 @@ Index: test/test-segfault.c
  {
 Index: test/Makefile.am
 ===================================================================
---- test/Makefile.am	(revision 497)
-+++ test/Makefile.am	(working copy)
+--- test/Makefile.am	(Revision 502)
++++ test/Makefile.am	(Arbeitskopie)
 @@ -117,7 +117,7 @@
  		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
  	done ;											\
@@ -101,8 +101,8 @@ Index: test/Makefile.am
  			DEST=$(top_builddir)/test/$$F ;						\
 Index: test/test-sleep-forever.c
 ===================================================================
---- test/test-sleep-forever.c	(revision 497)
-+++ test/test-sleep-forever.c	(working copy)
+--- test/test-sleep-forever.c	(Revision 502)
++++ test/test-sleep-forever.c	(Arbeitskopie)
 @@ -1,6 +1,12 @@
  /* This is a process that just sleeps infinitely. */
  
@@ -116,10 +116,30 @@ Index: test/test-sleep-forever.c
  
  int
  main (int argc, char **argv)
+Index: cmake/config.h.cmake
+===================================================================
+--- cmake/config.h.cmake	(Revision 502)
++++ cmake/config.h.cmake	(Arbeitskopie)
+@@ -144,10 +144,11 @@
+ #define SIGHUP	1
+ #endif
+ 
+-#ifdef _MSC_VER
+-#define DBUS_UNSIGNED_CHAR 
++#define DBUS_VERBOSE_C_S
++#ifdef DBUS_VERBOSE_C_S
++#define _dbus_verbose_C_S printf
+ #else
+-#define DBUS_UNSIGNED_CHAR  unsigned
+-#endif
++#define _dbus_verbose_C_S _dbus_verbose
++#endif 
+ 
+ #endif  // _DBUS_CONFIG_H
 Index: bus/config-loader-libxml.c
 ===================================================================
---- bus/config-loader-libxml.c	(revision 497)
-+++ bus/config-loader-libxml.c	(working copy)
+--- bus/config-loader-libxml.c	(Revision 502)
++++ bus/config-loader-libxml.c	(Arbeitskopie)
 @@ -134,6 +134,9 @@
      }
  }
@@ -165,8 +185,8 @@ Index: bus/config-loader-libxml.c
        _DBUS_SET_OOM (error);
 Index: bus/policy.c
 ===================================================================
---- bus/policy.c	(revision 497)
-+++ bus/policy.c	(working copy)
+--- bus/policy.c	(Revision 502)
++++ bus/policy.c	(Arbeitskopie)
 @@ -323,9 +323,13 @@
  
    if (!dbus_connection_get_unix_user (connection, &uid))
@@ -183,8 +203,8 @@ Index: bus/policy.c
    if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
 Index: bus/dispatch.c
 ===================================================================
---- bus/dispatch.c	(revision 497)
-+++ bus/dispatch.c	(working copy)
+--- bus/dispatch.c	(Revision 502)
++++ bus/dispatch.c	(Arbeitskopie)
 @@ -428,6 +428,11 @@
      }
  }
@@ -217,6 +237,15 @@ Index: bus/dispatch.c
    _dbus_verbose (" ... done spinning to auth connection %p\n", connection);
  }
  
+@@ -719,7 +737,7 @@
+   
+   if (nmd.failed)
+     {
+-      _dbus_verbose ("%s: leftover message found\n",
++      _dbus_verbose_C_S ("%s: leftover message found\n",
+                      _DBUS_FUNCTION_NAME);
+       return FALSE;
+     }
 @@ -2698,9 +2716,12 @@
          }
        else
@@ -245,8 +274,8 @@ Index: bus/dispatch.c
  
 Index: bus/activation.c
 ===================================================================
---- bus/activation.c	(revision 497)
-+++ bus/activation.c	(working copy)
+--- bus/activation.c	(Revision 502)
++++ bus/activation.c	(Arbeitskopie)
 @@ -34,7 +34,6 @@
  #include <dbus/dbus-spawn.h>
  #include <dbus/dbus-timeout.h>
@@ -273,8 +302,8 @@ Index: bus/activation.c
      {
 Index: bus/dir-watch.c
 ===================================================================
---- bus/dir-watch.c	(revision 497)
-+++ bus/dir-watch.c	(working copy)
+--- bus/dir-watch.c	(Revision 502)
++++ bus/dir-watch.c	(Arbeitskopie)
 @@ -103,7 +103,7 @@
  }
  
@@ -286,8 +315,8 @@ Index: bus/dir-watch.c
  
 Index: bus/config-parser.c
 ===================================================================
---- bus/config-parser.c	(revision 497)
-+++ bus/config-parser.c	(working copy)
+--- bus/config-parser.c	(Revision 502)
++++ bus/config-parser.c	(Arbeitskopie)
 @@ -3066,10 +3066,15 @@
  
  static const char *test_service_dir_matches[] = 
@@ -356,10 +385,50 @@ Index: bus/config-parser.c
    return TRUE;
  }
  			   
+Index: bus/connection.c
+===================================================================
+--- bus/connection.c	(Revision 502)
++++ bus/connection.c	(Arbeitskopie)
+@@ -1541,7 +1541,7 @@
+ {
+   CancelPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   if (!_dbus_list_remove (&d->connections->pending_replies->items,
+                           d->pending))
+@@ -1555,7 +1555,7 @@
+ {
+   CancelPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   /* d->pending should be either freed or still
+    * in the list of pending replies (owned by someone
+@@ -1692,7 +1692,7 @@
+ {
+   CheckPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   _dbus_list_prepend_link (&d->connections->pending_replies->items,
+                            d->link);
+@@ -1704,7 +1704,7 @@
+ {
+   CheckPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   if (d->link != NULL)
+     {
 Index: bus/main.c
 ===================================================================
---- bus/main.c	(revision 497)
-+++ bus/main.c	(working copy)
+--- bus/main.c	(Revision 502)
++++ bus/main.c	(Arbeitskopie)
 @@ -234,6 +234,12 @@
    dbus_bool_t print_pid;
    int force_fork;
@@ -375,8 +444,8 @@ Index: bus/main.c
  
 Index: bus/desktop-file.c
 ===================================================================
---- bus/desktop-file.c	(revision 497)
-+++ bus/desktop-file.c	(working copy)
+--- bus/desktop-file.c	(Revision 502)
++++ bus/desktop-file.c	(Arbeitskopie)
 @@ -360,15 +360,15 @@
  static void
  parse_comment_or_blank (BusDesktopFileParser *parser)
@@ -459,8 +528,8 @@ Index: bus/desktop-file.c
  
 Index: bus/bus.c
 ===================================================================
---- bus/bus.c	(revision 497)
-+++ bus/bus.c	(working copy)
+--- bus/bus.c	(Revision 502)
++++ bus/bus.c	(Arbeitskopie)
 @@ -630,7 +630,7 @@
          }
  
@@ -479,10 +548,294 @@ Index: bus/bus.c
          {
            dbus_set_error (error, DBUS_ERROR_FAILED,
                            "Printing message bus PID: %s\n",
+Index: dbus/dbus-object-tree.c
+===================================================================
+--- dbus/dbus-object-tree.c	(Revision 502)
++++ dbus/dbus-object-tree.c	(Arbeitskopie)
+@@ -910,7 +910,7 @@
+ 
+   if ((subtree == NULL) || !exact_match)
+     {
+-      _dbus_verbose ("%s: No object at specified path found\n",
++      _dbus_verbose_C_S ("%s: No object at specified path found\n",
+                      _DBUS_FUNCTION_NAME);
+       return NULL;
+     }
+Index: dbus/dbus-auth.c
+===================================================================
+--- dbus/dbus-auth.c	(Revision 502)
++++ dbus/dbus-auth.c	(Arbeitskopie)
+@@ -395,7 +395,7 @@
+   
+   if (auth->mech != NULL)
+     {
+-      _dbus_verbose ("%s: Shutting down mechanism %s\n",
++      _dbus_verbose_C_S ("%s: Shutting down mechanism %s\n",
+                      DBUS_AUTH_NAME (auth), auth->mech->mechanism);
+       
+       if (DBUS_AUTH_IS_CLIENT (auth))
+@@ -501,7 +501,7 @@
+       if (_dbus_string_get_length (&auth->identity) > 0)
+         {
+           /* Tried to send two auth identities, wtf */
+-          _dbus_verbose ("%s: client tried to send auth identity, but we already have one\n",
++          _dbus_verbose_C_S ("%s: client tried to send auth identity, but we already have one\n",
+                          DBUS_AUTH_NAME (auth));
+           return send_rejected (auth);
+         }
+@@ -515,7 +515,7 @@
+       
+   if (!_dbus_credentials_from_username (data, &auth->desired_identity))
+     {
+-      _dbus_verbose ("%s: Did not get a valid username from client\n",
++      _dbus_verbose_C_S ("%s: Did not get a valid username from client\n",
+                      DBUS_AUTH_NAME (auth));
+       return send_rejected (auth);
+     }
+@@ -559,7 +559,7 @@
+           else
+             {
+               _DBUS_ASSERT_ERROR_IS_SET (&error);
+-              _dbus_verbose ("%s: Error loading keyring: %s\n",
++              _dbus_verbose_C_S ("%s: Error loading keyring: %s\n",
+                              DBUS_AUTH_NAME (auth), error.message);
+               if (send_rejected (auth))
+                 retval = TRUE; /* retval is only about mem */
+@@ -580,7 +580,7 @@
+   if (auth->cookie_id < 0)
+     {
+       _DBUS_ASSERT_ERROR_IS_SET (&error);
+-      _dbus_verbose ("%s: Could not get a cookie ID to send to client: %s\n",
++      _dbus_verbose_C_S ("%s: Could not get a cookie ID to send to client: %s\n",
+                      DBUS_AUTH_NAME (auth), error.message);
+       if (send_rejected (auth))
+         retval = TRUE;
+@@ -650,7 +650,7 @@
+   
+   if (!_dbus_string_find_blank (data, 0, &i))
+     {
+-      _dbus_verbose ("%s: no space separator in client response\n",
++      _dbus_verbose_C_S ("%s: no space separator in client response\n",
+                      DBUS_AUTH_NAME (auth));
+       return send_rejected (auth);
+     }
+@@ -676,7 +676,7 @@
+   if (_dbus_string_get_length (&client_challenge) == 0 ||
+       _dbus_string_get_length (&client_hash) == 0)
+     {
+-      _dbus_verbose ("%s: zero-length client challenge or hash\n",
++      _dbus_verbose_C_S ("%s: zero-length client challenge or hash\n",
+                      DBUS_AUTH_NAME (auth));
+       if (send_rejected (auth))
+         retval = TRUE;
+@@ -710,7 +710,7 @@
+   if (!send_ok (auth))
+     goto out_3;
+ 
+-  _dbus_verbose ("%s: authenticated client with UID "DBUS_UID_FORMAT" using DBUS_COOKIE_SHA1\n",
++  _dbus_verbose_C_S ("%s: authenticated client with UID "DBUS_UID_FORMAT" using DBUS_COOKIE_SHA1\n",
+                  DBUS_AUTH_NAME (auth), auth->desired_identity.uid);
+   
+   auth->authorized_identity = auth->desired_identity;
+@@ -872,7 +872,7 @@
+             {
+               _DBUS_ASSERT_ERROR_IS_SET (&error);
+ 
+-              _dbus_verbose ("%s: Error loading keyring: %s\n",
++              _dbus_verbose_C_S ("%s: Error loading keyring: %s\n",
+                              DBUS_AUTH_NAME (auth), error.message);
+               
+               if (send_error (auth, "Could not load cookie file"))
+@@ -968,7 +968,7 @@
+ {
+   if (auth->credentials.uid == DBUS_UID_UNSET)
+     {
+-      _dbus_verbose ("%s: no credentials, mechanism EXTERNAL can't authenticate\n",
++      _dbus_verbose_C_S ("%s: no credentials, mechanism EXTERNAL can't authenticate\n",
+                      DBUS_AUTH_NAME (auth));
+       return send_rejected (auth);
+     }
+@@ -978,7 +978,7 @@
+       if (_dbus_string_get_length (&auth->identity) > 0)
+         {
+           /* Tried to send two auth identities, wtf */
+-          _dbus_verbose ("%s: client tried to send auth identity, but we already have one\n",
++          _dbus_verbose_C_S ("%s: client tried to send auth identity, but we already have one\n",
+                          DBUS_AUTH_NAME (auth));
+           return send_rejected (auth);
+         }
+@@ -996,7 +996,7 @@
+     {
+       if (send_data (auth, NULL))
+         {
+-          _dbus_verbose ("%s: sending empty challenge asking client for auth identity\n",
++          _dbus_verbose_C_S ("%s: sending empty challenge asking client for auth identity\n",
+                          DBUS_AUTH_NAME (auth));
+           auth->already_asked_for_initial_response = TRUE;
+           return TRUE;
+@@ -1021,7 +1021,7 @@
+       if (!_dbus_parse_uid (&auth->identity,
+                             &auth->desired_identity.uid))
+         {
+-          _dbus_verbose ("%s: could not get credentials from uid string\n",
++          _dbus_verbose_C_S ("%s: could not get credentials from uid string\n",
+                          DBUS_AUTH_NAME (auth));
+           return send_rejected (auth);
+         }
+@@ -1029,7 +1029,7 @@
+ 
+   if (auth->desired_identity.uid == DBUS_UID_UNSET)
+     {
+-      _dbus_verbose ("%s: desired user %s is no good\n",
++      _dbus_verbose_C_S ("%s: desired user %s is no good\n",
+                      DBUS_AUTH_NAME (auth),
+                      _dbus_string_get_const_data (&auth->identity));
+       return send_rejected (auth);
+@@ -1042,7 +1042,7 @@
+       if (!send_ok (auth))
+         return FALSE;
+ 
+-      _dbus_verbose ("%s: authenticated client with UID "DBUS_UID_FORMAT
++      _dbus_verbose_C_S ("%s: authenticated client with UID "DBUS_UID_FORMAT
+                      " matching socket credentials UID "DBUS_UID_FORMAT"\n",
+                      DBUS_AUTH_NAME (auth),
+                      auth->desired_identity.uid,
+@@ -1054,7 +1054,7 @@
+     }
+   else
+     {
+-      _dbus_verbose ("%s: credentials uid="DBUS_UID_FORMAT
++      _dbus_verbose_C_S ("%s: credentials uid="DBUS_UID_FORMAT
+                      " gid="DBUS_GID_FORMAT
+                      " do not allow uid="DBUS_UID_FORMAT
+                      " gid="DBUS_GID_FORMAT"\n",
+@@ -1432,7 +1432,7 @@
+ #ifdef DBUS_ENABLE_VERBOSE_MODE
+   if (_dbus_string_validate_ascii (&decoded, 0,
+                                    _dbus_string_get_length (&decoded)))
+-    _dbus_verbose ("%s: data: '%s'\n",
++    _dbus_verbose_C_S ("%s: data: '%s'\n",
+                    DBUS_AUTH_NAME (auth),
+                    _dbus_string_get_const_data (&decoded));
+ #endif
+@@ -1485,7 +1485,7 @@
+       auth->mech = find_mech (&mech, auth->allowed_mechs);
+       if (auth->mech != NULL)
+         {
+-          _dbus_verbose ("%s: Trying mechanism %s\n",
++          _dbus_verbose_C_S ("%s: Trying mechanism %s\n",
+                          DBUS_AUTH_NAME (auth),
+                          auth->mech->mechanism);
+           
+@@ -1496,7 +1496,7 @@
+       else
+         {
+           /* Unsupported mechanism */
+-          _dbus_verbose ("%s: Unsupported mechanism %s\n",
++          _dbus_verbose_C_S ("%s: Unsupported mechanism %s\n",
+                          DBUS_AUTH_NAME (auth),
+                          _dbus_string_get_const_data (&mech));
+           
+@@ -1668,7 +1668,7 @@
+ 
+           if (mech != &all_mechanisms[0])
+             {
+-              _dbus_verbose ("%s: Adding mechanism %s to list we will try\n",
++              _dbus_verbose_C_S ("%s: Adding mechanism %s to list we will try\n",
+                              DBUS_AUTH_NAME (auth), mech->mechanism);
+           
+               if (!_dbus_list_append (& DBUS_AUTH_CLIENT (auth)->mechs_to_try,
+@@ -1680,13 +1680,13 @@
+             }
+           else
+             {
+-              _dbus_verbose ("%s: Already tried mechanism %s; not adding to list we will try\n",
++              _dbus_verbose_C_S ("%s: Already tried mechanism %s; not adding to list we will try\n",
+                              DBUS_AUTH_NAME (auth), mech->mechanism);
+             }
+         }
+       else
+         {
+-          _dbus_verbose ("%s: Server offered mechanism \"%s\" that we don't know how to use\n",
++          _dbus_verbose_C_S ("%s: Server offered mechanism \"%s\" that we don't know how to use\n",
+                          DBUS_AUTH_NAME (auth),
+                          _dbus_string_get_const_data (&m));
+         }
+@@ -1727,14 +1727,14 @@
+ 
+       _dbus_list_pop_first (&client->mechs_to_try);
+ 
+-      _dbus_verbose ("%s: Trying mechanism %s\n",
++      _dbus_verbose_C_S ("%s: Trying mechanism %s\n",
+                      DBUS_AUTH_NAME (auth),
+                      mech->mechanism);
+     }
+   else
+     {
+       /* Give up */
+-      _dbus_verbose ("%s: Disconnecting because we are out of mechanisms to try using\n",
++      _dbus_verbose_C_S ("%s: Disconnecting because we are out of mechanisms to try using\n",
+                      DBUS_AUTH_NAME (auth));
+       goto_state (auth, &common_state_need_disconnect);
+     }
+@@ -1858,7 +1858,7 @@
+ static void
+ goto_state (DBusAuth *auth, const DBusAuthStateData *state)
+ {
+-  _dbus_verbose ("%s: going from state %s to state %s\n",
++  _dbus_verbose_C_S ("%s: going from state %s to state %s\n",
+                  DBUS_AUTH_NAME (auth),
+                  auth->state->name,
+                  state->name);
+@@ -1877,7 +1877,7 @@
+   int i, j;
+   dbus_bool_t retval;
+ 
+-  /* _dbus_verbose ("%s:   trying process_command()\n"); */
++  /* _dbus_verbose_C_S ("%s:   trying process_command()\n"); */
+   
+   retval = FALSE;
+   
+@@ -1904,7 +1904,7 @@
+   if (!_dbus_string_validate_ascii (&line, 0,
+                                     _dbus_string_get_length (&line)))
+     {
+-      _dbus_verbose ("%s: Command contained non-ASCII chars or embedded nul\n",
++      _dbus_verbose_C_S ("%s: Command contained non-ASCII chars or embedded nul\n",
+                      DBUS_AUTH_NAME (auth));
+       if (!send_error (auth, "Command contained non-ASCII"))
+         goto out;
+@@ -1912,7 +1912,7 @@
+         goto next_command;
+     }
+   
+-  _dbus_verbose ("%s: got command \"%s\"\n",
++  _dbus_verbose_C_S ("%s: got command \"%s\"\n",
+                  DBUS_AUTH_NAME (auth),
+                  _dbus_string_get_const_data (&line));
+   
+@@ -2170,7 +2170,7 @@
+           _dbus_string_get_length (&auth->outgoing) > MAX_BUFFER)
+         {
+           goto_state (auth, &common_state_need_disconnect);
+-          _dbus_verbose ("%s: Disconnecting due to excessive data buffered in auth phase\n",
++          _dbus_verbose_C_S ("%s: Disconnecting due to excessive data buffered in auth phase\n",
+                          DBUS_AUTH_NAME (auth));
+           break;
+         }
+@@ -2226,7 +2226,7 @@
+ _dbus_auth_bytes_sent (DBusAuth *auth,
+                        int       bytes_sent)
+ {
+-  _dbus_verbose ("%s: Sent %d bytes of: %s\n",
++  _dbus_verbose_C_S ("%s: Sent %d bytes of: %s\n",
+                  DBUS_AUTH_NAME (auth),
+                  bytes_sent,
+                  _dbus_string_get_const_data (&auth->outgoing));
 Index: dbus/dbus-spawn.c
 ===================================================================
---- dbus/dbus-spawn.c	(revision 497)
-+++ dbus/dbus-spawn.c	(working copy)
+--- dbus/dbus-spawn.c	(Revision 502)
++++ dbus/dbus-spawn.c	(Arbeitskopie)
 @@ -720,7 +720,7 @@
    if (condition & DBUS_WATCH_HANGUP)
      revents |= _DBUS_POLLHUP;
@@ -494,8 +847,8 @@ Index: dbus/dbus-spawn.c
      handle_error_pipe (sitter, revents);
 Index: dbus/dbus-threads.c
 ===================================================================
---- dbus/dbus-threads.c	(revision 497)
-+++ dbus/dbus-threads.c	(working copy)
+--- dbus/dbus-threads.c	(Revision 502)
++++ dbus/dbus-threads.c	(Arbeitskopie)
 @@ -810,7 +810,11 @@
  dbus_bool_t
  _dbus_threads_init_debug (void)
@@ -510,8 +863,8 @@ Index: dbus/dbus-threads.c
  #endif /* DBUS_BUILD_TESTS */
 Index: dbus/dbus-spawn.h
 ===================================================================
---- dbus/dbus-spawn.h	(revision 497)
-+++ dbus/dbus-spawn.h	(working copy)
+--- dbus/dbus-spawn.h	(Revision 502)
++++ dbus/dbus-spawn.h	(Arbeitskopie)
 @@ -37,6 +37,7 @@
  
  dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
@@ -522,8 +875,8 @@ Index: dbus/dbus-spawn.h
                                                     DBusError                 *error);
 Index: dbus/dbus-sysdeps-util-win.c
 ===================================================================
---- dbus/dbus-sysdeps-util-win.c	(revision 497)
-+++ dbus/dbus-sysdeps-util-win.c	(working copy)
+--- dbus/dbus-sysdeps-util-win.c	(Revision 502)
++++ dbus/dbus-sysdeps-util-win.c	(Arbeitskopie)
 @@ -245,7 +245,7 @@
  _dbus_set_signal_handler (int               sig,
                            DBusSignalHandler handler)
@@ -535,8 +888,8 @@ Index: dbus/dbus-sysdeps-util-win.c
  /**
 Index: dbus/dbus-watch.c
 ===================================================================
---- dbus/dbus-watch.c	(revision 497)
-+++ dbus/dbus-watch.c	(working copy)
+--- dbus/dbus-watch.c	(Revision 502)
++++ dbus/dbus-watch.c	(Arbeitskopie)
 @@ -286,7 +286,7 @@
              
              _dbus_verbose ("Adding a %s watch on fd %d using newly-set add watch function\n",
@@ -626,8 +979,8 @@ Index: dbus/dbus-watch.c
    if (watch->free_data_function != NULL)
 Index: dbus/dbus-mainloop.c
 ===================================================================
---- dbus/dbus-mainloop.c	(revision 497)
-+++ dbus/dbus-mainloop.c	(working copy)
+--- dbus/dbus-mainloop.c	(Revision 502)
++++ dbus/dbus-mainloop.c	(Arbeitskopie)
 @@ -90,8 +90,8 @@
    Callback callback;
    DBusTimeout *timeout;
@@ -699,8 +1052,8 @@ Index: dbus/dbus-mainloop.c
  }
 Index: dbus/dbus-bus.c
 ===================================================================
---- dbus/dbus-bus.c	(revision 497)
-+++ dbus/dbus-bus.c	(working copy)
+--- dbus/dbus-bus.c	(Revision 502)
++++ dbus/dbus-bus.c	(Arbeitskopie)
 @@ -350,8 +350,10 @@
  {
    int i;
@@ -725,8 +1078,26 @@ Index: dbus/dbus-bus.c
  static DBusConnection *
 Index: dbus/dbus-transport-socket.c
 ===================================================================
---- dbus/dbus-transport-socket.c	(revision 497)
-+++ dbus/dbus-transport-socket.c	(working copy)
+--- dbus/dbus-transport-socket.c	(Revision 502)
++++ dbus/dbus-transport-socket.c	(Arbeitskopie)
+@@ -175,7 +175,7 @@
+   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
+   dbus_bool_t need_read_watch;
+ 
+-  _dbus_verbose ("%s: fd = %d\n",
++  _dbus_verbose (" %s: fd = %d\n",
+                  _DBUS_FUNCTION_NAME, socket_transport->fd);
+   
+   if (transport->connection == NULL)
+@@ -652,7 +652,7 @@
+   int total;
+   dbus_bool_t oom;
+ 
+-  _dbus_verbose ("%s: fd = %d\n", _DBUS_FUNCTION_NAME,
++  _dbus_verbose (" %s: fd = %d\n", _DBUS_FUNCTION_NAME,
+                  socket_transport->fd);
+   
+   /* No messages without authentication! */
 @@ -873,7 +873,7 @@
                         flags);
        else
@@ -759,8 +1130,8 @@ Index: dbus/dbus-transport-socket.c
                                   "Port is not an integer between 0 and 65535");
 Index: dbus/dbus-transport-socket.h
 ===================================================================
---- dbus/dbus-transport-socket.h	(revision 497)
-+++ dbus/dbus-transport-socket.h	(working copy)
+--- dbus/dbus-transport-socket.h	(Revision 502)
++++ dbus/dbus-transport-socket.h	(Arbeitskopie)
 @@ -25,6 +25,10 @@
  
  #include <dbus/dbus-transport-protected.h>
@@ -774,8 +1145,8 @@ Index: dbus/dbus-transport-socket.h
  DBusTransport*          _dbus_transport_new_for_socket     (int                fd,
 Index: dbus/dbus-string.c
 ===================================================================
---- dbus/dbus-string.c	(revision 497)
-+++ dbus/dbus-string.c	(working copy)
+--- dbus/dbus-string.c	(Revision 502)
++++ dbus/dbus-string.c	(Arbeitskopie)
 @@ -1790,6 +1790,72 @@
  }
  
@@ -907,8 +1278,8 @@ Index: dbus/dbus-string.c
  #ifdef DBUS_BUILD_TESTS
 Index: dbus/dbus-string.h
 ===================================================================
---- dbus/dbus-string.h	(revision 497)
-+++ dbus/dbus-string.h	(working copy)
+--- dbus/dbus-string.h	(Revision 502)
++++ dbus/dbus-string.h	(Arbeitskopie)
 @@ -215,6 +215,10 @@
                                                    int                start,
                                                    const char        *substr,
@@ -922,8 +1293,8 @@ Index: dbus/dbus-string.h
                                                    int                end,
 Index: dbus/dbus-server-unix.c
 ===================================================================
---- dbus/dbus-server-unix.c	(revision 497)
-+++ dbus/dbus-server-unix.c	(working copy)
+--- dbus/dbus-server-unix.c	(Revision 502)
++++ dbus/dbus-server-unix.c	(Arbeitskopie)
 @@ -24,9 +24,9 @@
  #include "dbus-internals.h"
  #include "dbus-server-unix.h"
@@ -1034,8 +1405,17 @@ Index: dbus/dbus-server-unix.c
  
 Index: dbus/dbus-transport.c
 ===================================================================
---- dbus/dbus-transport.c	(revision 497)
-+++ dbus/dbus-transport.c	(working copy)
+--- dbus/dbus-transport.c	(Revision 502)
++++ dbus/dbus-transport.c	(Arbeitskopie)
+@@ -431,7 +431,7 @@
+   transport->refcount -= 1;
+   if (transport->refcount == 0)
+     {
+-      _dbus_verbose ("%s: finalizing\n", _DBUS_FUNCTION_NAME);
++      _dbus_verbose_C_S ("%s: finalizing\n", _DBUS_FUNCTION_NAME);
+       
+       _dbus_assert (transport->vtable->finalize != NULL);
+       
 @@ -674,7 +674,7 @@
    if (transport->disconnected)
      return TRUE;
@@ -1047,8 +1427,8 @@ Index: dbus/dbus-transport.c
        return TRUE;
 Index: dbus/dbus-connection.c
 ===================================================================
---- dbus/dbus-connection.c	(revision 497)
-+++ dbus/dbus-connection.c	(working copy)
+--- dbus/dbus-connection.c	(Revision 502)
++++ dbus/dbus-connection.c	(Arbeitskopie)
 @@ -62,7 +62,7 @@
  #define TRACE_LOCKS 1
  
@@ -1087,8 +1467,8 @@ Index: dbus/dbus-connection.c
    CONNECTION_LOCK (connection);
 Index: dbus/dbus-connection.h
 ===================================================================
---- dbus/dbus-connection.h	(revision 497)
-+++ dbus/dbus-connection.h	(working copy)
+--- dbus/dbus-connection.h	(Revision 502)
++++ dbus/dbus-connection.h	(Arbeitskopie)
 @@ -330,6 +330,9 @@
   */
  
@@ -1101,8 +1481,8 @@ Index: dbus/dbus-connection.h
  void         dbus_watch_set_data    (DBusWatch        *watch,
 Index: dbus/dbus-test.c
 ===================================================================
---- dbus/dbus-test.c	(revision 497)
-+++ dbus/dbus-test.c	(working copy)
+--- dbus/dbus-test.c	(Revision 502)
++++ dbus/dbus-test.c	(Arbeitskopie)
 @@ -156,7 +156,9 @@
    
    run_test ("hash", specific_test, _dbus_hash_test);
@@ -1115,8 +1495,8 @@ Index: dbus/dbus-test.c
    
 Index: dbus/dbus-server-socket.c
 ===================================================================
---- dbus/dbus-server-socket.c	(revision 497)
-+++ dbus/dbus-server-socket.c	(working copy)
+--- dbus/dbus-server-socket.c	(Revision 502)
++++ dbus/dbus-server-socket.c	(Arbeitskopie)
 @@ -161,7 +161,7 @@
        int client_fd;
        int listen_fd;
@@ -1149,8 +1529,8 @@ Index: dbus/dbus-server-socket.c
                                  "Port is not an integer between 0 and 65535");
 Index: dbus/dbus-server-protected.h
 ===================================================================
---- dbus/dbus-server-protected.h	(revision 497)
-+++ dbus/dbus-server-protected.h	(working copy)
+--- dbus/dbus-server-protected.h	(Revision 502)
++++ dbus/dbus-server-protected.h	(Arbeitskopie)
 @@ -144,7 +144,7 @@
  #define TRACE_LOCKS 0
  
@@ -1162,8 +1542,8 @@ Index: dbus/dbus-server-protected.h
    } while (0)
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 497)
-+++ dbus/dbus-sysdeps-util.c	(working copy)
+--- dbus/dbus-sysdeps-util.c	(Revision 502)
++++ dbus/dbus-sysdeps-util.c	(Arbeitskopie)
 @@ -81,7 +81,28 @@
    DBusString str;
    double val;
@@ -1245,8 +1625,8 @@ Index: dbus/dbus-sysdeps-util.c
  }
 Index: dbus/dbus-sysdeps-unix.c
 ===================================================================
---- dbus/dbus-sysdeps-unix.c	(revision 497)
-+++ dbus/dbus-sysdeps-unix.c	(working copy)
+--- dbus/dbus-sysdeps-unix.c	(Revision 502)
++++ dbus/dbus-sysdeps-unix.c	(Arbeitskopie)
 @@ -169,6 +169,15 @@
    return _dbus_write (fd, buffer, start, len);
  }
@@ -1275,8 +1655,8 @@ Index: dbus/dbus-sysdeps-unix.c
  /* tests in dbus-sysdeps-util.c */
 Index: dbus/dbus-transport-unix.c
 ===================================================================
---- dbus/dbus-transport-unix.c	(revision 497)
-+++ dbus/dbus-transport-unix.c	(working copy)
+--- dbus/dbus-transport-unix.c	(Revision 502)
++++ dbus/dbus-transport-unix.c	(Arbeitskopie)
 @@ -23,11 +23,16 @@
  
  #include "dbus-internals.h"
@@ -1297,8 +1677,8 @@ Index: dbus/dbus-transport-unix.c
   * @defgroup DBusTransportUnix DBusTransport implementations for UNIX
 Index: dbus/dbus-sysdeps-win.c
 ===================================================================
---- dbus/dbus-sysdeps-win.c	(revision 497)
-+++ dbus/dbus-sysdeps-win.c	(working copy)
+--- dbus/dbus-sysdeps-win.c	(Revision 502)
++++ dbus/dbus-sysdeps-win.c	(Arbeitskopie)
 @@ -4168,7 +4168,7 @@
  pseudorandom_generate_random_bytes_buffer (char *buffer,
      int   n_bytes)
@@ -1310,8 +1690,8 @@ Index: dbus/dbus-sysdeps-win.c
    /* fall back to pseudorandom */
 Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus/dbus-sysdeps.c	(revision 497)
-+++ dbus/dbus-sysdeps.c	(working copy)
+--- dbus/dbus-sysdeps.c	(Revision 502)
++++ dbus/dbus-sysdeps.c	(Arbeitskopie)
 @@ -119,11 +119,14 @@
         * will get upset about.
         */
@@ -1339,10 +1719,23 @@ Index: dbus/dbus-sysdeps.c
    char *fail_pos;
    double val;
    struct lconv *locale_data;
+Index: dbus/dbus-internals.c
+===================================================================
+--- dbus/dbus-internals.c	(Revision 502)
++++ dbus/dbus-internals.c	(Arbeitskopie)
+@@ -295,7 +295,7 @@
+ #include <pthread.h>
+ #endif
+ 
+-static inline void
++static void
+ _dbus_verbose_init (void)
+ {
+   if (!verbose_initted)
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 497)
-+++ dbus/dbus-sysdeps.h	(working copy)
+--- dbus/dbus-sysdeps.h	(Revision 502)
++++ dbus/dbus-sysdeps.h	(Arbeitskopie)
 @@ -119,6 +119,7 @@
   * 
   */
@@ -1374,23 +1767,10 @@ Index: dbus/dbus-sysdeps.h
  const char* _dbus_get_tmpdir      (void);
  
  /**
-Index: dbus/dbus-internals.c
-===================================================================
---- dbus/dbus-internals.c	(revision 497)
-+++ dbus/dbus-internals.c	(working copy)
-@@ -295,7 +295,7 @@
- #include <pthread.h>
- #endif
- 
--static inline void
-+static void
- _dbus_verbose_init (void)
- {
-   if (!verbose_initted)
 Index: dbus/dbus-internals.h
 ===================================================================
---- dbus/dbus-internals.h	(revision 497)
-+++ dbus/dbus-internals.h	(working copy)
+--- dbus/dbus-internals.h	(Revision 502)
++++ dbus/dbus-internals.h	(Arbeitskopie)
 @@ -48,7 +48,7 @@
  
  #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
@@ -1402,8 +1782,8 @@ Index: dbus/dbus-internals.h
  #define _DBUS_FUNCTION_NAME "unknown function"
 Index: dbus/dbus-string-util.c
 ===================================================================
---- dbus/dbus-string-util.c	(revision 497)
-+++ dbus/dbus-string-util.c	(working copy)
+--- dbus/dbus-string-util.c	(Revision 502)
++++ dbus/dbus-string-util.c	(Arbeitskopie)
 @@ -702,7 +702,27 @@
    test_roundtrips (test_hex_roundtrip);
    
@@ -1435,8 +1815,8 @@ Index: dbus/dbus-string-util.c
  
 Index: dbus/dbus-sysdeps-win-thread.c
 ===================================================================
---- dbus/dbus-sysdeps-win-thread.c	(revision 497)
-+++ dbus/dbus-sysdeps-win-thread.c	(working copy)
+--- dbus/dbus-sysdeps-win-thread.c	(Revision 502)
++++ dbus/dbus-sysdeps-win-thread.c	(Arbeitskopie)
 @@ -24,6 +24,7 @@
  #include "dbus-internals.h"
  #include "dbus-sysdeps.h"
@@ -1465,8 +1845,8 @@ Index: dbus/dbus-sysdeps-win-thread.c
    /* We reuse this over several generations, because we can't
 Index: dbus/dbus-marshal-recursive.c
 ===================================================================
---- dbus/dbus-marshal-recursive.c	(revision 497)
-+++ dbus/dbus-marshal-recursive.c	(working copy)
+--- dbus/dbus-marshal-recursive.c	(Revision 502)
++++ dbus/dbus-marshal-recursive.c	(Arbeitskopie)
 @@ -690,7 +690,7 @@
    base_reader_next
  };
@@ -1478,8 +1858,8 @@ Index: dbus/dbus-marshal-recursive.c
    &body_types_only_reader_class,
 Index: tools/dbus-monitor.c
 ===================================================================
---- tools/dbus-monitor.c	(revision 497)
-+++ tools/dbus-monitor.c	(working copy)
+--- tools/dbus-monitor.c	(Revision 502)
++++ tools/dbus-monitor.c	(Arbeitskopie)
 @@ -19,11 +19,18 @@
   *
   */
@@ -1523,8 +1903,8 @@ Index: tools/dbus-monitor.c
 +
 Index: tools/dbus-send.c
 ===================================================================
---- tools/dbus-send.c	(revision 497)
-+++ tools/dbus-send.c	(working copy)
+--- tools/dbus-send.c	(Revision 502)
++++ tools/dbus-send.c	(Arbeitskopie)
 @@ -19,6 +19,7 @@
   *
   */
