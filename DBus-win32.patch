@@ -1178,7 +1178,7 @@ Index: dbus/dbus-string.c
   * Finds the given substring in the string,
   * up to a certain position,
   * returning #TRUE and filling in the byte index
-@@ -2021,52 +2087,18 @@
+@@ -2021,52 +2087,22 @@
  _dbus_string_pop_line (DBusString *source,
                         DBusString *dest)
  {
@@ -1209,7 +1209,9 @@ Index: dbus/dbus-string.c
 -    {
 -      return FALSE;
 -    }
--
++  if (!_dbus_string_move_len (source, 0, eol + eol_len, dest, 0))
++	  return FALSE;
+ 
 -  /* dump the newline and the \r if we have one */
 -  if (have_newline)
 -    {
@@ -1230,7 +1232,8 @@ Index: dbus/dbus-string.c
 -    }
 -  
 -  return TRUE;
-+  return _dbus_string_move_len (source, 0, eol, dest, 0);
++  /* remove line ending */
++  return _dbus_string_set_length(dest, eol);
  }
  
  #ifdef DBUS_BUILD_TESTS
