@@ -223,7 +223,7 @@ Index: bus/dispatch.c
    dbus_uint32_t flags;
 -  
 +
-+  _dbus_warn("TODO: dispatch.c: check_segfault_service_no_auto_start");
++  _dbus_warn("TODO: dispatch.c: check_segfault_service_no_auto_start\n");
 +#ifndef DBUS_WIN_FIXME
 +  return TRUE;
 +#endif
@@ -250,7 +250,7 @@ Index: bus/dispatch.c
      }
 -  
 +
-+  _dbus_warn("TODO: dispatch.c create_and_hello test");
++  _dbus_warn("TODO: dispatch.c create_and_hello test\n");
 +#ifndef DBUS_WIN_FIXME  
    check1_try_iterations (context, "create_and_hello",
                           check_hello_connection);
@@ -260,7 +260,7 @@ Index: bus/dispatch.c
    check2_try_iterations (context, foo, "nonexistent_service_no_auto_start",
                           check_nonexistent_service_no_auto_start);
  
-+  _dbus_warn("TODO: dispatch.c segfault_service_no_auto_start test");
++  _dbus_warn("TODO: dispatch.c segfault_service_no_auto_start test\n");
 +#ifndef DBUS_WIN_FIXME
    check2_try_iterations (context, foo, "segfault_service_no_auto_start",
                           check_segfault_service_no_auto_start);
@@ -275,7 +275,7 @@ Index: bus/dispatch.c
 -  
 +
 +
-+  _dbus_warn("TODO: dispatch.c segfault_service_auto_start test");
++  _dbus_warn("TODO: dispatch.c segfault_service_auto_start test\n");
 +#ifndef DBUS_WIN_FIXME    
    check2_try_iterations (context, foo, "segfault_service_auto_start",
                           check_segfault_service_auto_start);
@@ -289,7 +289,7 @@ Index: bus/dispatch.c
    if (!check_existent_service_auto_start (context, foo))
      _dbus_assert_not_reached ("existent service auto start failed");
  
-+  _dbus_warn("TODO: dispatch.c check_shell_service_success_auto_start test");
++  _dbus_warn("TODO: dispatch.c check_shell_service_success_auto_start test\n");
 +#ifndef DBUS_WIN_FIXME  
    if (!check_shell_service_success_auto_start (context, foo))
      _dbus_assert_not_reached ("shell success service auto start failed");
@@ -303,7 +303,7 @@ Index: bus/dispatch.c
      }
 -  
 +
-+  _dbus_warn("TODO: dispatch.c: create_and_hello_sha1 test");
++  _dbus_warn("TODO: dispatch.c: create_and_hello_sha1 test\n");
 +#ifndef DBUS_WIN_FIXME  
    check1_try_iterations (context, "create_and_hello_sha1",
                           check_hello_connection);
