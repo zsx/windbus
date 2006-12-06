@@ -1,0 +1,45 @@
+Index: tools/dbus-monitor.c
+===================================================================
+--- tools/dbus-monitor.c	(Revision 504)
++++ tools/dbus-monitor.c	(Arbeitskopie)
+@@ -19,11 +19,18 @@
+  *
+  */
+ 
++#include <config.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+ 
++#ifdef DBUS_WIN
++#include <winsock2.h>
++#undef interface
++int gettimeofday(struct timeval *__p, void *__t);
++#else
+ #include <sys/time.h>
++#endif
+ #include <time.h>
+ 
+ #include <signal.h>
+@@ -276,3 +283,21 @@
+   exit (1);
+ }
+ 
++#ifdef DBUS_WIN
++#define KDE_SECONDS_SINCE_1601	11644473600LL
++#define KDE_USEC_IN_SEC			1000000LL
++int gettimeofday(struct timeval *__p, void *__t)
++{
++	union {
++		unsigned long long ns100; /*time since 1 Jan 1601 in 100ns units */
++		FILETIME ft;
++	} now;
++	
++	GetSystemTimeAsFileTime (&now.ft);
++	__p->tv_usec = (long) ((now.ns100 / 10LL) % KDE_USEC_IN_SEC);
++	__p->tv_sec  = (long)(((now.ns100 / 10LL ) / KDE_USEC_IN_SEC) - KDE_SECONDS_SINCE_1601);
++	
++	return (0); 
++}
++#endif
++

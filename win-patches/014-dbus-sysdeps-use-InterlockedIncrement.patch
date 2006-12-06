@@ -1,0 +1,24 @@
+Index: dbus/dbus-sysdeps.c
+===================================================================
+--- dbus/dbus-sysdeps.c	(revision 175)
++++ dbus/dbus-sysdeps.c	(working copy)
+@@ -1887,6 +2092,8 @@
+ {
+ #ifdef DBUS_USE_ATOMIC_INT_486
+   return atomic_exchange_and_add (atomic, 1);
++#elif defined(DBUS_WIN)
++  return InterlockedIncrement((LONG*)&atomic->value);
+ #else
+   dbus_int32_t res;
+   _DBUS_LOCK (atomic);
+@@ -1910,7 +2117,10 @@
+ {
+ #ifdef DBUS_USE_ATOMIC_INT_486
+   return atomic_exchange_and_add (atomic, -1);
++#elif defined(DBUS_WIN)
++  return InterlockedDecrement((LONG*)&atomic->value);
+ #else
++
+   dbus_int32_t res;
+   
+   _DBUS_LOCK (atomic);
