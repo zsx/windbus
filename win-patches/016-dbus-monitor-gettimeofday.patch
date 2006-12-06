@@ -1,8 +1,8 @@
-Index: tools/dbus-monitor.c
+Index: dbus-monitor.c
 ===================================================================
---- tools/dbus-monitor.c	(Revision 504)
-+++ tools/dbus-monitor.c	(Arbeitskopie)
-@@ -19,11 +19,18 @@
+--- dbus-monitor.c	(revision 515)
++++ dbus-monitor.c	(working copy)
+@@ -19,17 +19,47 @@
   *
   */
  
@@ -14,32 +14,39 @@ Index: tools/dbus-monitor.c
 +#ifdef DBUS_WIN
 +#include <winsock2.h>
 +#undef interface
-+int gettimeofday(struct timeval *__p, void *__t);
 +#else
  #include <sys/time.h>
 +#endif
++
  #include <time.h>
  
  #include <signal.h>
-@@ -276,3 +283,21 @@
-   exit (1);
- }
+ 
+ #include "dbus-print-message.h"
  
 +#ifdef DBUS_WIN
-+#define KDE_SECONDS_SINCE_1601	11644473600LL
-+#define KDE_USEC_IN_SEC			1000000LL
-+int gettimeofday(struct timeval *__p, void *__t)
++
++/* gettimeofday is not defined on windows */
++#define DBUS_SECONDS_SINCE_1601 11644473600LL
++#define DBUS_USEC_IN_SEC        1000000LL
++
++static int
++gettimeofday (struct timeval *__p,
++	      void *__t)
 +{
-+	union {
-+		unsigned long long ns100; /*time since 1 Jan 1601 in 100ns units */
-+		FILETIME ft;
-+	} now;
-+	
-+	GetSystemTimeAsFileTime (&now.ft);
-+	__p->tv_usec = (long) ((now.ns100 / 10LL) % KDE_USEC_IN_SEC);
-+	__p->tv_sec  = (long)(((now.ns100 / 10LL ) / KDE_USEC_IN_SEC) - KDE_SECONDS_SINCE_1601);
-+	
-+	return (0); 
++  union {
++      unsigned long long ns100; /*time since 1 Jan 1601 in 100ns units */
++      FILETIME           ft;
++    } now;
++
++  GetSystemTimeAsFileTime (&now.ft);
++  __p->tv_usec = (long) ((now.ns100 / 10LL) % DBUS_USEC_IN_SEC);
++  __p->tv_sec  = (long)(((now.ns100 / 10LL) / DBUS_SECONDS_SINCE_1601) - DBUS_SECONDS_SINCE_1601);
++
++  return 0;
 +}
 +#endif
 +
+ static DBusHandlerResult
+ monitor_filter_func (DBusConnection     *connection,
+ 		     DBusMessage        *message,
