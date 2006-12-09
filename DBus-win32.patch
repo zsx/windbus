@@ -1695,19 +1695,6 @@ Index: dbus/dbus-transport-unix.c
  
  /**
   * @defgroup DBusTransportUnix DBusTransport implementations for UNIX
-Index: dbus/dbus-sysdeps-win.c
-===================================================================
---- dbus/dbus-sysdeps-win.c	(Revision 510)
-+++ dbus/dbus-sysdeps-win.c	(Arbeitskopie)
-@@ -4168,7 +4168,7 @@
- pseudorandom_generate_random_bytes_buffer (char *buffer,
-     int   n_bytes)
- {
--  unsigned long tv_usec;
-+  long tv_usec;
-   int i;
- 
-   /* fall back to pseudorandom */
 Index: dbus/dbus-sysdeps.c
 ===================================================================
 --- dbus/dbus-sysdeps.c	(Revision 510)

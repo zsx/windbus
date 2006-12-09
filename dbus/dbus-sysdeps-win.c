@@ -41,34 +41,11 @@
 #include "dbus-userdb.h"
 #include "dbus-list.h"
 
-#include <stdlib.h>
-#include <string.h>
-#include <signal.h>
-#include <stdio.h>
-#include <errno.h>
-#include <fcntl.h>
-#include <lmerr.h>
-#include <sys/types.h>
-#include <fcntl.h>
-
-#include <time.h>
-#include <locale.h>
-#include <sys/stat.h>
 #include <windows.h>
+#include <fcntl.h>
 #include <process.h>
-
-#ifdef HAVE_WRITEV
-#include <sys/uio.h>
-#endif
-#ifdef HAVE_POLL
-#include <sys/poll.h>
-#endif
-#ifdef HAVE_BACKTRACE
-#include <execinfo.h>
-#endif
-#ifdef HAVE_GETPEERUCRED
-#include <ucred.h>
-#endif
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #ifndef O_BINARY
 #define O_BINARY 0
@@ -385,6 +362,8 @@ _dbus_win_allocate_fd (void)
         win_fds[i].is_used = 0;
     }
 
+  memset(&win_fds[i], 0, sizeof(win_fds[i]));
+
   win_fds[i].is_used = 1;
   win_fds[i].fd = -1;
   win_fds[i].port_file_fd = -1;
@@ -504,17 +483,6 @@ _dbus_handle_to_socket (int          handle,
 #undef FROM_HANDLE
 #define FROM_HANDLE(n) 1==DBUS_WIN_DONT_USE__FROM_HANDLE__DIRECTLY
 #define win_fds 1==DBUS_WIN_DONT_USE_win_fds_DIRECTLY
-
-
-
-//#define open(X,Y) DO_NOT_USE_OPEN_DIERCTLY
-
-
-/************************************************************************
-  
-  ????????????????????
- 
- ************************************************************************/
 
 
 
@@ -4168,7 +4136,7 @@ static void
 pseudorandom_generate_random_bytes_buffer (char *buffer,
     int   n_bytes)
 {
-  unsigned long tv_usec;
+  long tv_usec;
   int i;
 
   /* fall back to pseudorandom */
@@ -4729,12 +4697,13 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
   _snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%s",
             cDBusDaemonAddressInfo, szUserName);
 
-  // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
-  lock = _dbus_global_lock( cUniqueDBusInitMutex );
-
+  // before _dbus_global_lock to keep correct lock/release order
   hDBusDaemonMutex = CreateMutex( NULL, FALSE, szDBusDaemonMutex );
 
   _dbus_assert(WaitForSingleObject( hDBusDaemonMutex, 1000 ) == WAIT_OBJECT_0);
+
+  // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
+  lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
   // create shm
   hDBusSharedMem = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
