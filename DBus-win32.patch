@@ -22,7 +22,7 @@ Index: test/name-test/test-names.c
  #include <string.h>
  #include <dbus/dbus.h>
  #include <dbus/dbus-connection-internal.h>
-+#ifndef DBUS_WIN
++#ifdef HAVE_UNISTD_H
 +#include <unistd.h>
 +#endif
  
