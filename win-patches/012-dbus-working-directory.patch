@@ -6,7 +6,7 @@ Index: bus/main.c
    dbus_bool_t print_pid;
    int force_fork;
  
-+#ifdef _WIN32
++#ifdef DBUS_WIN
 +	extern int _dbus_init_working_dir(char *s);
 +	if (!_dbus_init_working_dir(argv[0]))
 +		return 1;
@@ -23,7 +23,7 @@ Index: bus/config-loader-libxml.c
        xmlSetGenericErrorFunc (NULL, xml_shut_up);
      }
  
-+#ifdef _WIN32
++#ifdef DBUS_WIN
 +	DBusString *_dbus_get_working_dir(void);
 +	DBusString *dbusdir = _dbus_get_working_dir();
 +  parser = bus_config_parser_new (dbusdir, is_toplevel, parent);
