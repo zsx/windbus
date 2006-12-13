@@ -5077,6 +5077,32 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
 }
 
 
+/**
+ * Atomically increments an integer
+ *
+ * @param atomic pointer to the integer to increment
+ * @returns the value before incrementing
+ *
+ */
+dbus_int32_t
+_dbus_atomic_inc (DBusAtomic *atomic)
+{
+  return InterlockedIncrement (&atomic->value);
+}
+
+/**
+ * Atomically decrement an integer
+ *
+ * @param atomic pointer to the integer to decrement
+ * @returns the value before decrementing
+ *
+ */
+dbus_int32_t
+_dbus_atomic_dec (DBusAtomic *atomic)
+{
+  return InterlockedDecrement (&atomic->value);
+}
+
 #endif /* asserts or tests enabled */
 
 /** @} end of sysdeps-win */
