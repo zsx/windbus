@@ -245,7 +245,7 @@ void
 _dbus_set_signal_handler (int               sig,
                           DBusSignalHandler handler)
 {
-  _dbus_warn ("_dbus_set_signal_handler() has to be implemented\n");
+  _dbus_verbose ("_dbus_set_signal_handler() has to be implemented\n");
 }
 
 /**
