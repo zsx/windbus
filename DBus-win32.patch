@@ -1,596 +1,7 @@
-Index: test/spawn-test.c
-===================================================================
---- test/spawn-test.c	(revision 518)
-+++ test/spawn-test.c	(working copy)
-@@ -31,7 +31,7 @@
-     argv_copy [i] = argv[i + 1];
-   argv_copy[argc - 1] = NULL;
-   
--  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, setup_func, NULL, &error))
-+  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, NULL, setup_func, NULL, &error))
-     {
-       fprintf (stderr, "Could not launch application: \"%s\"\n",
- 	       error.message);
-Index: test/name-test/test-names.c
-===================================================================
---- test/name-test/test-names.c	(revision 518)
-+++ test/name-test/test-names.c	(working copy)
-@@ -1,9 +1,11 @@
- #include <stdio.h>
- #include <stdlib.h>
--#include <unistd.h>
- #include <string.h>
- #include <dbus/dbus.h>
- #include <dbus/dbus-connection-internal.h>
-+#ifdef HAVE_UNISTD_H
-+#include <unistd.h>
-+#endif
- 
- #define REMOVE_CONNECTION 0
- #define ADD_CONNECTION 1
-Index: test/name-test/test-threads-init.c
-===================================================================
---- test/name-test/test-threads-init.c	(revision 518)
-+++ test/name-test/test-threads-init.c	(working copy)
-@@ -8,7 +8,9 @@
- #include <stdlib.h>
- 
- #include <dbus/dbus-internals.h>
-+#include <dbus/dbus-connection-internal.h>
- 
-+
- static void
- _run_iteration (DBusConnection *conn)
- {
-Index: test/test-utils.c
-===================================================================
---- test/test-utils.c	(revision 518)
-+++ test/test-utils.c	(working copy)
-@@ -1,5 +1,7 @@
- #include "test-utils.h"
- 
-+void _dbus_connection_close_internal (DBusConnection *connection);
-+
- typedef struct
- {
-   DBusLoop *loop;
-Index: test/test-segfault.c
-===================================================================
---- test/test-segfault.c	(revision 518)
-+++ test/test-segfault.c	(working copy)
-@@ -1,10 +1,27 @@
- /* This is simply a process that segfaults */
-+#include <config.h>
- #include <stdlib.h>
- #include <signal.h>
- 
-+#ifdef DBUS_WIN
-+#define RLIMIT_CORE	4		/* max core file size */
-+typedef unsigned long rlim_t;
-+struct rlimit {
-+	rlim_t	rlim_cur;
-+	rlim_t	rlim_max;
-+};
-+static int getrlimit (int __resource, struct rlimit *__rlp) {
-+  return -1;
-+}
-+static int setrlimit (int __resource, const struct rlimit *__rlp) {
-+  return -1;
-+}
-+#else
- #include <sys/time.h>
- #include <sys/resource.h>
-+#endif
- 
-+
- int
- main (int argc, char **argv)
- {
-Index: test/Makefile.am
-===================================================================
---- test/Makefile.am	(revision 518)
-+++ test/Makefile.am	(working copy)
-@@ -117,7 +117,7 @@
- 		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
- 	done ;											\
- 	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
--		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
-+		FILES=`(cd $(srcdir) && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;		\
- 	        for F in $$FILES; do								\
- 			SRC=$(srcdir)/$$F ;							\
- 			DEST=$(top_builddir)/test/$$F ;						\
-Index: test/test-sleep-forever.c
-===================================================================
---- test/test-sleep-forever.c	(revision 518)
-+++ test/test-sleep-forever.c	(working copy)
-@@ -1,6 +1,12 @@
- /* This is a process that just sleeps infinitely. */
- 
-+
-+#include <config.h>
-+#ifndef DBUS_WIN
- #include <unistd.h>
-+#else
-+#include <stdlib.h>
-+#endif
- 
- int
- main (int argc, char **argv)
-Index: bus/config-loader-libxml.c
-===================================================================
---- bus/config-loader-libxml.c	(revision 518)
-+++ bus/config-loader-libxml.c	(working copy)
-@@ -134,6 +134,9 @@
-     }
- }
- 
-+#ifdef DBUS_WIN
-+  DBusString *_dbus_get_working_dir(void);
-+#endif
- 
- BusConfigParser*
- bus_config_load (const DBusString      *file,
-@@ -147,7 +150,9 @@
-   DBusString dirname, data;
-   DBusError tmp_error;
-   int ret;
--  
-+#ifdef DBUS_WIN
-+	DBusString *dbusdir;
-+#endif
-   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-   
-   parser = NULL;
-@@ -177,13 +182,19 @@
-       xmlSetGenericErrorFunc (NULL, xml_shut_up);
-     }
- 
--  if (!_dbus_string_get_dirname (file, &dirname))
-+#ifdef DBUS_WIN
-+  dbusdir = _dbus_get_working_dir();
-+	if (dbusdir)
-+  	parser = bus_config_parser_new (dbusdir, is_toplevel, parent);
-+  else  
-+#endif
-+   if (!_dbus_string_get_dirname (file, &dirname))
-     {
-       _DBUS_SET_OOM (error);
-       goto failed;
-     }
-+  parser = bus_config_parser_new (&dirname, is_toplevel, parent);
-   
--  parser = bus_config_parser_new (&dirname, is_toplevel, parent);
-   if (parser == NULL)
-     {
-       _DBUS_SET_OOM (error);
-Index: bus/policy.c
-===================================================================
---- bus/policy.c	(revision 518)
-+++ bus/policy.c	(working copy)
-@@ -323,9 +323,13 @@
- 
-   if (!dbus_connection_get_unix_user (connection, &uid))
-     {
-+#ifdef DBUS_WIN
-+		_dbus_verbose ("policy.c: dbus_connection_get_unix_user check disabled under windows\n");
-+#else
-       dbus_set_error (error, DBUS_ERROR_FAILED,
-                       "No user ID known for connection, cannot determine security policy\n");
-       goto failed;
-+#endif
-     }
- 
-   if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
-Index: bus/dispatch.c
-===================================================================
---- bus/dispatch.c	(revision 518)
-+++ bus/dispatch.c	(working copy)
-@@ -428,6 +428,11 @@
-     }
- }
- 
-+#ifdef DBUS_WIN
-+#include <tools/dbus-print-message.h>
-+#include <tools/dbus-print-message.c>
-+#endif
-+
- static void
- spin_connection_until_authenticated (BusContext     *context,
-                                      DBusConnection *connection)
-@@ -439,6 +444,19 @@
-       bus_test_run_bus_loop (context, FALSE);
-       bus_test_run_clients_loop (FALSE);
-     }
-+#ifdef DBUS_WIN
-+  if ( dbus_connection_get_dispatch_status(connection) != DBUS_DISPATCH_COMPLETE)
-+    {
-+      DBusMessage *message;
-+	  message = dbus_connection_pop_message (connection);
-+	  printf ("spin_connection_until_authenticated failed,\n");
-+	  printf ("because of a non dispatched message:\n");
-+	  print_message(message, FALSE);
-+	  printf ("\n");	 
-+	  _dbus_assert_not_reached ("spin_connection_until_authenticated failed\n ");
-+    }
-+#endif
-+
-   _dbus_verbose (" ... done spinning to auth connection %p\n", connection);
- }
- 
-@@ -2623,7 +2641,12 @@
-   dbus_bool_t retval;
-   const char *segv_service;
-   dbus_uint32_t flags;
--  
-+
-+  _dbus_warn("TODO: dispatch.c: check_segfault_service_no_auto_start\n");
-+#ifndef DBUS_WIN_FIXME
-+  return TRUE;
-+#endif
-+
-   message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
-                                           DBUS_PATH_DBUS,
-                                           DBUS_INTERFACE_DBUS,
-@@ -2698,9 +2721,12 @@
-         }
-       else
-         {
-+/* no DBUS_ERROR_NO_MEMORY on windows (no have_fork_errnum)*/
-+#ifndef DBUS_WIN_FIXME
-           warn_unexpected (connection, message, "not this error");
- 
-           goto out;
-+#endif
-         }
-     }
-   else
-@@ -4061,25 +4087,35 @@
-       _dbus_warn ("Messages were left over after setting up initial connections\n");
-       _dbus_assert_not_reached ("initial connection setup failed");
-     }
--  
-+
-+  _dbus_warn("TODO: dispatch.c create_and_hello test\n");
-+#ifndef DBUS_WIN_FIXME  
-   check1_try_iterations (context, "create_and_hello",
-                          check_hello_connection);
--  
-+#endif
-+
-   check2_try_iterations (context, foo, "nonexistent_service_no_auto_start",
-                          check_nonexistent_service_no_auto_start);
- 
-+  _dbus_warn("TODO: dispatch.c segfault_service_no_auto_start test\n");
-+#ifndef DBUS_WIN_FIXME
-   check2_try_iterations (context, foo, "segfault_service_no_auto_start",
-                          check_segfault_service_no_auto_start);
--  
-+#endif
-+
-   check2_try_iterations (context, foo, "existent_service_no_auto_start",
-                          check_existent_service_no_auto_start);
-   
-   check2_try_iterations (context, foo, "nonexistent_service_auto_start",
-                          check_nonexistent_service_auto_start);
--  
-+
-+
-+  _dbus_warn("TODO: dispatch.c segfault_service_auto_start test\n");
-+#ifndef DBUS_WIN_FIXME    
-   check2_try_iterations (context, foo, "segfault_service_auto_start",
-                          check_segfault_service_auto_start);
--
-+#endif
-+  
-   check2_try_iterations (context, foo, "shell_fail_service_auto_start",
-                          check_shell_fail_service_auto_start);
- 
-@@ -4095,8 +4131,11 @@
-   if (!check_existent_service_auto_start (context, foo))
-     _dbus_assert_not_reached ("existent service auto start failed");
- 
-+  _dbus_warn("TODO: dispatch.c check_shell_service_success_auto_start test\n");
-+#ifndef DBUS_WIN_FIXME  
-   if (!check_shell_service_success_auto_start (context, foo))
-     _dbus_assert_not_reached ("shell success service auto start failed");
-+#endif
- 
-   _dbus_verbose ("Disconnecting foo, bar, and baz\n");
- 
-@@ -4146,9 +4185,12 @@
-       _dbus_warn ("Messages were left over after setting up initial SHA-1 connection\n");
-       _dbus_assert_not_reached ("initial connection setup failed");
-     }
--  
-+
-+  _dbus_warn("TODO: dispatch.c: create_and_hello_sha1 test\n");
-+#ifndef DBUS_WIN_FIXME  
-   check1_try_iterations (context, "create_and_hello_sha1",
-                          check_hello_connection);
-+#endif
- 
-   kill_client_connection_unchecked (foo);
- 
-Index: bus/activation.c
-===================================================================
---- bus/activation.c	(revision 518)
-+++ bus/activation.c	(working copy)
-@@ -34,7 +34,6 @@
- #include <dbus/dbus-spawn.h>
- #include <dbus/dbus-timeout.h>
- #include <dbus/dbus-sysdeps.h>
--#include <dirent.h>
- #include <errno.h>
- 
- #define DBUS_SERVICE_SECTION "D-BUS Service"
-@@ -1310,6 +1309,7 @@
-   DBusMessage *message;
-   DBusString service_str;
-   char **argv;
-+  char **envp = NULL;
-   int argc;
-   dbus_bool_t retval;
-   DBusHashIter iter;
-@@ -1541,6 +1541,7 @@
- 
-   _dbus_verbose ("Spawning %s ...\n", argv[0]);
-   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
-+                                          envp,
-                                           child_setup, activation, 
-                                           error))
-     {
-Index: bus/dir-watch.c
-===================================================================
---- bus/dir-watch.c	(revision 518)
-+++ bus/dir-watch.c	(working copy)
-@@ -103,7 +103,7 @@
- }
- 
- void
--bus_watch_directory (const char *dir, void *userdata)
-+bus_watch_directory (const char *dir, BusContext *userdata)
- {
- }
- 
-Index: bus/connection.c
-===================================================================
---- bus/connection.c	(revision 518)
-+++ bus/connection.c	(working copy)
-@@ -1541,7 +1541,7 @@
- {
-   CancelPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   if (!_dbus_list_remove (&d->connections->pending_replies->items,
-                           d->pending))
-@@ -1555,7 +1555,7 @@
- {
-   CancelPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   /* d->pending should be either freed or still
-    * in the list of pending replies (owned by someone
-@@ -1692,7 +1692,7 @@
- {
-   CheckPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   _dbus_list_prepend_link (&d->connections->pending_replies->items,
-                            d->link);
-@@ -1704,7 +1704,7 @@
- {
-   CheckPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   if (d->link != NULL)
-     {
-Index: bus/config-parser.c
-===================================================================
---- bus/config-parser.c	(revision 518)
-+++ bus/config-parser.c	(working copy)
-@@ -3066,10 +3066,15 @@
- 
- static const char *test_service_dir_matches[] = 
-         {
-+#ifdef DBUS_WIN
-+         DBUS_DATADIR"/dbus-1/services",
-+         NULL,
-+#else
-          "/testusr/testlocal/testshare/dbus-1/services",
-          "/testusr/testshare/dbus-1/services",
-          DBUS_DATADIR"/dbus-1/services",
--         "/testhome/foo/.testlocal/testshare/dbus-1/services",         
-+         "/testhome/foo/.testlocal/testshare/dbus-1/services",     
-+#endif 
-          NULL
-         };
- 
-@@ -3078,11 +3083,32 @@
- {
-   DBusList *dirs;
-   DBusList *link;
-+  DBusString progs;
-+  const char *common_progs;
-   int i;
- 
-+  common_progs = _dbus_getenv ("CommonProgramFiles");
-+  if (common_progs) 
-+    {
-+      if (!_dbus_string_init (&progs))
-+        return FALSE;
-+
-+      if (!_dbus_string_append (&progs, common_progs)) 
-+        {
-+          _dbus_string_free (&progs);
-+          return FALSE;
-+        }
-+
-+      if (!_dbus_string_append (&progs, "/dbus-1/services")) 
-+        {
-+          _dbus_string_free (&progs);
-+          return FALSE;
-+        }
-+      test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
-+    }
-   dirs = NULL;
- 
--  printf ("Testing retriving the default session service directories\n");
-+  printf ("Testing retrieving the default session service directories\n");
-   if (!_dbus_get_standard_session_servicedirs (&dirs))
-     _dbus_assert_not_reached ("couldn't get stardard dirs");
- 
-@@ -3093,7 +3119,7 @@
-       
-       printf ("    default service dir: %s\n", (char *)link->data);
-       _dbus_string_init_const (&path, (char *)link->data);
--      if (!_dbus_string_ends_with_c_str (&path, "share/dbus-1/services"))
-+      if (!_dbus_string_ends_with_c_str (&path, "dbus-1/services"))
-         {
-           printf ("error with default session service directories\n");
-           return FALSE;
-@@ -3146,6 +3172,7 @@
-       return FALSE;
-     }
-     
-+  _dbus_string_free (&progs);
-   return TRUE;
- }
- 			   
-Index: bus/main.c
-===================================================================
---- bus/main.c	(revision 518)
-+++ bus/main.c	(working copy)
-@@ -234,6 +234,12 @@
-   dbus_bool_t print_pid;
-   int force_fork;
- 
-+#ifdef _WIN32
-+	extern int _dbus_init_working_dir(char *s);
-+	if (!_dbus_init_working_dir(argv[0]))
-+		return 1;
-+#endif
-+
-   if (!_dbus_string_init (&config_file))
-     return 1;
- 
-Index: bus/desktop-file.c
-===================================================================
---- bus/desktop-file.c	(revision 518)
-+++ bus/desktop-file.c	(working copy)
-@@ -360,15 +360,15 @@
- static void
- parse_comment_or_blank (BusDesktopFileParser *parser)
- {
--  int line_end;
-+  int line_end, eol_len;
-   
--  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
-+  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
-     line_end = parser->len;
- 
-   if (line_end == parser->len)
-     parser->pos = parser->len;
-   else
--    parser->pos = line_end + 1;
-+    parser->pos = line_end + eol_len;
-   
-   parser->line_num += 1;
- }
-@@ -393,12 +393,12 @@
- static dbus_bool_t
- parse_section_start (BusDesktopFileParser *parser, DBusError *error)
- {
--  int line_end;
-+  int line_end, eol_len;
-   char *section_name;
- 
-   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
--  
--  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
-+    
-+  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
-     line_end = parser->len;
-   
-   if (line_end - parser->pos <= 2 ||
-@@ -438,7 +438,7 @@
-   if (line_end == parser->len)
-     parser->pos = parser->len;
-   else
--    parser->pos = line_end + 1;
-+    parser->pos = line_end + eol_len;
-   
-   parser->line_num += 1;
- 
-@@ -450,7 +450,7 @@
- static dbus_bool_t
- parse_key_value (BusDesktopFileParser *parser, DBusError *error)
- {
--  int line_end;
-+  int line_end, eol_len;
-   int key_start, key_end;
-   int value_start;
-   int p;
-@@ -460,7 +460,7 @@
- 
-   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
-   
--  if (!_dbus_string_find (&parser->data, parser->pos, "\n", &line_end))
-+  if (!_dbus_string_find_eol (&parser->data, parser->pos, &line_end, &eol_len))
-     line_end = parser->len;
-   
-   p = parser->pos;
-@@ -483,7 +483,7 @@
-       if (line_end == parser->len)
- 	parser->pos = parser->len;
-       else
--	parser->pos = line_end + 1;
-+	parser->pos = line_end + eol_len;
- 	  
-       parser->line_num += 1;
- 
-@@ -568,7 +568,7 @@
-   if (line_end == parser->len)
-     parser->pos = parser->len;
-   else
--    parser->pos = line_end + 1;
-+    parser->pos = line_end + eol_len;
-   
-   parser->line_num += 1;
- 
-Index: bus/bus.c
-===================================================================
---- bus/bus.c	(revision 518)
-+++ bus/bus.c	(working copy)
-@@ -630,7 +630,7 @@
-         }
- 
-       bytes = _dbus_string_get_length (&addr);
--      if (_dbus_write_socket (print_addr_fd, &addr, 0, bytes) != bytes)
-+      if (_dbus_write_stream (print_addr_fd, &addr, 0, bytes) != bytes)
-         {
-           dbus_set_error (error, DBUS_ERROR_FAILED,
-                           "Printing message bus address: %s\n",
-@@ -731,7 +731,7 @@
-         }
- 
-       bytes = _dbus_string_get_length (&pid);
--      if (_dbus_write_socket (print_pid_fd, &pid, 0, bytes) != bytes)
-+      if (_dbus_write_stream (print_pid_fd, &pid, 0, bytes) != bytes)
-         {
-           dbus_set_error (error, DBUS_ERROR_FAILED,
-                           "Printing message bus PID: %s\n",
 Index: dbus/dbus-auth.c
 ===================================================================
---- dbus/dbus-auth.c	(revision 518)
-+++ dbus/dbus-auth.c	(working copy)
+--- dbus/dbus-auth.c	(Revision 527)
++++ dbus/dbus-auth.c	(Arbeitskopie)
 @@ -395,7 +395,7 @@
    
    if (auth->mech != NULL)
@@ -860,8 +271,8 @@ Index: dbus/dbus-auth.c
                   _dbus_string_get_const_data (&auth->outgoing));
 Index: dbus/dbus-spawn.c
 ===================================================================
---- dbus/dbus-spawn.c	(revision 518)
-+++ dbus/dbus-spawn.c	(working copy)
+--- dbus/dbus-spawn.c	(Revision 527)
++++ dbus/dbus-spawn.c	(Arbeitskopie)
 @@ -720,7 +720,7 @@
    if (condition & DBUS_WATCH_HANGUP)
      revents |= _DBUS_POLLHUP;
@@ -873,8 +284,8 @@ Index: dbus/dbus-spawn.c
      handle_error_pipe (sitter, revents);
 Index: dbus/dbus-threads.c
 ===================================================================
---- dbus/dbus-threads.c	(revision 518)
-+++ dbus/dbus-threads.c	(working copy)
+--- dbus/dbus-threads.c	(Revision 527)
++++ dbus/dbus-threads.c	(Arbeitskopie)
 @@ -810,7 +810,11 @@
  dbus_bool_t
  _dbus_threads_init_debug (void)
@@ -889,8 +300,8 @@ Index: dbus/dbus-threads.c
  #endif /* DBUS_BUILD_TESTS */
 Index: dbus/dbus-spawn.h
 ===================================================================
---- dbus/dbus-spawn.h	(revision 518)
-+++ dbus/dbus-spawn.h	(working copy)
+--- dbus/dbus-spawn.h	(Revision 527)
++++ dbus/dbus-spawn.h	(Arbeitskopie)
 @@ -37,6 +37,7 @@
  
  dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
@@ -899,23 +310,10 @@ Index: dbus/dbus-spawn.h
                                                     DBusSpawnChildSetupFunc    child_setup,
                                                     void                      *user_data,
                                                     DBusError                 *error);
-Index: dbus/dbus-sysdeps-util-win.c
-===================================================================
---- dbus/dbus-sysdeps-util-win.c	(revision 518)
-+++ dbus/dbus-sysdeps-util-win.c	(working copy)
-@@ -245,7 +245,7 @@
- _dbus_set_signal_handler (int               sig,
-                           DBusSignalHandler handler)
- {
--  _dbus_warn ("_dbus_set_signal_handler() has to be implemented\n");
-+  _dbus_verbose ("_dbus_set_signal_handler() has to be implemented\n");
- }
- 
- /**
 Index: dbus/dbus-watch.c
 ===================================================================
---- dbus/dbus-watch.c	(revision 518)
-+++ dbus/dbus-watch.c	(working copy)
+--- dbus/dbus-watch.c	(Revision 527)
++++ dbus/dbus-watch.c	(Arbeitskopie)
 @@ -286,7 +286,7 @@
              
              _dbus_verbose ("Adding a %s watch on fd %d using newly-set add watch function\n",
@@ -1005,8 +403,8 @@ Index: dbus/dbus-watch.c
    if (watch->free_data_function != NULL)
 Index: dbus/dbus-mainloop.c
 ===================================================================
---- dbus/dbus-mainloop.c	(revision 518)
-+++ dbus/dbus-mainloop.c	(working copy)
+--- dbus/dbus-mainloop.c	(Revision 527)
++++ dbus/dbus-mainloop.c	(Arbeitskopie)
 @@ -90,8 +90,8 @@
    Callback callback;
    DBusTimeout *timeout;
@@ -1078,8 +476,8 @@ Index: dbus/dbus-mainloop.c
  }
 Index: dbus/dbus-bus.c
 ===================================================================
---- dbus/dbus-bus.c	(revision 518)
-+++ dbus/dbus-bus.c	(working copy)
+--- dbus/dbus-bus.c	(Revision 527)
++++ dbus/dbus-bus.c	(Arbeitskopie)
 @@ -350,8 +350,10 @@
  {
    int i;
@@ -1104,8 +502,8 @@ Index: dbus/dbus-bus.c
  static DBusConnection *
 Index: dbus/dbus-transport-socket.c
 ===================================================================
---- dbus/dbus-transport-socket.c	(revision 518)
-+++ dbus/dbus-transport-socket.c	(working copy)
+--- dbus/dbus-transport-socket.c	(Revision 527)
++++ dbus/dbus-transport-socket.c	(Arbeitskopie)
 @@ -175,7 +175,7 @@
    DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
    dbus_bool_t need_read_watch;
@@ -1156,8 +554,8 @@ Index: dbus/dbus-transport-socket.c
                                   "Port is not an integer between 0 and 65535");
 Index: dbus/dbus-transport-socket.h
 ===================================================================
---- dbus/dbus-transport-socket.h	(revision 518)
-+++ dbus/dbus-transport-socket.h	(working copy)
+--- dbus/dbus-transport-socket.h	(Revision 527)
++++ dbus/dbus-transport-socket.h	(Arbeitskopie)
 @@ -25,6 +25,10 @@
  
  #include <dbus/dbus-transport-protected.h>
@@ -1169,161 +567,10 @@ Index: dbus/dbus-transport-socket.h
  DBUS_BEGIN_DECLS
  
  DBusTransport*          _dbus_transport_new_for_socket     (int                fd,
-Index: dbus/dbus-string.c
-===================================================================
---- dbus/dbus-string.c	(revision 518)
-+++ dbus/dbus-string.c	(working copy)
-@@ -1790,6 +1790,72 @@
- }
- 
- /**
-+ * Finds end of line ("\r\n" or "\n") in the string,
-+ * returning #TRUE and filling in the byte index
-+ * where the eol string was found, if it was found.
-+ * Returns #FALSE if eol wasn't found.
-+ *
-+ * @param str the string
-+ * @param start where to start looking
-+ * @param found return location for where eol was found or string length otherwise
-+ * @param found_len return length of found eol string or zero otherwise
-+ * @returns #TRUE if found
-+ */
-+dbus_bool_t
-+_dbus_string_find_eol (const DBusString *str,
-+                   int               start,
-+                   int              *found,
-+                   int              *found_len)
-+{
-+  int i;
-+
-+  DBUS_CONST_STRING_PREAMBLE (str);
-+  _dbus_assert (start <= real->len);
-+  _dbus_assert (start >= 0);
-+  
-+  i = start;
-+  while (i < real->len)
-+    {
-+      if (real->str[i] == '\r') 
-+        {
-+          if ((i+1) < real->len && real->str[i+1] == '\n') /* "\r\n" */
-+            {
-+              if (found) 
-+                *found = i;
-+              if (found_len)
-+                *found_len = 2;
-+              return TRUE;
-+            } 
-+          else /* only "\r" */
-+            {
-+              if (found) 
-+                *found = i;
-+              if (found_len)
-+                *found_len = 1;
-+              return TRUE;
-+            }
-+        } 
-+      else if (real->str[i] == '\n')  /* only "\n" */
-+        {
-+          if (found) 
-+            *found = i;
-+          if (found_len)
-+            *found_len = 1;
-+          return TRUE;
-+        }      
-+      ++i;
-+    }
-+
-+  if (found)
-+    *found = real->len;
-+
-+  if (found_len)
-+    *found_len = 0;
-+  
-+  return FALSE;
-+}
-+
-+/**
-  * Finds the given substring in the string,
-  * up to a certain position,
-  * returning #TRUE and filling in the byte index
-@@ -2021,52 +2087,22 @@
- _dbus_string_pop_line (DBusString *source,
-                        DBusString *dest)
- {
--  int eol;
--  dbus_bool_t have_newline;
-+  int eol, eol_len;
-   
-   _dbus_string_set_length (dest, 0);
-   
-   eol = 0;
--  if (_dbus_string_find (source, 0, "\n", &eol))
--    {
--      have_newline = TRUE;
--      eol += 1; /* include newline */
--    }
--  else
--    {
-+  if (!_dbus_string_find_eol (source, 0, &eol, &eol_len))
-       eol = _dbus_string_get_length (source);
--      have_newline = FALSE;
--    }
- 
-   if (eol == 0)
-     return FALSE; /* eof */
-   
--  if (!_dbus_string_move_len (source, 0, eol,
--                              dest, 0))
--    {
--      return FALSE;
--    }
-+  if (!_dbus_string_move_len (source, 0, eol + eol_len, dest, 0))
-+	  return FALSE;
- 
--  /* dump the newline and the \r if we have one */
--  if (have_newline)
--    {
--      dbus_bool_t have_cr;
--      
--      _dbus_assert (_dbus_string_get_length (dest) > 0);
--
--      if (_dbus_string_get_length (dest) > 1 &&
--          _dbus_string_get_byte (dest,
--                                 _dbus_string_get_length (dest) - 2) == '\r')
--        have_cr = TRUE;
--      else
--        have_cr = FALSE;
--        
--      _dbus_string_set_length (dest,
--                               _dbus_string_get_length (dest) -
--                               (have_cr ? 2 : 1));
--    }
--  
--  return TRUE;
-+  /* remove line ending */
-+  return _dbus_string_set_length(dest, eol);
- }
- 
- #ifdef DBUS_BUILD_TESTS
-Index: dbus/dbus-string.h
-===================================================================
---- dbus/dbus-string.h	(revision 518)
-+++ dbus/dbus-string.h	(working copy)
-@@ -215,6 +215,10 @@
-                                                   int                start,
-                                                   const char        *substr,
-                                                   int               *found);
-+dbus_bool_t   _dbus_string_find_eol               (const DBusString *str,
-+                                                  int               start,
-+                                                  int               *found,
-+                                                  int               *found_len);
- dbus_bool_t   _dbus_string_find_to               (const DBusString  *str,
-                                                   int                start,
-                                                   int                end,
 Index: dbus/dbus-server-unix.c
 ===================================================================
---- dbus/dbus-server-unix.c	(revision 518)
-+++ dbus/dbus-server-unix.c	(working copy)
+--- dbus/dbus-server-unix.c	(Revision 527)
++++ dbus/dbus-server-unix.c	(Arbeitskopie)
 @@ -24,9 +24,9 @@
  #include "dbus-internals.h"
  #include "dbus-server-unix.h"
@@ -1434,8 +681,8 @@ Index: dbus/dbus-server-unix.c
  
 Index: dbus/dbus-transport.c
 ===================================================================
---- dbus/dbus-transport.c	(revision 518)
-+++ dbus/dbus-transport.c	(working copy)
+--- dbus/dbus-transport.c	(Revision 527)
++++ dbus/dbus-transport.c	(Arbeitskopie)
 @@ -674,7 +674,7 @@
    if (transport->disconnected)
      return TRUE;
@@ -1447,8 +694,8 @@ Index: dbus/dbus-transport.c
        return TRUE;
 Index: dbus/dbus-connection.c
 ===================================================================
---- dbus/dbus-connection.c	(revision 518)
-+++ dbus/dbus-connection.c	(working copy)
+--- dbus/dbus-connection.c	(Revision 527)
++++ dbus/dbus-connection.c	(Arbeitskopie)
 @@ -62,7 +62,7 @@
  #define TRACE_LOCKS 1
  
@@ -1487,8 +734,8 @@ Index: dbus/dbus-connection.c
    CONNECTION_LOCK (connection);
 Index: dbus/dbus-connection.h
 ===================================================================
---- dbus/dbus-connection.h	(revision 518)
-+++ dbus/dbus-connection.h	(working copy)
+--- dbus/dbus-connection.h	(Revision 527)
++++ dbus/dbus-connection.h	(Arbeitskopie)
 @@ -330,6 +330,9 @@
   */
  
@@ -1501,8 +748,8 @@ Index: dbus/dbus-connection.h
  void         dbus_watch_set_data    (DBusWatch        *watch,
 Index: dbus/dbus-test.c
 ===================================================================
---- dbus/dbus-test.c	(revision 518)
-+++ dbus/dbus-test.c	(working copy)
+--- dbus/dbus-test.c	(Revision 527)
++++ dbus/dbus-test.c	(Arbeitskopie)
 @@ -156,7 +156,9 @@
    
    run_test ("hash", specific_test, _dbus_hash_test);
@@ -1515,8 +762,8 @@ Index: dbus/dbus-test.c
    
 Index: dbus/dbus-server-socket.c
 ===================================================================
---- dbus/dbus-server-socket.c	(revision 518)
-+++ dbus/dbus-server-socket.c	(working copy)
+--- dbus/dbus-server-socket.c	(Revision 527)
++++ dbus/dbus-server-socket.c	(Arbeitskopie)
 @@ -161,7 +161,7 @@
        int client_fd;
        int listen_fd;
@@ -1549,8 +796,8 @@ Index: dbus/dbus-server-socket.c
                                  "Port is not an integer between 0 and 65535");
 Index: dbus/dbus-server-protected.h
 ===================================================================
---- dbus/dbus-server-protected.h	(revision 518)
-+++ dbus/dbus-server-protected.h	(working copy)
+--- dbus/dbus-server-protected.h	(Revision 527)
++++ dbus/dbus-server-protected.h	(Arbeitskopie)
 @@ -144,7 +144,7 @@
  #define TRACE_LOCKS 0
  
@@ -1562,49 +809,9 @@ Index: dbus/dbus-server-protected.h
    } while (0)
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 518)
-+++ dbus/dbus-sysdeps-util.c	(working copy)
-@@ -81,7 +81,28 @@
-   DBusString str;
-   double val;
-   int pos;
--  
-+
-+#ifdef DBUS_WIN
-+  check_dirname ("foo\\bar", "foo");
-+  check_dirname ("foo\\\\bar", "foo");
-+  check_dirname ("foo/\\/bar", "foo");
-+  check_dirname ("foo\\bar/", "foo");
-+  check_dirname ("foo//bar\\", "foo");
-+  check_dirname ("foo\\bar/", "foo");
-+  check_dirname ("foo/bar\\\\", "foo");
-+  check_dirname ("\\foo", "\\");
-+  check_dirname ("\\\\foo", "\\");
-+  check_dirname ("\\", "\\");
-+  check_dirname ("\\\\", "\\");
-+  check_dirname ("\\/", "\\");
-+  check_dirname ("/\\/", "/");
-+  check_dirname ("c:\\foo\\bar", "c:\\foo");
-+  check_dirname ("c:\\foo", "c:\\");
-+  check_dirname ("c:/foo", "c:/");
-+  check_dirname ("c:\\", "c:\\");
-+  check_dirname ("c:/", "c:/");
-+  check_dirname ("", ".");  
-+#else  
-   check_dirname ("foo", ".");
-   check_dirname ("foo/bar", "foo");
-   check_dirname ("foo//bar", "foo");
-@@ -100,8 +121,8 @@
-   check_dirname ("/", "/");
-   check_dirname ("///", "/");
-   check_dirname ("", ".");  
-+#endif
- 
--
-   _dbus_string_init_const (&str, "3.5");
-   if (!_dbus_string_parse_double (&str,
- 				  0, &val, &pos))
-@@ -120,6 +141,7 @@
+--- dbus/dbus-sysdeps-util.c	(Revision 528)
++++ dbus/dbus-sysdeps-util.c	(Arbeitskopie)
+@@ -141,6 +141,7 @@
        exit (1);
      }
  
@@ -1612,58 +819,90 @@ Index: dbus/dbus-sysdeps-util.c
    _dbus_string_init_const (&str, "0xff");
    if (!_dbus_string_parse_double (&str,
  				  0, &val, &pos))
-@@ -137,12 +159,29 @@
+@@ -158,6 +159,8 @@
        _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
        exit (1);
      }
--  
 +#endif
 +
-+#ifdef DBUS_WIN
-+  check_path_absolute ("c:/", TRUE);
-+  check_path_absolute ("c:/foo", TRUE);
-+  check_path_absolute ("", FALSE);
-+  check_path_absolute ("foo", FALSE);
-+  check_path_absolute ("foo/bar", FALSE);
-+  check_path_absolute ("", FALSE);
-+  check_path_absolute ("foo\\bar", FALSE);
-+  check_path_absolute ("c:\\", TRUE);
-+  check_path_absolute ("c:\\foo", TRUE);
-+  check_path_absolute ("c:", TRUE);
-+  check_path_absolute ("c:\\foo\\bar", TRUE);
-+  check_path_absolute ("\\", TRUE);
-   check_path_absolute ("/", TRUE);
-+#else  
-+  check_path_absolute ("/", TRUE);
-   check_path_absolute ("/foo", TRUE);
-   check_path_absolute ("", FALSE);
-   check_path_absolute ("foo", FALSE);
-   check_path_absolute ("foo/bar", FALSE);
-+#endif
-   
-   return TRUE;
- }
+ #ifdef DBUS_WIN
+   check_path_absolute ("c:/", TRUE);
+   check_path_absolute ("c:/foo", TRUE);
 Index: dbus/dbus-sysdeps-unix.c
 ===================================================================
---- dbus/dbus-sysdeps-unix.c	(revision 518)
-+++ dbus/dbus-sysdeps-unix.c	(working copy)
+--- dbus/dbus-sysdeps-unix.c	(Revision 527)
++++ dbus/dbus-sysdeps-unix.c	(Arbeitskopie)
 @@ -169,6 +169,15 @@
    return _dbus_write (fd, buffer, start, len);
  }
  
 +int
-+_dbus_write_stream (DBusStream        stream,
-+                    const DBusString *buffer,
-+                    int               start,
-+                    int               len)
++_dbus_write_pipe (DBusStream        pipe,
++                  const DBusString *buffer,
++                  int               start,
++                  int               len)
 +{
-+	return _dbus_write (stream, buffer, start, len);
++	return _dbus_write (pipe, buffer, start, len);
 +}
 +
  /**
   * Like _dbus_write_two() but only works on sockets and is thus
   * available on Windows.
-@@ -2734,4 +2743,9 @@
+@@ -1428,6 +1437,53 @@
+   return getuid ();
+ }
+ 
++/**
++ * Atomically increments an integer
++ *
++ * @param atomic pointer to the integer to increment
++ * @returns the value before incrementing
++ *
++ * @todo implement arch-specific faster atomic ops
++ */
++dbus_int32_t
++_dbus_atomic_inc (DBusAtomic *atomic)
++{
++#ifdef DBUS_USE_ATOMIC_INT_486
++  return atomic_exchange_and_add (atomic, 1);
++#else
++  dbus_int32_t res;
++  _DBUS_LOCK (atomic);
++  res = atomic->value;
++  atomic->value += 1;
++  _DBUS_UNLOCK (atomic);
++  return res;
++#endif
++}
++
++/**
++ * Atomically decrement an integer
++ *
++ * @param atomic pointer to the integer to decrement
++ * @returns the value before decrementing
++ *
++ * @todo implement arch-specific faster atomic ops
++ */
++dbus_int32_t
++_dbus_atomic_dec (DBusAtomic *atomic)
++{
++#ifdef DBUS_USE_ATOMIC_INT_486
++  return atomic_exchange_and_add (atomic, -1);
++#else
++  dbus_int32_t res;
++  
++  _DBUS_LOCK (atomic);
++  res = atomic->value;
++  atomic->value -= 1;
++  _DBUS_UNLOCK (atomic);
++  return res;
++#endif
++}
++
+ #ifdef DBUS_BUILD_TESTS
+ /** Gets our GID
+  * @returns process GID
+@@ -2734,4 +2790,9 @@
    return FALSE;
  }
  
@@ -1675,8 +914,8 @@ Index: dbus/dbus-sysdeps-unix.c
  /* tests in dbus-sysdeps-util.c */
 Index: dbus/dbus-transport-unix.c
 ===================================================================
---- dbus/dbus-transport-unix.c	(revision 518)
-+++ dbus/dbus-transport-unix.c	(working copy)
+--- dbus/dbus-transport-unix.c	(Revision 527)
++++ dbus/dbus-transport-unix.c	(Arbeitskopie)
 @@ -23,11 +23,16 @@
  
  #include "dbus-internals.h"
@@ -1697,8 +936,8 @@ Index: dbus/dbus-transport-unix.c
   * @defgroup DBusTransportUnix DBusTransport implementations for UNIX
 Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus/dbus-sysdeps.c	(revision 518)
-+++ dbus/dbus-sysdeps.c	(working copy)
+--- dbus/dbus-sysdeps.c	(Revision 527)
++++ dbus/dbus-sysdeps.c	(Arbeitskopie)
 @@ -119,11 +119,14 @@
         * will get upset about.
         */
@@ -1726,10 +965,64 @@ Index: dbus/dbus-sysdeps.c
    char *fail_pos;
    double val;
    struct lconv *locale_data;
+@@ -662,53 +669,6 @@
+ }
+ #endif
+ 
+-/**
+- * Atomically increments an integer
+- *
+- * @param atomic pointer to the integer to increment
+- * @returns the value before incrementing
+- *
+- * @todo implement arch-specific faster atomic ops
+- */
+-dbus_int32_t
+-_dbus_atomic_inc (DBusAtomic *atomic)
+-{
+-#ifdef DBUS_USE_ATOMIC_INT_486
+-  return atomic_exchange_and_add (atomic, 1);
+-#else
+-  dbus_int32_t res;
+-  _DBUS_LOCK (atomic);
+-  res = atomic->value;
+-  atomic->value += 1;
+-  _DBUS_UNLOCK (atomic);
+-  return res;
+-#endif
+-}
+-
+-/**
+- * Atomically decrement an integer
+- *
+- * @param atomic pointer to the integer to decrement
+- * @returns the value before decrementing
+- *
+- * @todo implement arch-specific faster atomic ops
+- */
+-dbus_int32_t
+-_dbus_atomic_dec (DBusAtomic *atomic)
+-{
+-#ifdef DBUS_USE_ATOMIC_INT_486
+-  return atomic_exchange_and_add (atomic, -1);
+-#else
+-  dbus_int32_t res;
+-  
+-  _DBUS_LOCK (atomic);
+-  res = atomic->value;
+-  atomic->value -= 1;
+-  _DBUS_UNLOCK (atomic);
+-  return res;
+-#endif
+-}
+-
+ void
+ _dbus_generate_pseudorandom_bytes_buffer (char *buffer,
+                                           int   n_bytes)
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 518)
-+++ dbus/dbus-sysdeps.h	(working copy)
+--- dbus/dbus-sysdeps.h	(Revision 527)
++++ dbus/dbus-sysdeps.h	(Arbeitskopie)
 @@ -119,6 +119,7 @@
   * 
   */
@@ -1738,20 +1031,32 @@ Index: dbus/dbus-sysdeps.h
  dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
                                      DBusError        *error);
  dbus_bool_t _dbus_close_socket     (int               fd,
-@@ -298,6 +299,12 @@
+@@ -229,7 +230,11 @@
+  */
+ struct DBusAtomic
+ {
++#ifdef DBUS_WIN
++  volatile long value; /**< Value of the atomic integer. */
++#else
+   volatile dbus_int32_t value; /**< Value of the atomic integer. */
++#endif
+ };
+ 
+ dbus_int32_t _dbus_atomic_inc (DBusAtomic *atomic);
+@@ -298,6 +303,12 @@
  
  dbus_bool_t _dbus_get_standard_session_servicedirs (DBusList **dirs);
  
-+typedef int DBusStream;
-+int _dbus_write_stream (DBusStream        stream,
-+                        const DBusString *buffer,
-+                        int               start,
-+                        int               len);
++typedef int DBusPipe;
++int _dbus_write_pipe (DBusPipe          pipe,
++                      const DBusString *buffer,
++                      int               start,
++                      int               len);
 +
  /** Opaque type for reading a directory listing */
  typedef struct DBusDirIter DBusDirIter;
  
-@@ -313,6 +320,9 @@
+@@ -313,6 +324,9 @@
  
  void _dbus_fd_set_close_on_exec (int fd);
  
@@ -1763,8 +1068,8 @@ Index: dbus/dbus-sysdeps.h
  /**
 Index: dbus/dbus-internals.c
 ===================================================================
---- dbus/dbus-internals.c	(revision 518)
-+++ dbus/dbus-internals.c	(working copy)
+--- dbus/dbus-internals.c	(Revision 527)
++++ dbus/dbus-internals.c	(Arbeitskopie)
 @@ -295,7 +295,7 @@
  #include <pthread.h>
  #endif
@@ -1774,88 +1079,10 @@ Index: dbus/dbus-internals.c
  _dbus_verbose_init (void)
  {
    if (!verbose_initted)
-Index: dbus/dbus-internals.h
-===================================================================
---- dbus/dbus-internals.h	(revision 518)
-+++ dbus/dbus-internals.h	(working copy)
-@@ -48,7 +48,7 @@
- 
- #if defined (__STDC_VERSION__) && (__STDC_VERSION__ >= 199901L)
- #define _DBUS_FUNCTION_NAME __func__
--#elif defined(__GNUC__)
-+#elif defined(__GNUC__) || defined(_MSC_VER)
- #define _DBUS_FUNCTION_NAME __FUNCTION__
- #else
- #define _DBUS_FUNCTION_NAME "unknown function"
-Index: dbus/dbus-string-util.c
-===================================================================
---- dbus/dbus-string-util.c	(revision 518)
-+++ dbus/dbus-string-util.c	(working copy)
-@@ -702,7 +702,29 @@
-   test_roundtrips (test_hex_roundtrip);
-   
-   _dbus_string_free (&str);
--  
-+
-+  {
-+  int found,found_len;
-+  _dbus_string_init_const (&str, "012\r\n567\n90");
-+
-+  if (!_dbus_string_find_eol(&str, 0, &found, &found_len) || found != 3 || found_len != 2)
-+    _dbus_assert_not_reached ("Did not find '\\r\\n'");
-+  if (found != 3 || found_len != 2)
-+    _dbus_assert_not_reached ("invalid return values");
-+
-+  if (!_dbus_string_find_eol(&str, 5, &found, &found_len))
-+    _dbus_assert_not_reached ("Did not find '\\n'");
-+  if (found != 8 || found_len != 1)
-+    _dbus_assert_not_reached ("invalid return values");
-+  	
-+  if (_dbus_string_find_eol(&str, 9, &found, &found_len))
-+    _dbus_assert_not_reached ("Found not expected '\\n'");
-+	else if (found != 11 || found_len != 0)
-+    _dbus_assert_not_reached ("invalid return values '\\n'");
-+
-+  _dbus_string_free (&str);
-+  }
-+
-   return TRUE;
- }
- 
-Index: dbus/dbus-sysdeps-win-thread.c
-===================================================================
---- dbus/dbus-sysdeps-win-thread.c	(revision 518)
-+++ dbus/dbus-sysdeps-win-thread.c	(working copy)
-@@ -24,6 +24,7 @@
- #include "dbus-internals.h"
- #include "dbus-sysdeps.h"
- #include "dbus-threads.h"
-+#include "dbus-list.h"
- 
- #include <windows.h>
- 
-@@ -172,7 +173,7 @@
-   EnterCriticalSection (&cond->lock);
- 
-   /* Now event must not be inside the array, check this */
--  _dbus_assert (_dbus_list_remove (cond->list, event) == FALSE);
-+  _dbus_assert (_dbus_list_remove (&cond->list, event) == FALSE);
- 
-   LeaveCriticalSection (&cond->lock);
- #endif /* !G_DISABLE_ASSERT */
-@@ -241,7 +242,7 @@
-   _dbus_windows_condvar_wake_all
- };
- 
--void
-+dbus_bool_t
- _dbus_threads_init_platform_specific (void)
- {
-   /* We reuse this over several generations, because we can't
 Index: dbus/dbus-marshal-recursive.c
 ===================================================================
---- dbus/dbus-marshal-recursive.c	(revision 518)
-+++ dbus/dbus-marshal-recursive.c	(working copy)
+--- dbus/dbus-marshal-recursive.c	(Revision 527)
++++ dbus/dbus-marshal-recursive.c	(Arbeitskopie)
 @@ -690,7 +690,7 @@
    base_reader_next
  };
@@ -1867,8 +1094,8 @@ Index: dbus/dbus-marshal-recursive.c
    &body_types_only_reader_class,
 Index: tools/dbus-monitor.c
 ===================================================================
---- tools/dbus-monitor.c	(revision 518)
-+++ tools/dbus-monitor.c	(working copy)
+--- tools/dbus-monitor.c	(Revision 527)
++++ tools/dbus-monitor.c	(Arbeitskopie)
 @@ -19,11 +19,18 @@
   *
   */
@@ -1912,8 +1139,8 @@ Index: tools/dbus-monitor.c
 +
 Index: tools/dbus-send.c
 ===================================================================
---- tools/dbus-send.c	(revision 518)
-+++ tools/dbus-send.c	(working copy)
+--- tools/dbus-send.c	(Revision 527)
++++ tools/dbus-send.c	(Arbeitskopie)
 @@ -19,6 +19,7 @@
   *
   */
@@ -1922,3 +1149,494 @@ Index: tools/dbus-send.c
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
+Index: test/spawn-test.c
+===================================================================
+--- test/spawn-test.c	(Revision 527)
++++ test/spawn-test.c	(Arbeitskopie)
+@@ -31,7 +31,7 @@
+     argv_copy [i] = argv[i + 1];
+   argv_copy[argc - 1] = NULL;
+   
+-  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, setup_func, NULL, &error))
++  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, NULL, setup_func, NULL, &error))
+     {
+       fprintf (stderr, "Could not launch application: \"%s\"\n",
+ 	       error.message);
+Index: test/name-test/test-names.c
+===================================================================
+--- test/name-test/test-names.c	(Revision 527)
++++ test/name-test/test-names.c	(Arbeitskopie)
+@@ -1,9 +1,11 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+-#include <unistd.h>
+ #include <string.h>
+ #include <dbus/dbus.h>
+ #include <dbus/dbus-connection-internal.h>
++#ifdef HAVE_UNISTD_H
++#include <unistd.h>
++#endif
+ 
+ #define REMOVE_CONNECTION 0
+ #define ADD_CONNECTION 1
+Index: test/test-utils.c
+===================================================================
+--- test/test-utils.c	(Revision 527)
++++ test/test-utils.c	(Arbeitskopie)
+@@ -1,5 +1,7 @@
+ #include "test-utils.h"
+ 
++void _dbus_connection_close_internal (DBusConnection *connection);
++
+ typedef struct
+ {
+   DBusLoop *loop;
+Index: test/test-segfault.c
+===================================================================
+--- test/test-segfault.c	(Revision 527)
++++ test/test-segfault.c	(Arbeitskopie)
+@@ -1,10 +1,27 @@
+ /* This is simply a process that segfaults */
++#include <config.h>
+ #include <stdlib.h>
+ #include <signal.h>
+ 
++#ifdef DBUS_WIN
++#define RLIMIT_CORE	4		/* max core file size */
++typedef unsigned long rlim_t;
++struct rlimit {
++	rlim_t	rlim_cur;
++	rlim_t	rlim_max;
++};
++static int getrlimit (int __resource, struct rlimit *__rlp) {
++  return -1;
++}
++static int setrlimit (int __resource, const struct rlimit *__rlp) {
++  return -1;
++}
++#else
+ #include <sys/time.h>
+ #include <sys/resource.h>
++#endif
+ 
++
+ int
+ main (int argc, char **argv)
+ {
+Index: test/Makefile.am
+===================================================================
+--- test/Makefile.am	(Revision 527)
++++ test/Makefile.am	(Arbeitskopie)
+@@ -117,7 +117,7 @@
+ 		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
+ 	done ;											\
+ 	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
+-		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
++		FILES=`(cd $(srcdir) && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;		\
+ 	        for F in $$FILES; do								\
+ 			SRC=$(srcdir)/$$F ;							\
+ 			DEST=$(top_builddir)/test/$$F ;						\
+Index: test/test-sleep-forever.c
+===================================================================
+--- test/test-sleep-forever.c	(Revision 527)
++++ test/test-sleep-forever.c	(Arbeitskopie)
+@@ -1,6 +1,12 @@
+ /* This is a process that just sleeps infinitely. */
+ 
++
++#include <config.h>
++#ifndef DBUS_WIN
+ #include <unistd.h>
++#else
++#include <stdlib.h>
++#endif
+ 
+ int
+ main (int argc, char **argv)
+Index: bus/config-loader-libxml.c
+===================================================================
+--- bus/config-loader-libxml.c	(Revision 527)
++++ bus/config-loader-libxml.c	(Arbeitskopie)
+@@ -134,6 +134,9 @@
+     }
+ }
+ 
++#ifdef DBUS_WIN
++  DBusString *_dbus_get_working_dir(void);
++#endif
+ 
+ BusConfigParser*
+ bus_config_load (const DBusString      *file,
+@@ -147,7 +150,9 @@
+   DBusString dirname, data;
+   DBusError tmp_error;
+   int ret;
+-  
++#ifdef DBUS_WIN
++	DBusString *dbusdir;
++#endif
+   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
+   
+   parser = NULL;
+@@ -177,13 +182,19 @@
+       xmlSetGenericErrorFunc (NULL, xml_shut_up);
+     }
+ 
+-  if (!_dbus_string_get_dirname (file, &dirname))
++#ifdef DBUS_WIN
++  dbusdir = _dbus_get_working_dir();
++	if (dbusdir)
++  	parser = bus_config_parser_new (dbusdir, is_toplevel, parent);
++  else  
++#endif
++   if (!_dbus_string_get_dirname (file, &dirname))
+     {
+       _DBUS_SET_OOM (error);
+       goto failed;
+     }
++  parser = bus_config_parser_new (&dirname, is_toplevel, parent);
+   
+-  parser = bus_config_parser_new (&dirname, is_toplevel, parent);
+   if (parser == NULL)
+     {
+       _DBUS_SET_OOM (error);
+Index: bus/policy.c
+===================================================================
+--- bus/policy.c	(Revision 528)
++++ bus/policy.c	(Arbeitskopie)
+@@ -324,9 +324,13 @@
+ 
+   if (!dbus_connection_get_unix_user (connection, &uid))
+     {
++#ifdef DBUS_WIN
++		_dbus_verbose ("policy.c: dbus_connection_get_unix_user check disabled under windows\n");
++#else
+       dbus_set_error (error, DBUS_ERROR_FAILED,
+                       "No user ID known for connection, cannot determine security policy\n");
+       goto failed;
++#endif
+     }
+ 
+   if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
+Index: bus/dispatch.c
+===================================================================
+--- bus/dispatch.c	(Revision 527)
++++ bus/dispatch.c	(Arbeitskopie)
+@@ -428,6 +428,11 @@
+     }
+ }
+ 
++#ifdef DBUS_WIN
++#include <tools/dbus-print-message.h>
++#include <tools/dbus-print-message.c>
++#endif
++
+ static void
+ spin_connection_until_authenticated (BusContext     *context,
+                                      DBusConnection *connection)
+@@ -439,6 +444,19 @@
+       bus_test_run_bus_loop (context, FALSE);
+       bus_test_run_clients_loop (FALSE);
+     }
++#ifdef DBUS_WIN
++  if ( dbus_connection_get_dispatch_status(connection) != DBUS_DISPATCH_COMPLETE)
++    {
++      DBusMessage *message;
++	  message = dbus_connection_pop_message (connection);
++	  printf ("spin_connection_until_authenticated failed,\n");
++	  printf ("because of a non dispatched message:\n");
++	  print_message(message, FALSE);
++	  printf ("\n");	 
++	  _dbus_assert_not_reached ("spin_connection_until_authenticated failed\n ");
++    }
++#endif
++
+   _dbus_verbose (" ... done spinning to auth connection %p\n", connection);
+ }
+ 
+@@ -2623,7 +2641,12 @@
+   dbus_bool_t retval;
+   const char *segv_service;
+   dbus_uint32_t flags;
+-  
++
++  _dbus_warn("TODO: dispatch.c: check_segfault_service_no_auto_start\n");
++#ifndef DBUS_WIN_FIXME
++  return TRUE;
++#endif
++
+   message = dbus_message_new_method_call (DBUS_SERVICE_DBUS,
+                                           DBUS_PATH_DBUS,
+                                           DBUS_INTERFACE_DBUS,
+@@ -2698,9 +2721,12 @@
+         }
+       else
+         {
++/* no DBUS_ERROR_NO_MEMORY on windows (no have_fork_errnum)*/
++#ifndef DBUS_WIN_FIXME
+           warn_unexpected (connection, message, "not this error");
+ 
+           goto out;
++#endif
+         }
+     }
+   else
+@@ -4061,25 +4087,35 @@
+       _dbus_warn ("Messages were left over after setting up initial connections\n");
+       _dbus_assert_not_reached ("initial connection setup failed");
+     }
+-  
++
++  _dbus_warn("TODO: dispatch.c create_and_hello test\n");
++#ifndef DBUS_WIN_FIXME  
+   check1_try_iterations (context, "create_and_hello",
+                          check_hello_connection);
+-  
++#endif
++
+   check2_try_iterations (context, foo, "nonexistent_service_no_auto_start",
+                          check_nonexistent_service_no_auto_start);
+ 
++  _dbus_warn("TODO: dispatch.c segfault_service_no_auto_start test\n");
++#ifndef DBUS_WIN_FIXME
+   check2_try_iterations (context, foo, "segfault_service_no_auto_start",
+                          check_segfault_service_no_auto_start);
+-  
++#endif
++
+   check2_try_iterations (context, foo, "existent_service_no_auto_start",
+                          check_existent_service_no_auto_start);
+   
+   check2_try_iterations (context, foo, "nonexistent_service_auto_start",
+                          check_nonexistent_service_auto_start);
+-  
++
++
++  _dbus_warn("TODO: dispatch.c segfault_service_auto_start test\n");
++#ifndef DBUS_WIN_FIXME    
+   check2_try_iterations (context, foo, "segfault_service_auto_start",
+                          check_segfault_service_auto_start);
+-
++#endif
++  
+   check2_try_iterations (context, foo, "shell_fail_service_auto_start",
+                          check_shell_fail_service_auto_start);
+ 
+@@ -4095,8 +4131,11 @@
+   if (!check_existent_service_auto_start (context, foo))
+     _dbus_assert_not_reached ("existent service auto start failed");
+ 
++  _dbus_warn("TODO: dispatch.c check_shell_service_success_auto_start test\n");
++#ifndef DBUS_WIN_FIXME  
+   if (!check_shell_service_success_auto_start (context, foo))
+     _dbus_assert_not_reached ("shell success service auto start failed");
++#endif
+ 
+   _dbus_verbose ("Disconnecting foo, bar, and baz\n");
+ 
+@@ -4146,9 +4185,12 @@
+       _dbus_warn ("Messages were left over after setting up initial SHA-1 connection\n");
+       _dbus_assert_not_reached ("initial connection setup failed");
+     }
+-  
++
++  _dbus_warn("TODO: dispatch.c: create_and_hello_sha1 test\n");
++#ifndef DBUS_WIN_FIXME  
+   check1_try_iterations (context, "create_and_hello_sha1",
+                          check_hello_connection);
++#endif
+ 
+   kill_client_connection_unchecked (foo);
+ 
+Index: bus/activation.c
+===================================================================
+--- bus/activation.c	(Revision 527)
++++ bus/activation.c	(Arbeitskopie)
+@@ -34,7 +34,6 @@
+ #include <dbus/dbus-spawn.h>
+ #include <dbus/dbus-timeout.h>
+ #include <dbus/dbus-sysdeps.h>
+-#include <dirent.h>
+ #include <errno.h>
+ 
+ #define DBUS_SERVICE_SECTION "D-BUS Service"
+@@ -1310,6 +1309,7 @@
+   DBusMessage *message;
+   DBusString service_str;
+   char **argv;
++  char **envp = NULL;
+   int argc;
+   dbus_bool_t retval;
+   DBusHashIter iter;
+@@ -1541,6 +1541,7 @@
+ 
+   _dbus_verbose ("Spawning %s ...\n", argv[0]);
+   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
++                                          envp,
+                                           child_setup, activation, 
+                                           error))
+     {
+Index: bus/dir-watch.c
+===================================================================
+--- bus/dir-watch.c	(Revision 527)
++++ bus/dir-watch.c	(Arbeitskopie)
+@@ -103,7 +103,7 @@
+ }
+ 
+ void
+-bus_watch_directory (const char *dir, void *userdata)
++bus_watch_directory (const char *dir, BusContext *userdata)
+ {
+ }
+ 
+Index: bus/connection.c
+===================================================================
+--- bus/connection.c	(Revision 528)
++++ bus/connection.c	(Arbeitskopie)
+@@ -1536,7 +1536,7 @@
+ {
+   CancelPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   if (!_dbus_list_remove (&d->connections->pending_replies->items,
+                           d->pending))
+@@ -1550,7 +1550,7 @@
+ {
+   CancelPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   /* d->pending should be either freed or still
+    * in the list of pending replies (owned by someone
+@@ -1687,7 +1687,7 @@
+ {
+   CheckPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   _dbus_list_prepend_link (&d->connections->pending_replies->items,
+                            d->link);
+@@ -1699,7 +1699,7 @@
+ {
+   CheckPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   if (d->link != NULL)
+     {
+Index: bus/config-parser.c
+===================================================================
+--- bus/config-parser.c	(Revision 527)
++++ bus/config-parser.c	(Arbeitskopie)
+@@ -3066,10 +3066,15 @@
+ 
+ static const char *test_service_dir_matches[] = 
+         {
++#ifdef DBUS_WIN
++         DBUS_DATADIR"/dbus-1/services",
++         NULL,
++#else
+          "/testusr/testlocal/testshare/dbus-1/services",
+          "/testusr/testshare/dbus-1/services",
+          DBUS_DATADIR"/dbus-1/services",
+-         "/testhome/foo/.testlocal/testshare/dbus-1/services",         
++         "/testhome/foo/.testlocal/testshare/dbus-1/services",     
++#endif 
+          NULL
+         };
+ 
+@@ -3078,11 +3083,32 @@
+ {
+   DBusList *dirs;
+   DBusList *link;
++  DBusString progs;
++  const char *common_progs;
+   int i;
+ 
++  common_progs = _dbus_getenv ("CommonProgramFiles");
++  if (common_progs) 
++    {
++      if (!_dbus_string_init (&progs))
++        return FALSE;
++
++      if (!_dbus_string_append (&progs, common_progs)) 
++        {
++          _dbus_string_free (&progs);
++          return FALSE;
++        }
++
++      if (!_dbus_string_append (&progs, "/dbus-1/services")) 
++        {
++          _dbus_string_free (&progs);
++          return FALSE;
++        }
++      test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
++    }
+   dirs = NULL;
+ 
+-  printf ("Testing retriving the default session service directories\n");
++  printf ("Testing retrieving the default session service directories\n");
+   if (!_dbus_get_standard_session_servicedirs (&dirs))
+     _dbus_assert_not_reached ("couldn't get stardard dirs");
+ 
+@@ -3093,7 +3119,7 @@
+       
+       printf ("    default service dir: %s\n", (char *)link->data);
+       _dbus_string_init_const (&path, (char *)link->data);
+-      if (!_dbus_string_ends_with_c_str (&path, "share/dbus-1/services"))
++      if (!_dbus_string_ends_with_c_str (&path, "dbus-1/services"))
+         {
+           printf ("error with default session service directories\n");
+           return FALSE;
+@@ -3146,6 +3172,7 @@
+       return FALSE;
+     }
+     
++  _dbus_string_free (&progs);
+   return TRUE;
+ }
+ 			   
+Index: bus/main.c
+===================================================================
+--- bus/main.c	(Revision 527)
++++ bus/main.c	(Arbeitskopie)
+@@ -234,6 +234,12 @@
+   dbus_bool_t print_pid;
+   int force_fork;
+ 
++#ifdef _WIN32
++	extern int _dbus_init_working_dir(char *s);
++	if (!_dbus_init_working_dir(argv[0]))
++		return 1;
++#endif
++
+   if (!_dbus_string_init (&config_file))
+     return 1;
+ 
+Index: bus/bus.c
+===================================================================
+--- bus/bus.c	(Revision 528)
++++ bus/bus.c	(Arbeitskopie)
+@@ -623,7 +623,7 @@
+         }
+ 
+       bytes = _dbus_string_get_length (&addr);
+-      if (_dbus_write_socket (print_addr_fd, &addr, 0, bytes) != bytes)
++      if (_dbus_write_pipe (print_addr_fd, &addr, 0, bytes) != bytes)
+         {
+           dbus_set_error (error, DBUS_ERROR_FAILED,
+                           "Printing message bus address: %s\n",
+@@ -724,7 +724,7 @@
+         }
+ 
+       bytes = _dbus_string_get_length (&pid);
+-      if (_dbus_write_socket (print_pid_fd, &pid, 0, bytes) != bytes)
++      if (_dbus_write_pipe (print_pid_fd, &pid, 0, bytes) != bytes)
+         {
+           dbus_set_error (error, DBUS_ERROR_FAILED,
+                           "Printing message bus PID: %s\n",
