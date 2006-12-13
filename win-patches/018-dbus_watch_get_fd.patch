@@ -1,0 +1,188 @@
+Index: dbus/dbus-spawn.c
+===================================================================
+--- dbus/dbus-spawn.c	(revision 532)
++++ dbus/dbus-spawn.c	(working copy)
+@@ -720,7 +720,7 @@
+   if (condition & DBUS_WATCH_HANGUP)
+     revents |= _DBUS_POLLHUP;
+ 
+-  fd = dbus_watch_get_fd (watch);
++  fd = dbus_watch_get_handle (watch);
+ 
+   if (fd == sitter->error_pipe_from_child)
+     handle_error_pipe (sitter, revents);
+Index: dbus/dbus-watch.c
+===================================================================
+--- dbus/dbus-watch.c	(revision 532)
++++ dbus/dbus-watch.c	(working copy)
+@@ -286,7 +286,7 @@
+             
+             _dbus_verbose ("Adding a %s watch on fd %d using newly-set add watch function\n",
+                            watch_type,
+-                           dbus_watch_get_fd (link->data));
++                           dbus_watch_get_handle (link->data));
+           }
+ #endif /* DBUS_ENABLE_VERBOSE_MODE */
+           
+@@ -302,7 +302,7 @@
+                                                              link2);
+                   
+                   _dbus_verbose ("Removing watch on fd %d using newly-set remove function because initial add failed\n",
+-                                 dbus_watch_get_fd (link2->data));
++                                 dbus_watch_get_handle (link2->data));
+                   
+                   (* remove_function) (link2->data, data);
+                   
+@@ -359,7 +359,7 @@
+   if (watch_list->add_watch_function != NULL)
+     {
+       _dbus_verbose ("Adding watch on fd %d\n",
+-                     dbus_watch_get_fd (watch));
++                     dbus_watch_get_handle (watch));
+       
+       if (!(* watch_list->add_watch_function) (watch,
+                                                watch_list->watch_data))
+@@ -390,7 +390,7 @@
+   if (watch_list->remove_watch_function != NULL)
+     {
+       _dbus_verbose ("Removing watch on fd %d\n",
+-                     dbus_watch_get_fd (watch));
++                     dbus_watch_get_handle (watch));
+       
+       (* watch_list->remove_watch_function) (watch,
+                                              watch_list->watch_data);
+@@ -422,7 +422,7 @@
+   if (watch_list->watch_toggled_function != NULL)
+     {
+       _dbus_verbose ("Toggling watch %p on fd %d to %d\n",
+-                     watch, dbus_watch_get_fd (watch), watch->enabled);
++                     watch, dbus_watch_get_handle (watch), watch->enabled);
+       
+       (* watch_list->watch_toggled_function) (watch,
+                                               watch_list->watch_data);
+@@ -490,10 +490,32 @@
+  * @returns the file descriptor to watch.
+  */
+ int
++dbus_watch_get_handle (DBusWatch *watch)
++{
++  return watch->fd;
++}
++
++#ifdef DBUS_WIN
++// never used by the dbus code
++#include "dbus-sysdeps-win.h"
++int 
+ dbus_watch_get_fd (DBusWatch *watch)
+ {
++	DBusSocket *p;
++	if (watch->fd != -1) {
++	    _dbus_handle_to_socket(watch->fd,&p);
++	    return p->fd;
++	}
++	else
++		return -1;
++}
++#else
++int
++dbus_watch_get_fd (DBusWatch *watch)
++{
+   return watch->fd;
+ }
++#endif
+ 
+ /**
+  * Gets flags from DBusWatchFlags indicating
+@@ -546,7 +568,7 @@
+                      DBusFreeFunction  free_data_function)
+ {
+   _dbus_verbose ("Setting watch fd %d data to data = %p function = %p from data = %p function = %p\n",
+-                 dbus_watch_get_fd (watch),
++                 dbus_watch_get_handle (watch),
+                  data, free_data_function, watch->data, watch->free_data_function);
+   
+   if (watch->free_data_function != NULL)
+Index: dbus/dbus-mainloop.c
+===================================================================
+--- dbus/dbus-mainloop.c	(revision 532)
++++ dbus/dbus-mainloop.c	(working copy)
+@@ -598,7 +598,7 @@
+ 
+ #if MAINLOOP_SPEW
+               _dbus_verbose ("  skipping watch on fd %d as it was out of memory last time\n",
+-                             dbus_watch_get_fd (wcb->watch));
++                             dbus_watch_get_handle (wcb->watch));
+ #endif
+             }
+           else if (dbus_watch_get_enabled (wcb->watch))
+@@ -609,7 +609,7 @@
+                   
+               flags = dbus_watch_get_flags (wcb->watch);
+                   
+-              fds[n_fds].fd = dbus_watch_get_fd (wcb->watch);
++              fds[n_fds].fd = dbus_watch_get_handle (wcb->watch);
+               fds[n_fds].revents = 0;
+               fds[n_fds].events = 0;
+               if (flags & DBUS_WATCH_READABLE)
+@@ -628,7 +628,7 @@
+             {
+ #if MAINLOOP_SPEW
+               _dbus_verbose ("  skipping disabled watch on fd %d  %s\n",
+-                             dbus_watch_get_fd (wcb->watch),
++                             dbus_watch_get_handle (wcb->watch),
+                              watch_flags_to_string (dbus_watch_get_flags (wcb->watch)));
+ #endif
+             }
+Index: dbus/dbus-transport-socket.c
+===================================================================
+--- dbus/dbus-transport-socket.c	(revision 532)
++++ dbus/dbus-transport-socket.c	(working copy)
+@@ -873,7 +873,7 @@
+                        flags);
+       else
+         _dbus_verbose ("asked to handle watch %p on fd %d that we don't recognize\n",
+-                       watch, dbus_watch_get_fd (watch));
++                       watch, dbus_watch_get_handle (watch));
+     }
+ #endif /* DBUS_ENABLE_VERBOSE_MODE */
+ 
+Index: dbus/dbus-transport.c
+===================================================================
+--- dbus/dbus-transport.c	(revision 532)
++++ dbus/dbus-transport.c	(working copy)
+@@ -674,7 +674,7 @@
+   if (transport->disconnected)
+     return TRUE;
+ 
+-  if (dbus_watch_get_fd (watch) < 0)
++  if (dbus_watch_get_handle (watch) < 0)
+     {
+       _dbus_warn_check_failed ("Tried to handle an invalidated watch; this watch should have been removed\n");
+       return TRUE;
+Index: dbus/dbus-connection.h
+===================================================================
+--- dbus/dbus-connection.h	(revision 532)
++++ dbus/dbus-connection.h	(working copy)
+@@ -330,6 +330,9 @@
+  */
+ 
+ int          dbus_watch_get_fd      (DBusWatch        *watch);
++#if defined (DBUS_COMPILATION)
++int          dbus_watch_get_handle  (DBusWatch        *watch);
++#endif
+ unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
+ void*        dbus_watch_get_data    (DBusWatch        *watch);
+ void         dbus_watch_set_data    (DBusWatch        *watch,
+Index: dbus/dbus-server-socket.c
+===================================================================
+--- dbus/dbus-server-socket.c	(revision 532)
++++ dbus/dbus-server-socket.c	(working copy)
+@@ -161,7 +161,7 @@
+       int client_fd;
+       int listen_fd;
+       
+-      listen_fd = dbus_watch_get_fd (watch);
++      listen_fd = dbus_watch_get_handle (watch);
+ 
+       client_fd = _dbus_accept (listen_fd);
+       
