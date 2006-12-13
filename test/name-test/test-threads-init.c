@@ -1,6 +1,6 @@
 /**
-* Test to make sure late thread initialization works
-**/
+ * Test to make sure late thread initialization works
+ */
 
 #include <dbus/dbus.h>
 #include <dbus/dbus-sysdeps.h>
@@ -8,6 +8,7 @@
 #include <stdlib.h>
 
 #include <dbus/dbus-internals.h>
+#include <dbus/dbus-connection-internal.h>
 
 static void
 _run_iteration (DBusConnection *conn)
@@ -107,9 +108,6 @@ check_condvar_lock (DBusCondVar *condvar1,
 int
 main (int argc, char *argv[])
 {
-  long start_tv_sec, start_tv_usec;
-  long end_tv_sec, end_tv_usec;
-  int i;
   DBusMessage *method;
   DBusConnection *conn;
   DBusError error;
@@ -142,7 +140,7 @@ main (int argc, char *argv[])
   check_condvar_lock (dispatch_cond1, dispatch_cond2, TRUE);
   check_condvar_lock (io_path_cond1, io_path_cond2, TRUE);
 
-  _dbus_threads_init_debug ();
+  dbus_threads_init_default ();
 
   _dbus_connection_test_get_locks (conn, &mutex1,
                                          &dispatch_mutex1,

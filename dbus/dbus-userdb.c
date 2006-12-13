@@ -79,7 +79,7 @@ _dbus_is_a_number (const DBusString *str,
 {
   int end;
 
-  if (_dbus_string_parse_int (str, 0, num, &end) &&
+  if (_dbus_string_parse_uint (str, 0, num, &end) &&
       end == _dbus_string_get_length (str))
     return TRUE;
   else
@@ -118,11 +118,12 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
         uid = n;
     }
 
+#ifdef DBUS_ENABLE_USER_CACHE  
   if (uid != DBUS_UID_UNSET)
     info = _dbus_hash_table_lookup_ulong (db->users, uid);
   else
     info = _dbus_hash_table_lookup_string (db->users_by_name, _dbus_string_get_const_data (username));
-  
+
   if (info)
     {
       _dbus_verbose ("Using cache for UID "DBUS_UID_FORMAT" information\n",
@@ -130,6 +131,9 @@ _dbus_user_database_lookup (DBusUserDatabase *db,
       return info;
     }
   else
+#else 
+  if (1)
+#endif
     {
       if (uid != DBUS_UID_UNSET)
 	_dbus_verbose ("No cache for UID "DBUS_UID_FORMAT"\n",
@@ -309,6 +313,19 @@ _dbus_user_database_get_system (void)
   init_system_db ();
   
   return system_db;
+}
+
+/**
+ * Flushes the system global user database;
+ */
+void
+_dbus_user_database_flush_system (void)
+{
+  _dbus_user_database_lock_system ();
+   
+  _dbus_user_database_flush (system_db);
+
+  _dbus_user_database_unlock_system ();
 }
 
 /**

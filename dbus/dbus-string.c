@@ -2,6 +2,7 @@
 /* dbus-string.c String utility class (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003, 2004, 2005 Red Hat, Inc.
+ * Copyright (C) 2006 Ralf Habacker <ralf.habacker@freenet.de>
  *
  * Licensed under the Academic Free License version 2.1
  * 
@@ -1790,6 +1791,72 @@ _dbus_string_find (const DBusString *str,
 }
 
 /**
+ * Finds end of line ("\r\n" or "\n") in the string,
+ * returning #TRUE and filling in the byte index
+ * where the eol string was found, if it was found.
+ * Returns #FALSE if eol wasn't found.
+ *
+ * @param str the string
+ * @param start where to start looking
+ * @param found return location for where eol was found or string length otherwise
+ * @param found_len return length of found eol string or zero otherwise
+ * @returns #TRUE if found
+ */
+dbus_bool_t
+_dbus_string_find_eol (const DBusString *str,
+                   int               start,
+                   int              *found,
+                   int              *found_len)
+{
+  int i;
+
+  DBUS_CONST_STRING_PREAMBLE (str);
+  _dbus_assert (start <= real->len);
+  _dbus_assert (start >= 0);
+  
+  i = start;
+  while (i < real->len)
+    {
+      if (real->str[i] == '\r') 
+        {
+          if ((i+1) < real->len && real->str[i+1] == '\n') /* "\r\n" */
+            {
+              if (found) 
+                *found = i;
+              if (found_len)
+                *found_len = 2;
+              return TRUE;
+            } 
+          else /* only "\r" */
+            {
+              if (found) 
+                *found = i;
+              if (found_len)
+                *found_len = 1;
+              return TRUE;
+            }
+        } 
+      else if (real->str[i] == '\n')  /* only "\n" */
+        {
+          if (found) 
+            *found = i;
+          if (found_len)
+            *found_len = 1;
+          return TRUE;
+        }      
+      ++i;
+    }
+
+  if (found)
+    *found = real->len;
+
+  if (found_len)
+    *found_len = 0;
+  
+  return FALSE;
+}
+
+/**
  * Finds the given substring in the string,
  * up to a certain position,
  * returning #TRUE and filling in the byte index
@@ -2021,52 +2088,22 @@ dbus_bool_t
 _dbus_string_pop_line (DBusString *source,
                        DBusString *dest)
 {
-  int eol;
-  dbus_bool_t have_newline;
+  int eol, eol_len;
   
   _dbus_string_set_length (dest, 0);
   
   eol = 0;
-  if (_dbus_string_find (source, 0, "\n", &eol))
-    {
-      have_newline = TRUE;
-      eol += 1; /* include newline */
-    }
-  else
-    {
+  if (!_dbus_string_find_eol (source, 0, &eol, &eol_len))
       eol = _dbus_string_get_length (source);
-      have_newline = FALSE;
-    }
 
   if (eol == 0)
     return FALSE; /* eof */
   
-  if (!_dbus_string_move_len (source, 0, eol,
-                              dest, 0))
-    {
-      return FALSE;
-    }
+  if (!_dbus_string_move_len (source, 0, eol + eol_len, dest, 0))
+	  return FALSE;
 
-  /* dump the newline and the \r if we have one */
-  if (have_newline)
-    {
-      dbus_bool_t have_cr;
-      
-      _dbus_assert (_dbus_string_get_length (dest) > 0);
-
-      if (_dbus_string_get_length (dest) > 1 &&
-          _dbus_string_get_byte (dest,
-                                 _dbus_string_get_length (dest) - 2) == '\r')
-        have_cr = TRUE;
-      else
-        have_cr = FALSE;
-        
-      _dbus_string_set_length (dest,
-                               _dbus_string_get_length (dest) -
-                               (have_cr ? 2 : 1));
-    }
-  
-  return TRUE;
+  /* remove line ending */
+  return _dbus_string_set_length(dest, eol);
 }
 
 #ifdef DBUS_BUILD_TESTS

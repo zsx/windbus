@@ -1,3 +1,88 @@
+2006-12-13  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win-thread.c (_dbus_condvar_wait_win32):
+	correctness fix. - Patch from Christian Ehrlicher
+
+2006-12-13  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-internals.h: msvc also knows about __FUNCTION__, 
+	we should also use it. - Patch from Christian Ehrlicher
+
+2006-12-13  Ralf Habacker  <ralf.habacker@freenet.de>
+  
+	* dbus-sysdeps-util.c: added win32 related tests
+
+2006-12-12  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-string.c (_dbus_string_pop_line),
+	bus/desktop-file.c (parse_section_start,
+	parse_comment_or_blank,parse_key_value,): uses
+	_dbus_string_find_eol() to support platform independent eol style.
+
+2006-12-12  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-string.[ch] (_dbus_string_find_eol): new function. 
+	* dbus/dbus-string-util.c (_dbus_string_test): added testcases for 
+	      _dbus_string_find_eol().
+	Approved by: Havoc Pennington.
+
+2006-12-12  Tim Dijkstra <tim@famdijkstra.org>
+
+	* configure.in: Added switch to disable user_database caching.
+
+	* dbus/dbus-userdb-util.c, dbus/dbus-userdb.c: Add ifdefs to
+	be able disable user_dabase caching.
+
+2006-12-12  Tim Dijkstra <tim@famdijkstra.org>
+
+	* bus/bus.c, bus/bus.h: Remove DBusUserDatabase from the BusContext 
+	struct. It is unnecessary we have a global one already. Also remove 
+	bus_context_get_user_database function, it is no longer needed.
+	Flush the global database on reload.
+
+	* dbus/dbus-userdb-util.c: Replace _dbus_user_database_get_groups 
+	with _dbus_groups_from_uid. It no longer needs a DBusUserDatabase.
+
+	* dbus/dbus-userdb.c, dbus/dbus-userdb.h: 
+	Add _dbus_user_database_flush_system. 
+	Make more functions DBUS_USERDB_INCLUDES_PRIVATE. 
+	Small unrelated change in _dbus_is_a_number: change 
+	_dbus_string_parse_int to _dbus_string_parse_uint. 
+
+	* bus/connection.c: Change call to _dbus_user_database_get_groups to 
+	_dbus_groups_from_uid.
+
+	* bus/policy.c, bus/policy.h: Change call to 
+	_dbus_user_database_get_groups to _dbus_groups_from_uid. Remove 
+	DBusUserDatabase from bus_policy_allow_user prototype, it no longer 
+	needs it.
+
+2006-12-12  John (J5) Palmieri  <johnp@redhat.com>
+
+	* bus/signal.c: Fix match_rule_equal errata
+	(CVE-2006-6107 - Patch from Kimmo Hämäläinen 
+	<kimmo.hamalainen@nokia.com>)
+
+2006-11-19  Thiago Macieira  <thiago@kde.org>
+
+	* dbus/dbus-sysdeps-pthread.c (_dbus_pthread_mutex_lock,
+        _dbus_pthread_condvar_wait,
+        _dbus_pthread_condvar_wait_timeout): set pmutex->holder to
+        pthread_self() after coming back from a conditional variable
+        wait as well as in one codepath where it was forgotten.
+	Approved by: Havoc Pennington.
+
+2006-11-17  Havoc Pennington  <hp@redhat.com>
+
+	* update-dbus-docs.sh: allow setting fd.org username via env
+	variable. Make it run autogen with --enable-xml-docs=yes
+	--enable-doxygen-docs=yes so configure will fail if the required
+	tools are missing.
+
+2006-11-17  Havoc Pennington  <hp@redhat.com>
+
+	* doc/dbus-faq.xml: minor FAQ tweaks
+
 2006-11-14  Havoc Pennington  <hp@redhat.com>
 	
 	* dbus/dbus-misc.c, dbus/dbus-misc.h: Move
