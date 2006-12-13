@@ -262,23 +262,23 @@ dbus_bool_t _dbus_fstat (DBusFile    *file,
 }
 
 int
-_dbus_write_stream (DBusStream        stream,
-                    const DBusString *buffer,
-                    int               start,
-                    int               len)
+_dbus_write_pipe (DBusPipe          pipe,
+                  const DBusString *buffer,
+                  int               start,
+                  int               len)
 {
 	DBusFile file;
-	file.FDATA = stream;
+	file.FDATA = pipe;
 	return _dbus_write_file(&file, buffer, start, len);
 }
 
 int
-_dbus_read_stream(DBusStream  stream,
-                  DBusString *buffer,
-                  int         count)
+_dbus_read_pipe(DBusPipe    pipe,
+                DBusString *buffer,
+                int         count)
 {
 	DBusFile file;
-	file.FDATA = stream;
+	file.FDATA = pipe;
 	return _dbus_read_file(&file, buffer, count);
 }
 
