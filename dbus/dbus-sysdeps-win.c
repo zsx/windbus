@@ -1264,7 +1264,7 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
   /* No way to find out the profile of another user, let's try the
    * "home directory" from NetUserGetInfo's USER_INFO_1.
    */
-  ret = NetUserGetInfo (NULL, wname, 1, (LPBYTE *) &user_info);
+  ret = NetUserGetInfo (dc, wname, 1, (LPBYTE *) &user_info);
   if (ret == NERR_Success )
     if(user_info->usri1_home_dir != NULL &&
         user_info->usri1_home_dir != (LPWSTR)0xfeeefeee &&  /* freed memory http://www.gamedev.net/community/forums/topic.asp?topic_id=158402 */
