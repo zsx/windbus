@@ -5087,7 +5087,8 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
 dbus_int32_t
 _dbus_atomic_inc (DBusAtomic *atomic)
 {
-  return InterlockedIncrement (&atomic->value);
+  // +/- 1 is needed here!
+  return InterlockedIncrement (&atomic->value) - 1;
 }
 
 /**
@@ -5100,7 +5101,8 @@ _dbus_atomic_inc (DBusAtomic *atomic)
 dbus_int32_t
 _dbus_atomic_dec (DBusAtomic *atomic)
 {
-  return InterlockedDecrement (&atomic->value);
+  // +/- 1 is needed here!
+  return InterlockedDecrement (&atomic->value) + 1;
 }
 
 #endif /* asserts or tests enabled */
