@@ -1276,7 +1276,7 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
       }
     else
       {
-        _dbus_warn("NetUserGetInfo() failed: no valid user_info\n");
+        _dbus_warn("NetUserGetInfo() returned no home dir entry\n");
         /* Not set, so use something random. */
         info->homedir = _dbus_strdup ("\\");
       }
@@ -1876,6 +1876,19 @@ _dbus_getgid (void)
 
   return retval;
 }
+
+#if 0
+dbus_bool_t
+_dbus_domain_test (const char *test_data_dir)
+{
+  if (!_dbus_test_oom_handling ("spawn_nonexistent",
+                                check_spawn_nonexistent,
+                                NULL))
+    return FALSE;
+}
+
+#endif
+
 #endif //DBUS_BUILD_TESTS
 
 /************************************************************************
