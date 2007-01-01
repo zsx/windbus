@@ -4299,7 +4299,7 @@ _dbus_generate_random_bytes (DBusString *str,
  */
 
 #include <winver.h>
-#include <dbghelp.h>
+#include <imagehlp.h>
 #include <stdio.h>
 
 #define DPRINTF _dbus_warn
