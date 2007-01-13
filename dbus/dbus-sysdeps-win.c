@@ -1276,7 +1276,7 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
       }
     else
       {
-        _dbus_warn("NetUserGetInfo() returned no home dir entry\n");
+        _dbus_verbose("NetUserGetInfo() returned no home dir entry\n");
         /* Not set, so use something random. */
         info->homedir = _dbus_strdup ("\\");
       }
