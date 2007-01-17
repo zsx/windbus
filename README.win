@@ -104,3 +104,13 @@ Use the following commands for a complete update cycle
  - svn ci -m "sync with cvs" 
 
 
+Running the tests in Visual Studio:
+
+ To successfully run the tests by the IDE you must add
+ the FULL patch to test\data in your build directory
+ (e.g. c:\dbus\build\test\data)  
+ in somethink like 
+  -> Project Settings
+    -> Debugging
+       -> Command line arguments
+       
