@@ -57,7 +57,7 @@ diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src
 +      DBUS_INSTALL_DIR = "$$(PROGRAMFILES)/dbus"
 +      message( "DBUSDIR not specified. Using $$DBUS_INSTALL_DIR" )
 +   }
-+   INCLUDEPATH += $$DBUS_INSTALL_DIR/include
++   INCLUDEPATH += "$$DBUS_INSTALL_DIR/include"
 +   LIBS +=  -L\"$$DBUS_INSTALL_DIR/lib\" -luser32
  }
  
