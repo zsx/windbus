@@ -934,6 +934,18 @@ Index: dbus/dbus-transport-unix.c
  
  /**
   * @defgroup DBusTransportUnix DBusTransport implementations for UNIX
+Index: dbus/dbus-sysdeps-win.c
+===================================================================
+--- dbus/dbus-sysdeps-win.c	(revision 553)
++++ dbus/dbus-sysdeps-win.c	(working copy)
+@@ -5089,6 +5089,7 @@
+   return FALSE;
+ }
+ 
++_DBUS_DEFINE_GLOBAL_LOCK (atomic);
+ 
+ /**
+  * Atomically increments an integer
 Index: dbus/dbus-sysdeps.c
 ===================================================================
 --- dbus/dbus-sysdeps.c	(revision 553)
@@ -1013,31 +1025,6 @@ Index: dbus/dbus-internals.c
  _dbus_verbose_init (void)
  {
    if (!verbose_initted)
-Index: tools/dbus-monitor.c
-===================================================================
---- tools/dbus-monitor.c	(revision 553)
-+++ tools/dbus-monitor.c	(working copy)
-@@ -306,3 +306,20 @@
-   exit (1);
- }
- 
-+#ifdef DBUS_WIN
-+#define KDE_SECONDS_SINCE_1601	11644473600LL
-+#define KDE_USEC_IN_SEC			1000000LL
-+int gettimeofday(struct timeval *__p, void *__t)
-+{
-+	union {
-+		unsigned long long ns100; /*time since 1 Jan 1601 in 100ns units */
-+		FILETIME ft;
-+	} now;
-+	
-+	GetSystemTimeAsFileTime (&now.ft);
-+	__p->tv_usec = (long) ((now.ns100 / 10LL) % KDE_USEC_IN_SEC);
-+	__p->tv_sec  = (long)(((now.ns100 / 10LL ) / KDE_USEC_IN_SEC) - KDE_SECONDS_SINCE_1601);
-+	
-+	return (0); 
-+}
-+#endif
 Index: test/spawn-test.c
 ===================================================================
 --- test/spawn-test.c	(revision 553)
