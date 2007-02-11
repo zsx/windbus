@@ -113,4 +113,82 @@ Running the tests in Visual Studio:
   -> Project Settings
     -> Debugging
        -> Command line arguments
+    
+    
        
+FAQ
+---
+
+- How is the WinDBus code synchronized with the main D-Bus project? 
+
+The winDBus is located in an svn repository 
+(see http://windbus.svn.sourceforge.net/viewvc/windbus/), which contains the
+actual main dbus sources  and the  win32 changes  to have a full working
+win32 code base. The main dbus code is merged in from time to time to be
+in sync. We have a cvs write account to the main dbus, so we are able to  
+check in changes by ourself after to be verified over the dbus bugtracker 
+or mailing list, see http://www.freedesktop.org/wiki/Software_2fdbus
+
+
+- How much work remains till WinDBus can be merged with the main project?
+
+There are some patches outstanding and the most effort is required in
+discussions with the main dbus team how to implement some parts. One of
+the main dbus team estimated the open work to one fulltime week.
+http://lists.freedesktop.org/archives/dbus/2006-November/006264.html
+
+I assume they will answer ALL your questions, and they are very
+interested in fully supporting win32.
+
+
+- How far is WinDBus from being usable for production ?
+dbus comes with a test suite which is used on unix to guarantate
+production quality and this test suite runs mostly. There are some 
+test not running and we need help to get them running.
+
+In the pratice I and some other people are using dbus for at least more
+than a half year in conjunction with kde on windows without any problems.
+
+
+- On UNIX D-Bus uses UNIX sockets to communicate (correct me if I'm wrong). 
+  What is used on Windows ?
+  
+tcp sockets, there are some efforts to get named pipe running, but some
+design problems of the win32 api, we are not able to solve without
+bigger changes to the dbus code base let us stop this effort.
+
+
+- Do you have any clue if WinDBus can run in a Windows CE environment?
+
+I was told that windows ce does not have posix function
+open/close/select/... and dbus code uses such function in some area.
+
+
+- Do you know if the C++ binding made by OpenWengo will be easily portable to Windows?
+
+We have already ported the OpenWengo dbus-c++ binding, see in svn
+mentioned above. The related test applicationa are running well.
+
+
+
+
+TODO
+----
+
+February 2007:
+
+- all changes of DBus-win32.patch 
+  should become part of the official D-Bus code
+  
+- all code currently disabled by DBUS_WIN_FIXME should work
+  
+- clean up:
+    * bus/bus-service-win.c
+    * bus/dir-watch.c
+    * dbus/dbus-spawn-win.c
+    * dbus/dbus-sysdeps-util-win.c
+    * dbus/dbus-sysdeps-win.c
+
+
+see also:
+http://lists.freedesktop.org/archives/dbus/2006-July/005076.html
