@@ -1,14 +1,14 @@
-/cancel.auth-script/1.2/Wed Dec 13 18:11:53 2006//
-/client-out-of-mechanisms.auth-script/1.1/Wed Dec 13 18:11:53 2006//
-/external-failed.auth-script/1.3/Wed Dec 13 18:11:53 2006//
-/external-root.auth-script/1.3/Wed Dec 13 18:11:53 2006//
-/external-silly.auth-script/1.3/Wed Dec 13 18:11:53 2006//
-/external-successful.auth-script/1.3/Wed Dec 13 18:11:53 2006//
-/extra-bytes.auth-script/1.3/Wed Dec 13 18:11:53 2006//
-/fail-after-n-attempts.auth-script/1.4/Wed Dec 13 18:11:53 2006//
-/fallback.auth-script/1.4/Wed Dec 13 18:11:53 2006//
-/invalid-command-client.auth-script/1.1/Wed Dec 13 18:11:53 2006//
-/invalid-command.auth-script/1.1/Wed Dec 13 18:11:53 2006//
-/invalid-hex-encoding.auth-script/1.1/Wed Dec 13 18:11:53 2006//
-/mechanisms.auth-script/1.1/Wed Dec 13 18:11:53 2006//
+/cancel.auth-script/1.2/Mon Nov 27 11:07:37 2006//
+/client-out-of-mechanisms.auth-script/1.1/Mon Nov 27 11:07:37 2006//
+/external-failed.auth-script/1.3/Mon Nov 27 11:07:37 2006//
+/external-root.auth-script/1.3/Mon Nov 27 11:07:37 2006//
+/external-silly.auth-script/1.3/Mon Nov 27 11:07:37 2006//
+/external-successful.auth-script/1.3/Mon Nov 27 11:07:37 2006//
+/extra-bytes.auth-script/1.3/Mon Nov 27 11:07:37 2006//
+/fail-after-n-attempts.auth-script/1.4/Mon Nov 27 11:07:37 2006//
+/fallback.auth-script/1.4/Mon Nov 27 11:07:37 2006//
+/invalid-command-client.auth-script/1.1/Mon Nov 27 11:07:37 2006//
+/invalid-command.auth-script/1.1/Mon Nov 27 11:07:37 2006//
+/invalid-hex-encoding.auth-script/1.1/Mon Nov 27 11:07:37 2006//
+/mechanisms.auth-script/1.1/Mon Nov 27 11:07:37 2006//
 D
