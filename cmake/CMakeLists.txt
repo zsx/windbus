@@ -75,6 +75,53 @@ if(MSVC)
 	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
 endif(MSVC)
 
+
+#########################################################################
+# Windows CE
+#
+# usage:
+#      cmake ..\trunk\cmake -Dwince=1 -Dwcelibcex=c:\wcelibcex
+#
+# change configuration in Visual Studio to 'Pocket PC 2003 (ARMV4)'
+#
+if(wince)
+	# don't forget parameters
+	set(wince 1 CACHE TYPE STRING FORCE)
+	set(wcelibcex ${wcelibcex} CACHE TYPE STRING FORCE)
+	
+	include_directories(${wcelibcex}/src)
+	
+	add_definitions(
+			-DDBUS_WINCE
+			-DWINCE
+			-DWIN32_PLATFORM_PSPC
+			-D_WINDOWS
+			-D_UNICODE
+			-DUNICODE
+			-DPOCKETPC2003_UI_MODEL
+			)
+			
+	# Windows CE Version
+	add_definitions(
+			-D_WIN32_WCE=0x420
+			-DWIN32_PLATFORM_PSPC=0x420
+			-DUNDER_CE=0x420
+			)
+	
+	# Architecture
+	add_definitions(
+			-DARM
+			-D_ARM_
+			)
+	
+	set(CMAKE_CXX_STANDARD_LIBRARIES "coredll.lib corelibc.lib ole32.lib oleaut32.lib uuid.lib commctrl.lib ws2.lib")
+			
+	set(CMAKE_SHARED_LINKER_FLAGS "/subsystem:windowsce,4.20 /machine:THUMB")
+
+endif(wince)
+#########################################################################
+
+
 ENABLE_TESTING()
 
 #########################################################################
