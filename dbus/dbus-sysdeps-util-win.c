@@ -32,11 +32,14 @@
 #include "dbus-sysdeps-win.h"
 #include "dbus-memory.h"
 
+#ifndef DBUS_WINCE
 #include <io.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <sys/stat.h>
 #include <aclapi.h>
+#endif
+
+#include <stdio.h>
+#include <stdlib.h>
 #include <fcntl.h>
 
 /**

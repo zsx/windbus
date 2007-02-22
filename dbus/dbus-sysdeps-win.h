@@ -33,11 +33,14 @@
 #include <ctype.h>
 #include <malloc.h>
 #include <windows.h>
+
+#ifndef DBUS_WINCE
 #include <aclapi.h>
 #include <lm.h>
 #include <io.h>
 #include <share.h>
 #include <direct.h>
+#endif
 
 #define mkdir(path, mode) _mkdir (path)
 
