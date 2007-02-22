@@ -73,7 +73,22 @@ Developers
 
 Most files are a checkout of the official freedesktop.org DBus.
 
-Don't touch these files which are managed by CVS.
+Don't touch these files which are managed by CVS. These files
+could be identified by:
+svn revert -R *
+cvs -z9 diff -ubB *
+
+Currently, Feb 2007:
+	bus/bus-service-win.c
+	bus/dir-watch.c
+	dbus/dbus-example.c
+	dbus/dbus-sockets-win.h
+	dbus/dbus-spawn-win.c
+	dbus/dbus-sysdeps-util-win.c
+	dbus/dbus-sysdeps-win.c
+	dbus/dbus-sysdeps-win.h
+
+
 
 Only commit changes to  *-win.h, *-win.c, Readme.win and files in the cmake folder.
 
