@@ -2591,6 +2591,10 @@ _dbus_strerror (int error_number)
 const char*
 _dbus_lm_strerror(int error_number)
 {
+#ifdef DBUS_WINCE
+  // TODO
+  return "unknown";
+#else
   const char *msg;
   switch (error_number)
     {
@@ -3227,6 +3231,7 @@ _dbus_lm_strerror(int error_number)
     msg = "unknown";
 
   return msg;
+#endif //DBUS_WINCE
 }
 
 
