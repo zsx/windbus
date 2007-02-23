@@ -85,11 +85,12 @@ endif(MSVC)
 # change configuration in Visual Studio to 'Pocket PC 2003 (ARMV4)'
 #
 if(wince)
+	project(${PACKAGE}-wince)
 	# don't forget parameters
 	set(wince 1 CACHE TYPE STRING FORCE)
 	set(wcelibcex ${wcelibcex} CACHE TYPE STRING FORCE)
 	
-	include_directories(${wcelibcex}/src)
+	include_directories(${wcelibcex}/include/wcelibcex ${wcelibcex}/src)
 	
 	add_definitions(
 			-DDBUS_WINCE
