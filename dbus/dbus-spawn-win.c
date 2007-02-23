@@ -45,9 +45,8 @@
 
 #include <stdlib.h>
 
-#ifndef DBUS_WINCE
 #include <process.h>
-#endif
+
 /**
  * Babysitter implementation details
  */

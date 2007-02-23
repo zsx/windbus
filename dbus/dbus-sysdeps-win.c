@@ -44,11 +44,9 @@
 #include <windows.h>
 #include <fcntl.h>
 
-#ifndef DBUS_WINCE
 #include <process.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#endif
 
 #ifndef O_BINARY
 #define O_BINARY 0
