@@ -2463,6 +2463,10 @@ _dbus_win_warn_win_error (const char *message,
 const char*
 _dbus_strerror (int error_number)
 {
+#ifdef DBUS_WINCE
+  // TODO
+  return "unknown";
+#else
   const char *msg;
 
   switch (error_number)
@@ -2583,6 +2587,7 @@ _dbus_strerror (int error_number)
     msg = "unknown";
 
   return msg;
+#endif //DBUS_WINCE
 }
 
 
@@ -4585,6 +4590,9 @@ dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
                                              dbus_bool_t       create_if_not_found,
                                              DBusError        *error)
 {
+#ifdef DBUS_WINCE
+  // TODO
+#else
     HW_PROFILE_INFOA info;
     char *lpc = &info.szHwProfileGuid[0];
     dbus_uint32_t u;
@@ -4644,7 +4652,7 @@ dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
          (fromAscii(lpc[6]) << 24) |
          (fromAscii(lpc[7]) << 28));
     machine_id->as_uint32s[3] = u;
-
+#endif
     return TRUE;
 }
 
