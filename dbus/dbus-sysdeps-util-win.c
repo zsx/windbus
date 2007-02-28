@@ -24,6 +24,8 @@
 
 #undef open
 
+#define STRSAFE_NO_DEPRECATE
+
 #include "dbus-sysdeps.h"
 #include "dbus-internals.h"
 #include "dbus-protocol.h"
@@ -138,6 +140,9 @@ dbus_bool_t
 _dbus_user_at_console(const char *username,
                       DBusError  *error)
 {
+#ifdef DBUS_WINCE
+	return TRUE;
+#else
   dbus_bool_t retval = FALSE;
   wchar_t *wusername;
   DWORD sid_length;
@@ -207,6 +212,7 @@ out0:
   dbus_free (wusername);
 
   return retval;
+#endif //DBUS_WINCE
 }
 
 /**
@@ -262,8 +268,12 @@ _dbus_stat(const DBusString *filename,
            DBusStat         *statbuf,
            DBusError        *error)
 {
+#ifdef DBUS_WINCE
+	return TRUE;
+	//TODO
+#else
   const char *filename_c;
-#ifndef DBUS_WIN
+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
 
   struct stat sb;
 #else
@@ -338,6 +348,7 @@ _dbus_stat(const DBusString *filename,
      wfad.ftCreationTime.dwLowDateTime) / 10000000 - DBUS_INT64_CONSTANT (116444736000000000);
 
   return TRUE;
+#endif //DBUS_WINCE
 }
 
 

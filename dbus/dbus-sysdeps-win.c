@@ -27,7 +27,11 @@
  */
 #undef open
 
+#define STRSAFE_NO_DEPRECATE
+
+#ifndef DBUS_WINCE
 #define _WIN32_WINNT 0x0500
+#endif
 
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
@@ -855,6 +859,9 @@ _dbus_connect_unix_socket (const char     *path,
                            dbus_bool_t     abstract,
                            DBusError      *error)
 {
+#ifdef DBUS_WINCE
+	return -1;
+#else
   int fd, n, port;
   char buf[7];
 
@@ -903,6 +910,7 @@ _dbus_connect_unix_socket (const char     *path,
     }
 
   return _dbus_connect_tcp_socket (NULL, port, error);
+#endif //DBUS_WINCE
 
 }
 
@@ -926,6 +934,9 @@ _dbus_listen_unix_socket (const char     *path,
                           dbus_bool_t     abstract,
                           DBusError      *error)
 {
+#ifdef DBUS_WINCE
+	return -1;
+#else
   DBusSocket *s;
   int listen_handle;
   struct sockaddr sa;
@@ -1029,6 +1040,7 @@ _dbus_listen_unix_socket (const char     *path,
     }
 
   return listen_handle;
+#endif //DBUS_WINCE
 }
 
 #if 0
@@ -1121,6 +1133,9 @@ fill_win_user_info_name_and_groups (wchar_t 	  *wname,
                                     DBusUserInfo *info,
                                     DBusError    *error)
 {
+#ifdef DBUS_WINCE
+	return TRUE;
+#else
   dbus_bool_t retval = FALSE;
   char *name, *domain;
   LPLOCALGROUP_USERS_INFO_0 local_groups = NULL;
@@ -1228,6 +1243,7 @@ out0:
   dbus_free (name);
 
   return retval;
+#endif //DBUS_WINCE
 }
 
 dbus_bool_t
@@ -1236,6 +1252,10 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
                             DBusUserInfo *info,
                             DBusError    *error)
 {
+#ifdef DBUS_WINCE
+	//TODO
+	return TRUE;
+#else
   dbus_bool_t retval = FALSE;
   USER_INFO_1 *user_info = NULL;
   wchar_t wcomputername[MAX_COMPUTERNAME_LENGTH + 1];
@@ -1299,6 +1319,7 @@ out1:
     NetApiBufferFree (user_info);
 
   return retval;
+#endif //DBUS_WINCE
 }
 
 dbus_bool_t
@@ -1306,6 +1327,10 @@ fill_win_user_info_from_name (wchar_t      *wname,
                               DBusUserInfo *info,
                               DBusError    *error)
 {
+#ifdef DBUS_WINCE
+	return TRUE;
+	//TODO
+#else
   dbus_bool_t retval = FALSE;
   PSID sid;
   wchar_t *wdomain;
@@ -1365,6 +1390,7 @@ out0:
   dbus_free (sid);
 
   return retval;
+#endif //DBUS_WINCE
 }
 
 dbus_bool_t
@@ -1373,6 +1399,10 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
                                   wchar_t  **wdomain,
                                   DBusError *error)
 {
+#ifdef DBUS_WINCE
+	return TRUE;
+	//TODO
+#else
   PSID sid;
   DWORD wname_length, wdomain_length;
   SID_NAME_USE use;
@@ -1426,6 +1456,7 @@ out0:
   LocalFree (sid);
 
   return FALSE;
+#endif //DBUS_WINCE
 }
 
 dbus_bool_t
@@ -1433,6 +1464,11 @@ fill_win_user_info_from_uid (dbus_uid_t    uid,
                              DBusUserInfo *info,
                              DBusError    *error)
 {
+#ifdef DBUS_WINCE
+	return TRUE;
+	//TODO
+#else
+  PSID sid;
   dbus_bool_t retval = FALSE;
   wchar_t *wname, *wdomain;
 
@@ -1464,6 +1500,7 @@ out0:
   dbus_free (wname);
 
   return retval;
+#endif //DBUS_WINCE
 }
 
 
@@ -3523,7 +3560,7 @@ _dbus_accept  (int listen_handle)
   addrlen = sizeof (addr);
 
   //FIXME:  why do we not try it again on Windows?
-#ifndef DBUS_WIN
+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
 retry:
 #endif
 
@@ -3532,7 +3569,7 @@ retry:
   if (DBUS_SOCKET_IS_INVALID (sclient.fd))
     {
       DBUS_SOCKET_SET_ERRNO ();
-#ifndef DBUS_WIN
+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
       if (errno == EINTR)
         goto retry;
 #else
@@ -4591,6 +4628,7 @@ dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
                                              DBusError        *error)
 {
 #ifdef DBUS_WINCE
+	return TRUE;
   // TODO
 #else
     HW_PROFILE_INFOA info;

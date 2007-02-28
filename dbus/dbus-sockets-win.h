@@ -24,7 +24,7 @@
 #ifndef DBUS_SOCKETS_H
 #define DBUS_SOCKETS_H
 
-#ifdef DBUS_WIN
+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
 
 
 

@@ -1,3 +1,5 @@
+#include "config.h"
+
 #if !defined(DBUS_ENABLE_VERBOSE_MODE) || defined(_MSC_VER)
 #define PING()
 #else
@@ -5,6 +7,10 @@
 #endif
 
 #include <stdio.h>
+#ifdef DBUS_WINCE
+#include <process.h>
+#endif
+
 /* -*- mode: C; c-file-style: "gnu" -*- */
 /* dbus-spawn-win32.c Wrapper around g_spawn
  * 

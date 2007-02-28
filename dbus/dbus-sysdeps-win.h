@@ -42,8 +42,10 @@
 
 #define mkdir(path, mode) _mkdir (path)
 
+#ifndef DBUS_WINCE
 #ifndef S_ISREG
 #define S_ISREG(mode) (((mode) & S_IFMT) == S_IFREG)
+#endif
 #endif
 
 /* Declarations missing in mingw's headers */
