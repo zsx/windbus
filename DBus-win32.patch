@@ -1,110 +1,56 @@
-Index: test/spawn-test.c
+Index: bus/activation.c
 ===================================================================
---- test/spawn-test.c	(revision 557)
-+++ test/spawn-test.c	(working copy)
-@@ -31,7 +31,7 @@
-     argv_copy [i] = argv[i + 1];
-   argv_copy[argc - 1] = NULL;
-   
--  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, setup_func, NULL, &error))
-+  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, NULL, setup_func, NULL, &error))
+--- bus/activation.c	(revision 566)
++++ bus/activation.c	(working copy)
+@@ -34,7 +34,6 @@
+ #include <dbus/dbus-spawn.h>
+ #include <dbus/dbus-timeout.h>
+ #include <dbus/dbus-sysdeps.h>
+-#include <dirent.h>
+ #include <errno.h>
+ 
+ #define DBUS_SERVICE_SECTION "D-BUS Service"
+@@ -1310,6 +1309,7 @@
+   DBusMessage *message;
+   DBusString service_str;
+   char **argv;
++  char **envp = NULL;
+   int argc;
+   dbus_bool_t retval;
+   DBusHashIter iter;
+@@ -1541,6 +1541,7 @@
+ 
+   _dbus_verbose ("Spawning %s ...\n", argv[0]);
+   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
++                                          envp,
+                                           child_setup, activation, 
+                                           error))
      {
-       fprintf (stderr, "Could not launch application: \"%s\"\n",
- 	       error.message);
-Index: test/name-test/test-names.c
+Index: bus/bus.c
 ===================================================================
---- test/name-test/test-names.c	(revision 557)
-+++ test/name-test/test-names.c	(working copy)
-@@ -1,9 +1,11 @@
- #include <stdio.h>
- #include <stdlib.h>
--#include <unistd.h>
- #include <string.h>
- #include <dbus/dbus.h>
- #include <dbus/dbus-connection-internal.h>
-+#ifdef HAVE_UNISTD_H
-+#include <unistd.h>
-+#endif
+--- bus/bus.c	(revision 566)
++++ bus/bus.c	(working copy)
+@@ -625,7 +625,7 @@
+         }
  
- #define REMOVE_CONNECTION 0
- #define ADD_CONNECTION 1
-Index: test/test-utils.c
-===================================================================
---- test/test-utils.c	(revision 557)
-+++ test/test-utils.c	(working copy)
-@@ -1,5 +1,7 @@
- #include "test-utils.h"
+       bytes = _dbus_string_get_length (&addr);
+-      if (_dbus_write_socket (print_addr_fd, &addr, 0, bytes) != bytes)
++      if (_dbus_write_pipe (print_addr_fd, &addr, 0, bytes) != bytes)
+         {
+           dbus_set_error (error, DBUS_ERROR_FAILED,
+                           "Printing message bus address: %s\n",
+@@ -726,7 +726,7 @@
+         }
  
-+void _dbus_connection_close_internal (DBusConnection *connection);
-+
- typedef struct
- {
-   DBusLoop *loop;
-Index: test/test-segfault.c
-===================================================================
---- test/test-segfault.c	(revision 557)
-+++ test/test-segfault.c	(working copy)
-@@ -1,10 +1,27 @@
- /* This is simply a process that segfaults */
-+#include <config.h>
- #include <stdlib.h>
- #include <signal.h>
- 
-+#ifdef DBUS_WIN
-+#define RLIMIT_CORE	4		/* max core file size */
-+typedef unsigned long rlim_t;
-+struct rlimit {
-+	rlim_t	rlim_cur;
-+	rlim_t	rlim_max;
-+};
-+static int getrlimit (int __resource, struct rlimit *__rlp) {
-+  return -1;
-+}
-+static int setrlimit (int __resource, const struct rlimit *__rlp) {
-+  return -1;
-+}
-+#else
- #include <sys/time.h>
- #include <sys/resource.h>
-+#endif
- 
-+
- int
- main (int argc, char **argv)
- {
-Index: test/Makefile.am
-===================================================================
---- test/Makefile.am	(revision 557)
-+++ test/Makefile.am	(working copy)
-@@ -117,7 +117,7 @@
- 		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
- 	done ;											\
- 	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
--		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
-+		FILES=`(cd $(srcdir) && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;		\
- 	        for F in $$FILES; do								\
- 			SRC=$(srcdir)/$$F ;							\
- 			DEST=$(top_builddir)/test/$$F ;						\
-Index: test/test-sleep-forever.c
-===================================================================
---- test/test-sleep-forever.c	(revision 557)
-+++ test/test-sleep-forever.c	(working copy)
-@@ -1,6 +1,12 @@
- /* This is a process that just sleeps infinitely. */
- 
-+
-+#include <config.h>
-+#ifndef DBUS_WIN
- #include <unistd.h>
-+#else
-+#include <stdlib.h>
-+#endif
- 
- int
- main (int argc, char **argv)
+       bytes = _dbus_string_get_length (&pid);
+-      if (_dbus_write_socket (print_pid_fd, &pid, 0, bytes) != bytes)
++      if (_dbus_write_pipe (print_pid_fd, &pid, 0, bytes) != bytes)
+         {
+           dbus_set_error (error, DBUS_ERROR_FAILED,
+                           "Printing message bus PID: %s\n",
 Index: bus/config-loader-libxml.c
 ===================================================================
---- bus/config-loader-libxml.c	(revision 557)
+--- bus/config-loader-libxml.c	(revision 566)
 +++ bus/config-loader-libxml.c	(working copy)
 @@ -134,6 +134,9 @@
      }
@@ -149,27 +95,142 @@ Index: bus/config-loader-libxml.c
    if (parser == NULL)
      {
        _DBUS_SET_OOM (error);
-Index: bus/policy.c
+Index: bus/config-parser.c
 ===================================================================
---- bus/policy.c	(revision 557)
-+++ bus/policy.c	(working copy)
-@@ -324,9 +324,13 @@
+--- bus/config-parser.c	(revision 566)
++++ bus/config-parser.c	(working copy)
+@@ -27,6 +27,7 @@
+ #include "selinux.h"
+ #include <dbus/dbus-list.h>
+ #include <dbus/dbus-internals.h>
++#include <dbus/dbus-userdb.h>
+ #include <string.h>
  
-   if (!dbus_connection_get_unix_user (connection, &uid))
-     {
+ typedef enum
+@@ -3070,10 +3071,15 @@
+ 
+ static const char *test_service_dir_matches[] = 
+         {
 +#ifdef DBUS_WIN
-+		_dbus_verbose ("policy.c: dbus_connection_get_unix_user check disabled under windows\n");
++         DBUS_DATADIR"/dbus-1/services",
++         NULL,
 +#else
-       dbus_set_error (error, DBUS_ERROR_FAILED,
-                       "No user ID known for connection, cannot determine security policy\n");
-       goto failed;
-+#endif
-     }
+          "/testusr/testlocal/testshare/dbus-1/services",
+          "/testusr/testshare/dbus-1/services",
+          DBUS_DATADIR"/dbus-1/services",
+-         "/testhome/foo/.testlocal/testshare/dbus-1/services",         
++         "/testhome/foo/.testlocal/testshare/dbus-1/services",     
++#endif 
+          NULL
+         };
  
-   if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
+@@ -3082,11 +3088,32 @@
+ {
+   DBusList *dirs;
+   DBusList *link;
++  DBusString progs;
++  const char *common_progs;
+   int i;
+ 
++  common_progs = _dbus_getenv ("CommonProgramFiles");
++  if (common_progs) 
++    {
++      if (!_dbus_string_init (&progs))
++        return FALSE;
++
++      if (!_dbus_string_append (&progs, common_progs)) 
++        {
++          _dbus_string_free (&progs);
++          return FALSE;
++        }
++
++      if (!_dbus_string_append (&progs, "/dbus-1/services")) 
++        {
++          _dbus_string_free (&progs);
++          return FALSE;
++        }
++      test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
++    }
+   dirs = NULL;
+ 
+-  printf ("Testing retriving the default session service directories\n");
++  printf ("Testing retrieving the default session service directories\n");
+   if (!_dbus_get_standard_session_servicedirs (&dirs))
+     _dbus_assert_not_reached ("couldn't get stardard dirs");
+ 
+@@ -3097,7 +3124,7 @@
+       
+       printf ("    default service dir: %s\n", (char *)link->data);
+       _dbus_string_init_const (&path, (char *)link->data);
+-      if (!_dbus_string_ends_with_c_str (&path, "share/dbus-1/services"))
++      if (!_dbus_string_ends_with_c_str (&path, "dbus-1/services"))
+         {
+           printf ("error with default session service directories\n");
+           return FALSE;
+@@ -3150,6 +3177,7 @@
+       return FALSE;
+     }
+     
++  _dbus_string_free (&progs);
+   return TRUE;
+ }
+ 			   
+Index: bus/connection.c
+===================================================================
+--- bus/connection.c	(revision 566)
++++ bus/connection.c	(working copy)
+@@ -1536,7 +1536,7 @@
+ {
+   CancelPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   if (!_dbus_list_remove (&d->connections->pending_replies->items,
+                           d->pending))
+@@ -1550,7 +1550,7 @@
+ {
+   CancelPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   /* d->pending should be either freed or still
+    * in the list of pending replies (owned by someone
+@@ -1687,7 +1687,7 @@
+ {
+   CheckPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   _dbus_list_prepend_link (&d->connections->pending_replies->items,
+                            d->link);
+@@ -1699,7 +1699,7 @@
+ {
+   CheckPendingReplyData *d = data;
+ 
+-  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
++  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
+   
+   if (d->link != NULL)
+     {
+Index: bus/dir-watch.c
+===================================================================
+--- bus/dir-watch.c	(revision 566)
++++ bus/dir-watch.c	(working copy)
+@@ -103,7 +103,7 @@
+ }
+ 
+ void
+-bus_watch_directory (const char *dir, void *userdata)
++bus_watch_directory (const char *dir, BusContext *userdata)
+ {
+ }
+ 
 Index: bus/dispatch.c
 ===================================================================
---- bus/dispatch.c	(revision 557)
+--- bus/dispatch.c	(revision 566)
 +++ bus/dispatch.c	(working copy)
 @@ -428,6 +428,11 @@
      }
@@ -297,170 +358,9 @@ Index: bus/dispatch.c
  
    kill_client_connection_unchecked (foo);
  
-Index: bus/activation.c
-===================================================================
---- bus/activation.c	(revision 557)
-+++ bus/activation.c	(working copy)
-@@ -34,7 +34,6 @@
- #include <dbus/dbus-spawn.h>
- #include <dbus/dbus-timeout.h>
- #include <dbus/dbus-sysdeps.h>
--#include <dirent.h>
- #include <errno.h>
- 
- #define DBUS_SERVICE_SECTION "D-BUS Service"
-@@ -1310,6 +1309,7 @@
-   DBusMessage *message;
-   DBusString service_str;
-   char **argv;
-+  char **envp = NULL;
-   int argc;
-   dbus_bool_t retval;
-   DBusHashIter iter;
-@@ -1541,6 +1541,7 @@
- 
-   _dbus_verbose ("Spawning %s ...\n", argv[0]);
-   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
-+                                          envp,
-                                           child_setup, activation, 
-                                           error))
-     {
-Index: bus/dir-watch.c
-===================================================================
---- bus/dir-watch.c	(revision 557)
-+++ bus/dir-watch.c	(working copy)
-@@ -103,7 +103,7 @@
- }
- 
- void
--bus_watch_directory (const char *dir, void *userdata)
-+bus_watch_directory (const char *dir, BusContext *userdata)
- {
- }
- 
-Index: bus/connection.c
-===================================================================
---- bus/connection.c	(revision 557)
-+++ bus/connection.c	(working copy)
-@@ -1536,7 +1536,7 @@
- {
-   CancelPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   if (!_dbus_list_remove (&d->connections->pending_replies->items,
-                           d->pending))
-@@ -1550,7 +1550,7 @@
- {
-   CancelPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   /* d->pending should be either freed or still
-    * in the list of pending replies (owned by someone
-@@ -1687,7 +1687,7 @@
- {
-   CheckPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   _dbus_list_prepend_link (&d->connections->pending_replies->items,
-                            d->link);
-@@ -1699,7 +1699,7 @@
- {
-   CheckPendingReplyData *d = data;
- 
--  _dbus_verbose ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-+  _dbus_verbose_C_S ("%s: d = %p\n", _DBUS_FUNCTION_NAME, d);
-   
-   if (d->link != NULL)
-     {
-Index: bus/config-parser.c
-===================================================================
---- bus/config-parser.c	(revision 557)
-+++ bus/config-parser.c	(working copy)
-@@ -27,6 +27,7 @@
- #include "selinux.h"
- #include <dbus/dbus-list.h>
- #include <dbus/dbus-internals.h>
-+#include <dbus/dbus-userdb.h>
- #include <string.h>
- 
- typedef enum
-@@ -3070,10 +3071,15 @@
- 
- static const char *test_service_dir_matches[] = 
-         {
-+#ifdef DBUS_WIN
-+         DBUS_DATADIR"/dbus-1/services",
-+         NULL,
-+#else
-          "/testusr/testlocal/testshare/dbus-1/services",
-          "/testusr/testshare/dbus-1/services",
-          DBUS_DATADIR"/dbus-1/services",
--         "/testhome/foo/.testlocal/testshare/dbus-1/services",         
-+         "/testhome/foo/.testlocal/testshare/dbus-1/services",     
-+#endif 
-          NULL
-         };
- 
-@@ -3082,11 +3088,32 @@
- {
-   DBusList *dirs;
-   DBusList *link;
-+  DBusString progs;
-+  const char *common_progs;
-   int i;
- 
-+  common_progs = _dbus_getenv ("CommonProgramFiles");
-+  if (common_progs) 
-+    {
-+      if (!_dbus_string_init (&progs))
-+        return FALSE;
-+
-+      if (!_dbus_string_append (&progs, common_progs)) 
-+        {
-+          _dbus_string_free (&progs);
-+          return FALSE;
-+        }
-+
-+      if (!_dbus_string_append (&progs, "/dbus-1/services")) 
-+        {
-+          _dbus_string_free (&progs);
-+          return FALSE;
-+        }
-+      test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
-+    }
-   dirs = NULL;
- 
--  printf ("Testing retriving the default session service directories\n");
-+  printf ("Testing retrieving the default session service directories\n");
-   if (!_dbus_get_standard_session_servicedirs (&dirs))
-     _dbus_assert_not_reached ("couldn't get stardard dirs");
- 
-@@ -3097,7 +3124,7 @@
-       
-       printf ("    default service dir: %s\n", (char *)link->data);
-       _dbus_string_init_const (&path, (char *)link->data);
--      if (!_dbus_string_ends_with_c_str (&path, "share/dbus-1/services"))
-+      if (!_dbus_string_ends_with_c_str (&path, "dbus-1/services"))
-         {
-           printf ("error with default session service directories\n");
-           return FALSE;
-@@ -3150,6 +3177,7 @@
-       return FALSE;
-     }
-     
-+  _dbus_string_free (&progs);
-   return TRUE;
- }
- 			   
 Index: bus/main.c
 ===================================================================
---- bus/main.c	(revision 557)
+--- bus/main.c	(revision 566)
 +++ bus/main.c	(working copy)
 @@ -254,6 +254,12 @@
    dbus_bool_t print_pid;
@@ -475,31 +375,27 @@ Index: bus/main.c
    if (!_dbus_string_init (&config_file))
      return 1;
  
-Index: bus/bus.c
+Index: bus/policy.c
 ===================================================================
---- bus/bus.c	(revision 557)
-+++ bus/bus.c	(working copy)
-@@ -625,7 +625,7 @@
-         }
+--- bus/policy.c	(revision 566)
++++ bus/policy.c	(working copy)
+@@ -324,9 +324,13 @@
  
-       bytes = _dbus_string_get_length (&addr);
--      if (_dbus_write_socket (print_addr_fd, &addr, 0, bytes) != bytes)
-+      if (_dbus_write_pipe (print_addr_fd, &addr, 0, bytes) != bytes)
-         {
-           dbus_set_error (error, DBUS_ERROR_FAILED,
-                           "Printing message bus address: %s\n",
-@@ -726,7 +726,7 @@
-         }
+   if (!dbus_connection_get_unix_user (connection, &uid))
+     {
++#ifdef DBUS_WIN
++		_dbus_verbose ("policy.c: dbus_connection_get_unix_user check disabled under windows\n");
++#else
+       dbus_set_error (error, DBUS_ERROR_FAILED,
+                       "No user ID known for connection, cannot determine security policy\n");
+       goto failed;
++#endif
+     }
  
-       bytes = _dbus_string_get_length (&pid);
--      if (_dbus_write_socket (print_pid_fd, &pid, 0, bytes) != bytes)
-+      if (_dbus_write_pipe (print_pid_fd, &pid, 0, bytes) != bytes)
-         {
-           dbus_set_error (error, DBUS_ERROR_FAILED,
-                           "Printing message bus PID: %s\n",
+   if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
 Index: dbus/dbus-auth.c
 ===================================================================
---- dbus/dbus-auth.c	(revision 557)
+--- dbus/dbus-auth.c	(revision 567)
 +++ dbus/dbus-auth.c	(working copy)
 @@ -395,7 +395,7 @@
    
@@ -768,141 +664,117 @@ Index: dbus/dbus-auth.c
                   DBUS_AUTH_NAME (auth),
                   bytes_sent,
                   _dbus_string_get_const_data (&auth->outgoing));
-Index: dbus/dbus-spawn.c
+Index: dbus/dbus-bus.c
 ===================================================================
---- dbus/dbus-spawn.c	(revision 557)
-+++ dbus/dbus-spawn.c	(working copy)
-@@ -720,7 +720,7 @@
-   if (condition & DBUS_WATCH_HANGUP)
-     revents |= _DBUS_POLLHUP;
- 
--  fd = dbus_watch_get_fd (watch);
-+  fd = dbus_watch_get_handle (watch);
- 
-   if (fd == sitter->error_pipe_from_child)
-     handle_error_pipe (sitter, revents);
-Index: dbus/dbus-threads.c
-===================================================================
---- dbus/dbus-threads.c	(revision 557)
-+++ dbus/dbus-threads.c	(working copy)
-@@ -810,7 +810,11 @@
- dbus_bool_t
- _dbus_threads_init_debug (void)
+--- dbus/dbus-bus.c	(revision 567)
++++ dbus/dbus-bus.c	(working copy)
+@@ -350,8 +350,10 @@
  {
-+#ifdef DBUS_WIN
-+  return _dbus_threads_init_platform_specific();
-+#else
-   return dbus_threads_init (&fake_functions);
-+#endif
- }
- 
- #endif /* DBUS_BUILD_TESTS */
-Index: dbus/dbus-spawn.h
-===================================================================
---- dbus/dbus-spawn.h	(revision 557)
-+++ dbus/dbus-spawn.h	(working copy)
-@@ -37,6 +37,7 @@
- 
- dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
-                                                    char                     **argv,
-+                                                   char                     **env,
-                                                    DBusSpawnChildSetupFunc    child_setup,
-                                                    void                      *user_data,
-                                                    DBusError                 *error);
-Index: dbus/dbus-watch.c
-===================================================================
---- dbus/dbus-watch.c	(revision 557)
-+++ dbus/dbus-watch.c	(working copy)
-@@ -286,7 +286,7 @@
-             
-             _dbus_verbose ("Adding a %s watch on fd %d using newly-set add watch function\n",
-                            watch_type,
--                           dbus_watch_get_fd (link->data));
-+                           dbus_watch_get_handle (link->data));
-           }
- #endif /* DBUS_ENABLE_VERBOSE_MODE */
-           
-@@ -302,7 +302,7 @@
-                                                              link2);
-                   
-                   _dbus_verbose ("Removing watch on fd %d using newly-set remove function because initial add failed\n",
--                                 dbus_watch_get_fd (link2->data));
-+                                 dbus_watch_get_handle (link2->data));
-                   
-                   (* remove_function) (link2->data, data);
-                   
-@@ -359,7 +359,7 @@
-   if (watch_list->add_watch_function != NULL)
-     {
-       _dbus_verbose ("Adding watch on fd %d\n",
--                     dbus_watch_get_fd (watch));
-+                     dbus_watch_get_handle (watch));
-       
-       if (!(* watch_list->add_watch_function) (watch,
-                                                watch_list->watch_data))
-@@ -390,7 +390,7 @@
-   if (watch_list->remove_watch_function != NULL)
-     {
-       _dbus_verbose ("Removing watch on fd %d\n",
--                     dbus_watch_get_fd (watch));
-+                     dbus_watch_get_handle (watch));
-       
-       (* watch_list->remove_watch_function) (watch,
-                                              watch_list->watch_data);
-@@ -422,7 +422,7 @@
-   if (watch_list->watch_toggled_function != NULL)
-     {
-       _dbus_verbose ("Toggling watch %p on fd %d to %d\n",
--                     watch, dbus_watch_get_fd (watch), watch->enabled);
-+                     watch, dbus_watch_get_handle (watch), watch->enabled);
-       
-       (* watch_list->watch_toggled_function) (watch,
-                                               watch_list->watch_data);
-@@ -490,10 +490,32 @@
-  * @returns the file descriptor to watch.
-  */
- int
-+dbus_watch_get_handle (DBusWatch *watch)
-+{
-+  return watch->fd;
-+}
-+
-+#ifdef DBUS_WIN
-+// never used by the dbus code
-+#include "dbus-sysdeps-win.h"
-+int 
- dbus_watch_get_fd (DBusWatch *watch)
- {
-+	DBusSocket *p;
-+	if (watch->fd != -1) {
-+	    _dbus_handle_to_socket(watch->fd,&p);
-+	    return p->fd;
-+	}
-+	else
-+		return -1;
-+}
-+#else
-+int
-+dbus_watch_get_fd (DBusWatch *watch)
-+{
-   return watch->fd;
- }
-+#endif
- 
- /**
-  * Gets flags from DBusWatchFlags indicating
-@@ -546,7 +568,7 @@
-                      DBusFreeFunction  free_data_function)
- {
-   _dbus_verbose ("Setting watch fd %d data to data = %p function = %p from data = %p function = %p\n",
--                 dbus_watch_get_fd (watch),
-+                 dbus_watch_get_handle (watch),
-                  data, free_data_function, watch->data, watch->free_data_function);
+   int i;
    
-   if (watch->free_data_function != NULL)
++#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
++   // qt example pong says "QMutex::lock: Deadlock detected"
+   _DBUS_LOCK (bus);
+-
++#endif
+   /* We are expecting to have the connection saved in only one of these
+    * slots, but someone could in a pathological case set system and session
+    * bus to the same bus or something. Or set one of them to the starter
+@@ -366,7 +368,9 @@
+         }
+     }
+ 
++#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
+   _DBUS_UNLOCK (bus);
++#endif
+ }
+ 
+ static DBusConnection *
+Index: dbus/dbus-connection.c
+===================================================================
+--- dbus/dbus-connection.c	(revision 567)
++++ dbus/dbus-connection.c	(working copy)
+@@ -62,7 +62,7 @@
+ #define TRACE_LOCKS 1
+ 
+ #define CONNECTION_LOCK(connection)   do {                                      \
+-    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
++    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK  : %s\n", _DBUS_FUNCTION_NAME); }   \
+     _dbus_mutex_lock ((connection)->mutex);                                      \
+     TOOK_LOCK_CHECK (connection);                                               \
+   } while (0)
+@@ -4718,9 +4718,9 @@
+   _dbus_return_val_if_fail (connection != NULL, FALSE);
+   _dbus_return_val_if_fail (connection->transport != NULL, FALSE);
+ 
+-#ifdef DBUS_WIN
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
+   /* FIXME do this on a lower level */
+-  return FALSE;
++  //return FALSE;
+ #endif
+   
+   return dbus_connection_get_socket(connection, fd);
+@@ -4790,12 +4790,12 @@
+   _dbus_return_val_if_fail (connection != NULL, FALSE);
+   _dbus_return_val_if_fail (uid != NULL, FALSE);
+ 
+-#ifdef DBUS_WIN
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
+   /* FIXME this should be done at a lower level, but it's kind of hard,
+    * just want to be sure we don't ship with this API returning
+    * some weird internal fake uid for 1.0
+    */
+-  return FALSE;
++  //return FALSE;
+ #endif
+   
+   CONNECTION_LOCK (connection);
+@@ -4829,12 +4829,12 @@
+   _dbus_return_val_if_fail (connection != NULL, FALSE);
+   _dbus_return_val_if_fail (pid != NULL, FALSE);
+ 
+-#ifdef DBUS_WIN
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
+   /* FIXME this should be done at a lower level, but it's kind of hard,
+    * just want to be sure we don't ship with this API returning
+    * some weird internal fake uid for 1.0
+    */
+-  return FALSE;
++  //return FALSE;
+ #endif
+   
+   CONNECTION_LOCK (connection);
+Index: dbus/dbus-connection.h
+===================================================================
+--- dbus/dbus-connection.h	(revision 567)
++++ dbus/dbus-connection.h	(working copy)
+@@ -330,6 +330,9 @@
+  */
+ 
+ int          dbus_watch_get_fd      (DBusWatch        *watch);
++#if defined (DBUS_COMPILATION)
++int          dbus_watch_get_handle  (DBusWatch        *watch);
++#endif
+ unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
+ void*        dbus_watch_get_data    (DBusWatch        *watch);
+ void         dbus_watch_set_data    (DBusWatch        *watch,
+Index: dbus/dbus-internals.c
+===================================================================
+--- dbus/dbus-internals.c	(revision 567)
++++ dbus/dbus-internals.c	(working copy)
+@@ -295,7 +295,7 @@
+ #include <pthread.h>
+ #endif
+ 
+-static inline void
++static void
+ _dbus_verbose_init (void)
+ {
+   if (!verbose_initted)
 Index: dbus/dbus-mainloop.c
 ===================================================================
---- dbus/dbus-mainloop.c	(revision 557)
+--- dbus/dbus-mainloop.c	(revision 567)
 +++ dbus/dbus-mainloop.c	(working copy)
 @@ -90,8 +90,8 @@
    Callback callback;
@@ -973,72 +845,56 @@ Index: dbus/dbus-mainloop.c
    _dbus_verbose ("Quit main loop, depth %d -> %d\n",
                   loop->depth + 1, loop->depth);
  }
-Index: dbus/dbus-bus.c
+Index: dbus/dbus-message.h
 ===================================================================
---- dbus/dbus-bus.c	(revision 557)
-+++ dbus/dbus-bus.c	(working copy)
-@@ -350,8 +350,10 @@
- {
-   int i;
-   
-+#ifndef DBUS_WIN
-+   // qt example pong says "QMutex::lock: Deadlock detected"
-   _DBUS_LOCK (bus);
--
-+#endif
-   /* We are expecting to have the connection saved in only one of these
-    * slots, but someone could in a pathological case set system and session
-    * bus to the same bus or something. Or set one of them to the starter
-@@ -366,7 +368,9 @@
-         }
-     }
+--- dbus/dbus-message.h	(revision 567)
++++ dbus/dbus-message.h	(working copy)
+@@ -34,6 +34,10 @@
+ #include <dbus/dbus-errors.h>
+ #include <stdarg.h>
  
-+#ifndef DBUS_WIN
-   _DBUS_UNLOCK (bus);
++#ifdef DBUS_WINCE
++#undef interface
 +#endif
- }
++
+ DBUS_BEGIN_DECLS
  
- static DBusConnection *
-Index: dbus/dbus-transport-socket.c
+ /**
+Index: dbus/dbus-server-protected.h
 ===================================================================
---- dbus/dbus-transport-socket.c	(revision 557)
-+++ dbus/dbus-transport-socket.c	(working copy)
-@@ -175,7 +175,7 @@
-   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
-   dbus_bool_t need_read_watch;
+--- dbus/dbus-server-protected.h	(revision 567)
++++ dbus/dbus-server-protected.h	(working copy)
+@@ -144,7 +144,7 @@
+ #define TRACE_LOCKS 0
  
--  _dbus_verbose ("%s: fd = %d\n",
-+  _dbus_verbose (" %s: fd = %d\n",
-                  _DBUS_FUNCTION_NAME, socket_transport->fd);
-   
-   if (transport->connection == NULL)
-@@ -652,7 +652,7 @@
-   int total;
-   dbus_bool_t oom;
+ #define SERVER_LOCK(server)   do {                                              \
+-    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
++    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK  : %s\n", _DBUS_FUNCTION_NAME); }   \
+     _dbus_mutex_lock ((server)->mutex);                                          \
+     TOOK_LOCK_CHECK (server);                                                   \
+   } while (0)
+Index: dbus/dbus-server-socket.c
+===================================================================
+--- dbus/dbus-server-socket.c	(revision 567)
++++ dbus/dbus-server-socket.c	(working copy)
+@@ -161,7 +161,7 @@
+       int client_fd;
+       int listen_fd;
+       
+-      listen_fd = dbus_watch_get_fd (watch);
++      listen_fd = dbus_watch_get_handle (watch);
  
--  _dbus_verbose ("%s: fd = %d\n", _DBUS_FUNCTION_NAME,
-+  _dbus_verbose (" %s: fd = %d\n", _DBUS_FUNCTION_NAME,
-                  socket_transport->fd);
-   
-   /* No messages without authentication! */
-@@ -873,7 +873,7 @@
-                        flags);
-       else
-         _dbus_verbose ("asked to handle watch %p on fd %d that we don't recognize\n",
--                       watch, dbus_watch_get_fd (watch));
-+                       watch, dbus_watch_get_handle (watch));
-     }
- #endif /* DBUS_ENABLE_VERBOSE_MODE */
- 
-@@ -1286,15 +1286,19 @@
+       client_fd = _dbus_accept (listen_fd);
+       
+@@ -393,15 +393,19 @@
            
        if (port == NULL)
          {
-+#ifdef DBUS_WIN
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
 +          port = "0";
 +#else
-           _dbus_set_bad_address (error, "tcp", "port", NULL);
-           return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
+           _dbus_set_bad_address(error, "tcp", "port", NULL);
+           return DBUS_SERVER_LISTEN_BAD_ADDRESS;
 +#endif
          }
  
@@ -1049,26 +905,11 @@ Index: dbus/dbus-transport-socket.c
 -      if (sresult == FALSE || lport <= 0 || lport > 65535)
 +      if (sresult == FALSE || lport < 0 || lport > 65535)
          {
-           _dbus_set_bad_address (error, NULL, NULL,
-                                  "Port is not an integer between 0 and 65535");
-Index: dbus/dbus-transport-socket.h
-===================================================================
---- dbus/dbus-transport-socket.h	(revision 557)
-+++ dbus/dbus-transport-socket.h	(working copy)
-@@ -25,6 +25,10 @@
- 
- #include <dbus/dbus-transport-protected.h>
- 
-+#ifdef DBUS_WIN
-+#include <dbus/dbus-sockets-win.h>
-+#endif
-+
- DBUS_BEGIN_DECLS
- 
- DBusTransport*          _dbus_transport_new_for_socket     (int                fd,
+           _dbus_set_bad_address(error, NULL, NULL, 
+                                 "Port is not an integer between 0 and 65535");
 Index: dbus/dbus-server-unix.c
 ===================================================================
---- dbus/dbus-server-unix.c	(revision 557)
+--- dbus/dbus-server-unix.c	(revision 567)
 +++ dbus/dbus-server-unix.c	(working copy)
 @@ -24,9 +24,9 @@
  #include "dbus-internals.h"
@@ -1086,7 +927,7 @@ Index: dbus/dbus-server-unix.c
      }
  }
  
-+#ifndef DBUS_WIN
++#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
 +
  /**
   * Creates a new server listening on the given Unix domain socket.
@@ -1178,158 +1019,34 @@ Index: dbus/dbus-server-unix.c
 +#endif //DBUS_WIN
  /** @} */
  
-Index: dbus/dbus-transport.c
+Index: dbus/dbus-spawn.c
 ===================================================================
---- dbus/dbus-transport.c	(revision 557)
-+++ dbus/dbus-transport.c	(working copy)
-@@ -674,7 +674,7 @@
-   if (transport->disconnected)
-     return TRUE;
+--- dbus/dbus-spawn.c	(revision 567)
++++ dbus/dbus-spawn.c	(working copy)
+@@ -720,7 +720,7 @@
+   if (condition & DBUS_WATCH_HANGUP)
+     revents |= _DBUS_POLLHUP;
  
--  if (dbus_watch_get_fd (watch) < 0)
-+  if (dbus_watch_get_handle (watch) < 0)
-     {
-       _dbus_warn_check_failed ("Tried to handle an invalidated watch; this watch should have been removed\n");
-       return TRUE;
-Index: dbus/dbus-connection.c
+-  fd = dbus_watch_get_fd (watch);
++  fd = dbus_watch_get_handle (watch);
+ 
+   if (fd == sitter->error_pipe_from_child)
+     handle_error_pipe (sitter, revents);
+Index: dbus/dbus-spawn.h
 ===================================================================
---- dbus/dbus-connection.c	(revision 557)
-+++ dbus/dbus-connection.c	(working copy)
-@@ -62,7 +62,7 @@
- #define TRACE_LOCKS 1
+--- dbus/dbus-spawn.h	(revision 567)
++++ dbus/dbus-spawn.h	(working copy)
+@@ -37,6 +37,7 @@
  
- #define CONNECTION_LOCK(connection)   do {                                      \
--    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
-+    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK  : %s\n", _DBUS_FUNCTION_NAME); }   \
-     _dbus_mutex_lock ((connection)->mutex);                                      \
-     TOOK_LOCK_CHECK (connection);                                               \
-   } while (0)
-@@ -4720,7 +4720,7 @@
- 
- #ifdef DBUS_WIN
-   /* FIXME do this on a lower level */
--  return FALSE;
-+  //return FALSE;
- #endif
-   
-   return dbus_connection_get_socket(connection, fd);
-@@ -4795,7 +4795,7 @@
-    * just want to be sure we don't ship with this API returning
-    * some weird internal fake uid for 1.0
-    */
--  return FALSE;
-+  //return FALSE;
- #endif
-   
-   CONNECTION_LOCK (connection);
-@@ -4834,7 +4834,7 @@
-    * just want to be sure we don't ship with this API returning
-    * some weird internal fake uid for 1.0
-    */
--  return FALSE;
-+  //return FALSE;
- #endif
-   
-   CONNECTION_LOCK (connection);
-Index: dbus/dbus-connection.h
-===================================================================
---- dbus/dbus-connection.h	(revision 557)
-+++ dbus/dbus-connection.h	(working copy)
-@@ -330,6 +330,9 @@
-  */
- 
- int          dbus_watch_get_fd      (DBusWatch        *watch);
-+#if defined (DBUS_COMPILATION)
-+int          dbus_watch_get_handle  (DBusWatch        *watch);
-+#endif
- unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
- void*        dbus_watch_get_data    (DBusWatch        *watch);
- void         dbus_watch_set_data    (DBusWatch        *watch,
-Index: dbus/dbus-test.c
-===================================================================
---- dbus/dbus-test.c	(revision 557)
-+++ dbus/dbus-test.c	(working copy)
-@@ -156,7 +156,9 @@
-   
-   run_test ("hash", specific_test, _dbus_hash_test);
- 
-+#ifndef DBUS_WIN
-   run_data_test ("spawn", specific_test, _dbus_spawn_test, test_data_dir);
-+#endif
-   
-   run_data_test ("userdb", specific_test, _dbus_userdb_test, test_data_dir);
-   
-Index: dbus/dbus-server-socket.c
-===================================================================
---- dbus/dbus-server-socket.c	(revision 557)
-+++ dbus/dbus-server-socket.c	(working copy)
-@@ -161,7 +161,7 @@
-       int client_fd;
-       int listen_fd;
-       
--      listen_fd = dbus_watch_get_fd (watch);
-+      listen_fd = dbus_watch_get_handle (watch);
- 
-       client_fd = _dbus_accept (listen_fd);
-       
-@@ -393,15 +393,19 @@
-           
-       if (port == NULL)
-         {
-+#ifdef DBUS_WIN
-+          port = "0";
-+#else
-           _dbus_set_bad_address(error, "tcp", "port", NULL);
-           return DBUS_SERVER_LISTEN_BAD_ADDRESS;
-+#endif
-         }
- 
-       _dbus_string_init_const (&str, port);
-       sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
-       _dbus_string_free (&str);
-           
--      if (sresult == FALSE || lport <= 0 || lport > 65535)
-+      if (sresult == FALSE || lport < 0 || lport > 65535)
-         {
-           _dbus_set_bad_address(error, NULL, NULL, 
-                                 "Port is not an integer between 0 and 65535");
-Index: dbus/dbus-server-protected.h
-===================================================================
---- dbus/dbus-server-protected.h	(revision 557)
-+++ dbus/dbus-server-protected.h	(working copy)
-@@ -144,7 +144,7 @@
- #define TRACE_LOCKS 0
- 
- #define SERVER_LOCK(server)   do {                                              \
--    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK: %s\n", _DBUS_FUNCTION_NAME); }   \
-+    if (TRACE_LOCKS) { _dbus_verbose ("  LOCK  : %s\n", _DBUS_FUNCTION_NAME); }   \
-     _dbus_mutex_lock ((server)->mutex);                                          \
-     TOOK_LOCK_CHECK (server);                                                   \
-   } while (0)
-Index: dbus/dbus-sysdeps-util.c
-===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 557)
-+++ dbus/dbus-sysdeps-util.c	(working copy)
-@@ -141,6 +141,7 @@
-       exit (1);
-     }
- 
-+#ifndef DBUS_WIN_FIXME
-   _dbus_string_init_const (&str, "0xff");
-   if (!_dbus_string_parse_double (&str,
- 				  0, &val, &pos))
-@@ -158,6 +159,8 @@
-       _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
-       exit (1);
-     }
-+#endif
-+
- #ifdef DBUS_WIN
-   check_path_absolute ("c:/", TRUE);
-   check_path_absolute ("c:/foo", TRUE);
+ dbus_bool_t _dbus_spawn_async_with_babysitter     (DBusBabysitter           **sitter_p,
+                                                    char                     **argv,
++                                                   char                     **env,
+                                                    DBusSpawnChildSetupFunc    child_setup,
+                                                    void                      *user_data,
+                                                    DBusError                 *error);
 Index: dbus/dbus-sysdeps-unix.c
 ===================================================================
---- dbus/dbus-sysdeps-unix.c	(revision 557)
+--- dbus/dbus-sysdeps-unix.c	(revision 567)
 +++ dbus/dbus-sysdeps-unix.c	(working copy)
 @@ -169,6 +169,15 @@
    return _dbus_write (fd, buffer, start, len);
@@ -1411,31 +1128,39 @@ Index: dbus/dbus-sysdeps-unix.c
 +}
 +
  /* tests in dbus-sysdeps-util.c */
-Index: dbus/dbus-transport-unix.c
+Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-transport-unix.c	(revision 557)
-+++ dbus/dbus-transport-unix.c	(working copy)
-@@ -23,11 +23,16 @@
+--- dbus/dbus-sysdeps-util.c	(revision 567)
++++ dbus/dbus-sysdeps-util.c	(working copy)
+@@ -82,7 +82,7 @@
+   double val;
+   int pos;
  
- #include "dbus-internals.h"
- #include "dbus-connection-internal.h"
--#include "dbus-transport-unix.h"
- #include "dbus-transport-socket.h"
- #include "dbus-transport-protected.h"
- #include "dbus-watch.h"
-+
-+#ifndef DBUS_WIN
-+#include "dbus-transport-unix.h"
- #include "dbus-sysdeps-unix.h"
-+#else
-+#include "dbus-sysdeps-win.h"
+-#ifdef DBUS_WIN
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
+   check_dirname ("foo\\bar", "foo");
+   check_dirname ("foo\\\\bar", "foo");
+   check_dirname ("foo/\\/bar", "foo");
+@@ -141,6 +141,7 @@
+       exit (1);
+     }
+ 
++#ifndef DBUS_WIN_FIXME
+   _dbus_string_init_const (&str, "0xff");
+   if (!_dbus_string_parse_double (&str,
+ 				  0, &val, &pos))
+@@ -158,6 +159,8 @@
+       _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
+       exit (1);
+     }
 +#endif
- 
- /**
-  * @defgroup DBusTransportUnix DBusTransport implementations for UNIX
++
+ #ifdef DBUS_WIN
+   check_path_absolute ("c:/", TRUE);
+   check_path_absolute ("c:/foo", TRUE);
 Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus/dbus-sysdeps.c	(revision 557)
+--- dbus/dbus-sysdeps.c	(revision 567)
 +++ dbus/dbus-sysdeps.c	(working copy)
 @@ -119,11 +119,14 @@
         * will get upset about.
@@ -1447,7 +1172,7 @@ Index: dbus/dbus-sysdeps.c
          return FALSE;
  
        strcpy (putenv_value, varname);
-+#ifdef DBUS_WIN
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
 +      strcat (putenv_value, "=");
 +#endif
        
@@ -1466,7 +1191,7 @@ Index: dbus/dbus-sysdeps.c
    struct lconv *locale_data;
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 557)
+--- dbus/dbus-sysdeps.h	(revision 567)
 +++ dbus/dbus-sysdeps.h	(working copy)
 @@ -119,6 +119,7 @@
   * 
@@ -1476,6 +1201,15 @@ Index: dbus/dbus-sysdeps.h
  dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
                                      DBusError        *error);
  dbus_bool_t _dbus_close_socket     (int               fd,
+@@ -229,7 +230,7 @@
+  */
+ struct DBusAtomic
+ {
+-#ifdef DBUS_WIN
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
+   volatile long value; /**< Value of the atomic integer. */
+ #else
+   volatile dbus_int32_t value; /**< Value of the atomic integer. */
 @@ -302,6 +303,12 @@
  
  dbus_bool_t _dbus_get_standard_session_servicedirs (DBusList **dirs);
@@ -1499,16 +1233,339 @@ Index: dbus/dbus-sysdeps.h
  const char* _dbus_get_tmpdir      (void);
  
  /**
-Index: dbus/dbus-internals.c
+Index: dbus/dbus-test.c
 ===================================================================
---- dbus/dbus-internals.c	(revision 557)
-+++ dbus/dbus-internals.c	(working copy)
-@@ -295,7 +295,7 @@
- #include <pthread.h>
- #endif
+--- dbus/dbus-test.c	(revision 567)
++++ dbus/dbus-test.c	(working copy)
+@@ -156,7 +156,9 @@
+   
+   run_test ("hash", specific_test, _dbus_hash_test);
  
--static inline void
-+static void
- _dbus_verbose_init (void)
++#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
+   run_data_test ("spawn", specific_test, _dbus_spawn_test, test_data_dir);
++#endif
+   
+   run_data_test ("userdb", specific_test, _dbus_userdb_test, test_data_dir);
+   
+Index: dbus/dbus-threads.c
+===================================================================
+--- dbus/dbus-threads.c	(revision 567)
++++ dbus/dbus-threads.c	(working copy)
+@@ -810,7 +810,11 @@
+ dbus_bool_t
+ _dbus_threads_init_debug (void)
  {
-   if (!verbose_initted)
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
++  return _dbus_threads_init_platform_specific();
++#else
+   return dbus_threads_init (&fake_functions);
++#endif
+ }
+ 
+ #endif /* DBUS_BUILD_TESTS */
+Index: dbus/dbus-transport-socket.c
+===================================================================
+--- dbus/dbus-transport-socket.c	(revision 567)
++++ dbus/dbus-transport-socket.c	(working copy)
+@@ -175,7 +175,7 @@
+   DBusTransportSocket *socket_transport = (DBusTransportSocket*) transport;
+   dbus_bool_t need_read_watch;
+ 
+-  _dbus_verbose ("%s: fd = %d\n",
++  _dbus_verbose (" %s: fd = %d\n",
+                  _DBUS_FUNCTION_NAME, socket_transport->fd);
+   
+   if (transport->connection == NULL)
+@@ -652,7 +652,7 @@
+   int total;
+   dbus_bool_t oom;
+ 
+-  _dbus_verbose ("%s: fd = %d\n", _DBUS_FUNCTION_NAME,
++  _dbus_verbose (" %s: fd = %d\n", _DBUS_FUNCTION_NAME,
+                  socket_transport->fd);
+   
+   /* No messages without authentication! */
+@@ -873,7 +873,7 @@
+                        flags);
+       else
+         _dbus_verbose ("asked to handle watch %p on fd %d that we don't recognize\n",
+-                       watch, dbus_watch_get_fd (watch));
++                       watch, dbus_watch_get_handle (watch));
+     }
+ #endif /* DBUS_ENABLE_VERBOSE_MODE */
+ 
+@@ -1286,15 +1286,19 @@
+           
+       if (port == NULL)
+         {
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
++          port = "0";
++#else
+           _dbus_set_bad_address (error, "tcp", "port", NULL);
+           return DBUS_TRANSPORT_OPEN_BAD_ADDRESS;
++#endif
+         }
+ 
+       _dbus_string_init_const (&str, port);
+       sresult = _dbus_string_parse_int (&str, 0, &lport, NULL);
+       _dbus_string_free (&str);
+           
+-      if (sresult == FALSE || lport <= 0 || lport > 65535)
++      if (sresult == FALSE || lport < 0 || lport > 65535)
+         {
+           _dbus_set_bad_address (error, NULL, NULL,
+                                  "Port is not an integer between 0 and 65535");
+Index: dbus/dbus-transport-socket.h
+===================================================================
+--- dbus/dbus-transport-socket.h	(revision 567)
++++ dbus/dbus-transport-socket.h	(working copy)
+@@ -25,6 +25,10 @@
+ 
+ #include <dbus/dbus-transport-protected.h>
+ 
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
++#include <dbus/dbus-sockets-win.h>
++#endif
++
+ DBUS_BEGIN_DECLS
+ 
+ DBusTransport*          _dbus_transport_new_for_socket     (int                fd,
+Index: dbus/dbus-transport-unix.c
+===================================================================
+--- dbus/dbus-transport-unix.c	(revision 567)
++++ dbus/dbus-transport-unix.c	(working copy)
+@@ -23,11 +23,16 @@
+ 
+ #include "dbus-internals.h"
+ #include "dbus-connection-internal.h"
+-#include "dbus-transport-unix.h"
+ #include "dbus-transport-socket.h"
+ #include "dbus-transport-protected.h"
+ #include "dbus-watch.h"
++
++#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
++#include "dbus-transport-unix.h"
+ #include "dbus-sysdeps-unix.h"
++#else
++#include "dbus-sysdeps-win.h"
++#endif
+ 
+ /**
+  * @defgroup DBusTransportUnix DBusTransport implementations for UNIX
+Index: dbus/dbus-transport.c
+===================================================================
+--- dbus/dbus-transport.c	(revision 567)
++++ dbus/dbus-transport.c	(working copy)
+@@ -496,7 +496,7 @@
+    * set it and have it only be invoked when appropriate.
+    */
+   dbus_bool_t on_windows = FALSE;
+-#ifdef DBUS_WIN
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
+   on_windows = TRUE;
+ #endif
+   
+@@ -674,7 +674,7 @@
+   if (transport->disconnected)
+     return TRUE;
+ 
+-  if (dbus_watch_get_fd (watch) < 0)
++  if (dbus_watch_get_handle (watch) < 0)
+     {
+       _dbus_warn_check_failed ("Tried to handle an invalidated watch; this watch should have been removed\n");
+       return TRUE;
+Index: dbus/dbus-watch.c
+===================================================================
+--- dbus/dbus-watch.c	(revision 567)
++++ dbus/dbus-watch.c	(working copy)
+@@ -286,7 +286,7 @@
+             
+             _dbus_verbose ("Adding a %s watch on fd %d using newly-set add watch function\n",
+                            watch_type,
+-                           dbus_watch_get_fd (link->data));
++                           dbus_watch_get_handle (link->data));
+           }
+ #endif /* DBUS_ENABLE_VERBOSE_MODE */
+           
+@@ -302,7 +302,7 @@
+                                                              link2);
+                   
+                   _dbus_verbose ("Removing watch on fd %d using newly-set remove function because initial add failed\n",
+-                                 dbus_watch_get_fd (link2->data));
++                                 dbus_watch_get_handle (link2->data));
+                   
+                   (* remove_function) (link2->data, data);
+                   
+@@ -359,7 +359,7 @@
+   if (watch_list->add_watch_function != NULL)
+     {
+       _dbus_verbose ("Adding watch on fd %d\n",
+-                     dbus_watch_get_fd (watch));
++                     dbus_watch_get_handle (watch));
+       
+       if (!(* watch_list->add_watch_function) (watch,
+                                                watch_list->watch_data))
+@@ -390,7 +390,7 @@
+   if (watch_list->remove_watch_function != NULL)
+     {
+       _dbus_verbose ("Removing watch on fd %d\n",
+-                     dbus_watch_get_fd (watch));
++                     dbus_watch_get_handle (watch));
+       
+       (* watch_list->remove_watch_function) (watch,
+                                              watch_list->watch_data);
+@@ -422,7 +422,7 @@
+   if (watch_list->watch_toggled_function != NULL)
+     {
+       _dbus_verbose ("Toggling watch %p on fd %d to %d\n",
+-                     watch, dbus_watch_get_fd (watch), watch->enabled);
++                     watch, dbus_watch_get_handle (watch), watch->enabled);
+       
+       (* watch_list->watch_toggled_function) (watch,
+                                               watch_list->watch_data);
+@@ -490,10 +490,32 @@
+  * @returns the file descriptor to watch.
+  */
+ int
++dbus_watch_get_handle (DBusWatch *watch)
++{
++  return watch->fd;
++}
++
++#if defined(DBUS_WIN) || defined(DBUS_WINCE)
++// never used by the dbus code
++#include "dbus-sysdeps-win.h"
++int 
+ dbus_watch_get_fd (DBusWatch *watch)
+ {
++	DBusSocket *p;
++	if (watch->fd != -1) {
++	    _dbus_handle_to_socket(watch->fd,&p);
++	    return p->fd;
++	}
++	else
++		return -1;
++}
++#else
++int
++dbus_watch_get_fd (DBusWatch *watch)
++{
+   return watch->fd;
+ }
++#endif
+ 
+ /**
+  * Gets flags from DBusWatchFlags indicating
+@@ -546,7 +568,7 @@
+                      DBusFreeFunction  free_data_function)
+ {
+   _dbus_verbose ("Setting watch fd %d data to data = %p function = %p from data = %p function = %p\n",
+-                 dbus_watch_get_fd (watch),
++                 dbus_watch_get_handle (watch),
+                  data, free_data_function, watch->data, watch->free_data_function);
+   
+   if (watch->free_data_function != NULL)
+Index: test/Makefile.am
+===================================================================
+--- test/Makefile.am	(revision 566)
++++ test/Makefile.am	(working copy)
+@@ -117,7 +117,7 @@
+ 		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
+ 	done ;											\
+ 	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
+-		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
++		FILES=`(cd $(srcdir) && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;		\
+ 	        for F in $$FILES; do								\
+ 			SRC=$(srcdir)/$$F ;							\
+ 			DEST=$(top_builddir)/test/$$F ;						\
+Index: test/name-test/test-names.c
+===================================================================
+--- test/name-test/test-names.c	(revision 566)
++++ test/name-test/test-names.c	(working copy)
+@@ -1,9 +1,11 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+-#include <unistd.h>
+ #include <string.h>
+ #include <dbus/dbus.h>
+ #include <dbus/dbus-connection-internal.h>
++#ifdef HAVE_UNISTD_H
++#include <unistd.h>
++#endif
+ 
+ #define REMOVE_CONNECTION 0
+ #define ADD_CONNECTION 1
+Index: test/spawn-test.c
+===================================================================
+--- test/spawn-test.c	(revision 566)
++++ test/spawn-test.c	(working copy)
+@@ -31,7 +31,7 @@
+     argv_copy [i] = argv[i + 1];
+   argv_copy[argc - 1] = NULL;
+   
+-  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, setup_func, NULL, &error))
++  if (!_dbus_spawn_async_with_babysitter (NULL, argv_copy, NULL, setup_func, NULL, &error))
+     {
+       fprintf (stderr, "Could not launch application: \"%s\"\n",
+ 	       error.message);
+Index: test/test-segfault.c
+===================================================================
+--- test/test-segfault.c	(revision 566)
++++ test/test-segfault.c	(working copy)
+@@ -1,10 +1,27 @@
+ /* This is simply a process that segfaults */
++#include <config.h>
+ #include <stdlib.h>
+ #include <signal.h>
+ 
++#ifdef DBUS_WIN
++#define RLIMIT_CORE	4		/* max core file size */
++typedef unsigned long rlim_t;
++struct rlimit {
++	rlim_t	rlim_cur;
++	rlim_t	rlim_max;
++};
++static int getrlimit (int __resource, struct rlimit *__rlp) {
++  return -1;
++}
++static int setrlimit (int __resource, const struct rlimit *__rlp) {
++  return -1;
++}
++#else
+ #include <sys/time.h>
+ #include <sys/resource.h>
++#endif
+ 
++
+ int
+ main (int argc, char **argv)
+ {
+Index: test/test-sleep-forever.c
+===================================================================
+--- test/test-sleep-forever.c	(revision 566)
++++ test/test-sleep-forever.c	(working copy)
+@@ -1,6 +1,12 @@
+ /* This is a process that just sleeps infinitely. */
+ 
++
++#include <config.h>
++#ifndef DBUS_WIN
+ #include <unistd.h>
++#else
++#include <stdlib.h>
++#endif
+ 
+ int
+ main (int argc, char **argv)
+Index: test/test-utils.c
+===================================================================
+--- test/test-utils.c	(revision 566)
++++ test/test-utils.c	(working copy)
+@@ -1,5 +1,7 @@
+ #include "test-utils.h"
+ 
++void _dbus_connection_close_internal (DBusConnection *connection);
++
+ typedef struct
+ {
+   DBusLoop *loop;
