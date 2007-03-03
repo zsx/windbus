@@ -1,0 +1,13 @@
+Index: test/Makefile.am
+===================================================================
+--- test/Makefile.am	(revision 566)
++++ test/Makefile.am	(working copy)
+@@ -117,7 +117,7 @@
+ 		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
+ 	done ;											\
+ 	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
+-		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
++		FILES=`(cd $(srcdir) && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;		\
+ 	        for F in $$FILES; do								\
+ 			SRC=$(srcdir)/$$F ;							\
+ 			DEST=$(top_builddir)/test/$$F ;						\

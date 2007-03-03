@@ -1,0 +1,34 @@
+Index: test/name-test/test-names.c
+===================================================================
+--- test/name-test/test-names.c	(revision 557)
++++ test/name-test/test-names.c	(working copy)
+@@ -1,9 +1,11 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+-#include <unistd.h>
+ #include <string.h>
+ #include <dbus/dbus.h>
+ #include <dbus/dbus-connection-internal.h>
++#ifdef HAVE_UNISTD_H
++#include <unistd.h>
++#endif
+ 
+ #define REMOVE_CONNECTION 0
+ #define ADD_CONNECTION 1
+Index: test/test-sleep-forever.c
+===================================================================
+--- test/test-sleep-forever.c	(revision 557)
++++ test/test-sleep-forever.c	(working copy)
+@@ -1,6 +1,12 @@
+ /* This is a process that just sleeps infinitely. */
+ 
++
++#include <config.h>
++#ifndef DBUS_WIN
+ #include <unistd.h>
++#else
++#include <stdlib.h>
++#endif
+ 
+ int
+ main (int argc, char **argv)
