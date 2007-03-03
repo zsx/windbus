@@ -1,13 +1,34 @@
 Index: test/Makefile.am
 ===================================================================
---- test/Makefile.am	(revision 566)
-+++ test/Makefile.am	(working copy)
-@@ -117,7 +117,7 @@
+RCS file: /cvs/dbus/dbus/test/Makefile.am,v
+retrieving revision 1.43
+diff -u -3 -p -B -u -b -B -r1.43 Makefile.am
+--- test/Makefile.am	1 Oct 2006 15:36:18 -0000	1.43
++++ test/Makefile.am	3 Mar 2007 17:39:55 -0000
+@@ -104,7 +104,7 @@ dist-hook:
+ 	for D in $(TESTDIRS); do						\
+ 		test -d $(distdir)/$$D || mkdir $(distdir)/$$D || exit 1 ;	\
+ 	done ;									\
+-	FILES=`(cd $(srcdir) && $(FIND_TESTS) -o -name "*.in" -a -not -name Makefile.in)` ;					\
++	FILES=`(cd $(srcdir) && $(FIND_TESTS) -o -name "*.in" -a -not -name Makefile.in | grep -Ev "(.svn|CVS)" )` ;					\
+         for F in $$FILES; do							\
+                 echo '-- Disting file '$$F ;					\
+ 		cp -f $(srcdir)/$$F $(distdir)/$$F || exit 1 ;				\
+@@ -117,7 +117,7 @@ all-local:
  		test -d $(top_builddir)/test/$$D || mkdir $(top_builddir)/test/$$D || exit 1 ;	\
  	done ;											\
  	if ! (test $(srcdir) = . || test $(srcdir) -ef .) ; then								\
 -		FILES=`(cd $(srcdir) && $(FIND_TESTS))` ;					\
-+		FILES=`(cd $(srcdir) && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;		\
++		FILES=`(cd $(srcdir) && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;					\
  	        for F in $$FILES; do								\
  			SRC=$(srcdir)/$$F ;							\
  			DEST=$(top_builddir)/test/$$F ;						\
+@@ -135,7 +135,7 @@ all-local:
+ ## this doesn't clean generated test data files when srcdir=builddir
+ clean-local:
+ 	if test $(srcdir) != . ; then					\
+-		FILES=`(cd $(top_builddir)/test && $(FIND_TESTS))` ;	\
++		FILES=`(cd $(top_builddir)/test && $(FIND_TESTS) | grep -Ev "(.svn|CVS)" )` ;	\
+ 	        for F in $$FILES; do					\
+ 			DEST=$(top_builddir)/test/$$F ;			\
+ 	                echo '-- Deleting test file '$$F ;		\
