@@ -1,7 +1,7 @@
 set (PACKAGE dbus)
 set (VERSION_MAJOR "1")
 set (VERSION_MINOR "0")
-set (VERSION_PATCH "1")
+set (VERSION_PATCH "0")
 set (VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH} )
 project(${PACKAGE})
 
@@ -449,8 +449,6 @@ if (DBUS_BUILD_TESTS)
 	add_subdirectory( test )
 endif (DBUS_BUILD_TESTS)
 add_subdirectory( tools )
-# small sized pkg-config emulation
-add_subdirectory( pkg-config )
 
 
 OPTION(DBUS_INSTALL_SYSTEM_LIBS "install required system libraries" OFF)

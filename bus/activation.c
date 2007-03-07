@@ -34,7 +34,6 @@
 #include <dbus/dbus-spawn.h>
 #include <dbus/dbus-timeout.h>
 #include <dbus/dbus-sysdeps.h>
-#include <dirent.h>
 #include <errno.h>
 
 #define DBUS_SERVICE_SECTION "D-BUS Service"
@@ -1310,6 +1309,7 @@ bus_activation_activate_service (BusActivation  *activation,
   DBusMessage *message;
   DBusString service_str;
   char **argv;
+  char **envp = NULL;
   int argc;
   dbus_bool_t retval;
   DBusHashIter iter;
@@ -1541,6 +1541,7 @@ bus_activation_activate_service (BusActivation  *activation,
 
   _dbus_verbose ("Spawning %s ...\n", argv[0]);
   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,
+                                          envp,
                                           child_setup, activation, 
                                           error))
     {

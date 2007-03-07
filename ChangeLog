@@ -1,3 +1,117 @@
+2007-03-07  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* test/test-segfault.c: unix compile fix.
+	* dbus-win.patch: removed obsolate patches.
+
+2007-03-07  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* bus/activation.c: removed obsolate include header.
+	* test/test-segfault.c: win32 compile fix, rlimit 
+	isn't available on win32.
+	* dbus-win.patch: removed some more patches, they
+	are applied or obsolate 
+
+2007-03-06  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* bus-win.patch: fixes unix listen problems, dbus-test 
+	now runs.
+
+2007-03-06  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/dbus/CMakeLists.txt,cmake/bus/CMakeLists.txt,
+	cmake/CMakeLists.txt: win32 compile fix
+
+2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus-win.patch, README.win: added available win32 
+	patches from windbus project (http://sf.net/projects/windbus)
+
+2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* bus/activation.c: (bus_activation_activate_service):
+	fixed call to _dbus_spawn_async_with_babysitter().
+
+2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-spawn.c,dbus/dbus-spawn.h (_dbus_spawn_async_with_babysitter):
+	added environment pointer as function parameter, used on win32.
+
+	* test/spawn-test.c: fixed call to above mentioned function.
+
+2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* configure.in,test/test-sleep-forever.c,test/test-names.c: 
+	added configure check for unistd.h.
+
+2007-03-04  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* test/Makefile.am: fixed test data copy problem in 
+	out of source build, when sources came from svn or cvs. 
+
+2007-03-03  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/*-win.*,bus/*-win.*: added win32 platform related
+	files. These files are only added to the cmake build system.  
+	The missing dbus-win.patch file will be added later. 
+
+2007-03-03  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake: new directory, contains cmake build support.
+	See http://www.cmake.org for more informations.
+	Currently only unix will be buildable because some 
+	win32 required files are still missing. 
+
+2007-03-03  Thiago Macieira  <thiago@kde.org>
+
+	* dbus/dbus-sysdeps-unix.c: capture the dbus-launch stderr
+        output and add it to the DBusError message we return.
+
+	* tools/dbus-launch.1:
+	* tools/dbus-launch.c: Add option --close-stderr to, well,
+	close stderr before starting dbus-daemon.
+
+2007-01-31  Havoc Pennington  <hp@redhat.com>
+
+	* bus/dbus-daemon.1.in: write a section in the man page on running
+	a test daemon for debugging purposes
+
+2007-01-26  Havoc Pennington  <hp@redhat.com>
+
+	* bus/session.conf.in: override all the default limits with much
+	higher limits on the session bus, there is no reason the session
+	bus should have low limits
+
+	* bus/config-parser.c (bus_config_parser_new): increase default
+	limits so they are less likely to be hit; in particular the max
+	replies per connection was way too low
+
+2006-01-25  Simon McVittie  <simon.mcvittie@collabora.co.uk>
+
+	* doc/dbus-tutorial.xml: Replace Python section of tutorial with
+	a pointer to the tutorial maintained as part of dbus-python
+
+2006-12-31  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-unix.c: unix compile fix, moved 
+	atomic_exchange_and_add() from dbus/dbus-sysdeps.c 
+	to here, it's used by _dbus_atomic_inc() and _dbus_atomic_dec().
+
+2006-12-31  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* tools/dbus-monitor.c: gettimeofday() is not available 
+	on windows so we have to provide our own. It's taken from 
+	lgpl'd kdewin32 package. - Patches from Christian Ehrlicher
+
+2006-12-31  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-unix.c: moved _dbus_atomic_inc/dec() 
+	from dbus/dbus-sysdeps.c, windows version of _dbus_atomic_inc/dec() 
+	is in dbus-sysdeps-win.c (not in this patch).
+
+	* dbus/dbus-sysdeps.h: DBusAtomic::value is long on windows to fit 
+	with InterlockedInc/Decrement. 
+	- Patches from Christian Ehrlicher
+	
 2006-12-31  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* tools/dbus-send.c, tools/dbus-monitor.c: win32 compile fix.
