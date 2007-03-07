@@ -17,4 +17,10 @@
 /dbus-1.pc.in/1.4/Thu Oct 26 18:06:07 2006//
 /dbus-win.patch/1.5/Wed Mar  7 19:09:57 2007//
 /update-dbus-docs.sh/1.5/Sat Nov 18 03:30:36 2006//
-D
+D/bus////
+D/cmake////
+D/dbus////
+D/doc////
+D/glib////
+D/test////
+D/tools////
