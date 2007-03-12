@@ -447,7 +447,7 @@ DIR * _dbus_opendir(const char *dir)
   dp = (DIR *)malloc(sizeof(DIR));
   dp->offset = 0;
   dp->finished = 0;
-  dp->dir = strdup(dir);
+  dp->dir = _strdup(dir);
 
   if ((handle = _findfirst(filespec, &(dp->fileinfo))) < 0)
     {
