@@ -46,6 +46,7 @@
 #include "dbus-list.h"
 
 #include <windows.h>
+#include <tchar.h>
 #include <fcntl.h>
 
 #include <process.h>
