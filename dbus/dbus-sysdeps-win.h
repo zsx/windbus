@@ -40,12 +40,16 @@
 #include <share.h>
 #include <direct.h>
 
-#define mkdir(path, mode) _mkdir (path)
+//#define mkdir(path, mode) _mkdir (path)
 
 #ifndef DBUS_WINCE
 #ifndef S_ISREG
 #define S_ISREG(mode) (((mode) & S_IFMT) == S_IFREG)
 #endif
+#endif // !DBUS_WINCE
+
+#ifdef DBUS_WINCE
+#define DBUS_WINCE_EXE_PATH _T("\\Program Files\\DBus\\dbus-daemon.exe")
 #endif
 
 /* Declarations missing in mingw's headers */
