@@ -52,6 +52,14 @@
 #define DBUS_WINCE_EXE_PATH _T("\\Program Files\\DBus\\dbus-daemon.exe")
 #endif
 
+#ifndef _tfdopen
+#ifdef _UNICODE
+#define _tfdopen _wfdopen
+#else
+#define _tfdopen _fdopen
+#endif // _UNICODE
+#endif // _tfdopen
+
 /* Declarations missing in mingw's headers */
 extern BOOL WINAPI ConvertStringSidToSidA (LPCSTR  StringSid, PSID *Sid);
 extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
