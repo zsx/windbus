@@ -85,7 +85,11 @@ _dbus_write_pid_file (const DBusString *filename,
       return FALSE;
     }
 
-  if ((f = _tfdopen ((void*) file.FDATA, _T("w"))) == NULL)
+  if ((f = _tfdopen (
+#ifdef DBUS_WINCE
+      (void*)
+#endif
+      file.FDATA, _T("w"))) == NULL)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to fdopen fd %d: %s", file.FDATA, _dbus_strerror (errno));
