@@ -170,6 +170,57 @@ _dbus_write_socket (int               fd,
 }
 
 /**
+ * write data to a pipe.
+ *
+ * @param pipe the pipe instance
+ * @param buffer the buffer to write data from
+ * @param start the first byte in the buffer to write
+ * @param len the number of bytes to try to write
+ * @param error error return
+ * @returns the number of bytes written or -1 on error
+ */
+int
+_dbus_pipe_write (DBusPipe         *pipe,
+                  const DBusString *buffer,
+                  int               start,
+                  int               len,
+                  DBusError        *error)
+{
+  int written;
+  
+  written = _dbus_write (pipe->fd_or_handle, buffer, start, len);
+  if (written < 0)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Writing to pipe: %s\n",
+                      _dbus_strerror (errno));
+    }
+  return written;
+}
+
+/**
+ * close a pipe.
+ *
+ * @param pipe the pipe instance
+ * @param error return location for an error
+ * @returns #FALSE if error is set
+ */
+int
+_dbus_pipe_close  (DBusPipe         *pipe,
+                   DBusError        *error)
+{
+  if (_dbus_close (pipe->fd_or_handle, error) < 0)
+    {
+      return -1;
+    }
+  else
+    {
+      _dbus_pipe_invalidate (pipe);
+      return 0;
+    }
+}
+
+/**
  * Like _dbus_write_two() but only works on sockets and is thus
  * available on Windows.
  * 
@@ -757,21 +808,24 @@ _dbus_connect_tcp_socket (const char     *host,
  * Creates a socket and binds it to the given path,
  * then listens on the socket. The socket is
  * set to be nonblocking. 
+ * In case of port=0 a random free port is used and 
+ * returned in the port parameter. 
  *
  * @param host the host name to listen on
- * @param port the prot to listen on
+ * @param port the prot to listen on, if zero a free port will be used 
  * @param error return location for errors
  * @returns the listening file descriptor or -1 on error
  */
 int
 _dbus_listen_tcp_socket (const char     *host,
-                         dbus_uint32_t   port,
+                         dbus_uint32_t  *port,
                          DBusError      *error)
 {
   int listen_fd;
   struct sockaddr_in addr;
   struct hostent *he;
   struct in_addr *haddr;
+  socklen_t len = (socklen_t) sizeof (struct sockaddr);
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
@@ -799,13 +853,13 @@ _dbus_listen_tcp_socket (const char     *host,
   _DBUS_ZERO (addr);
   memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = htons (port);
+  addr.sin_port = htons (*port);
 
   if (bind (listen_fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s:%d\": %s",
-                      host, port, _dbus_strerror (errno));
+                      host, *port, _dbus_strerror (errno));
       _dbus_close (listen_fd, NULL);
       return -1;
     }
@@ -814,10 +868,13 @@ _dbus_listen_tcp_socket (const char     *host,
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),  
                       "Failed to listen on socket \"%s:%d\": %s",
-                      host, port, _dbus_strerror (errno));
+                      host, *port, _dbus_strerror (errno));
       _dbus_close (listen_fd, NULL);
       return -1;
     }
+
+  getsockname(listen_fd, (struct sockaddr*) &addr, &len);
+  *port = (dbus_uint32_t) ntohs(addr.sin_port);
 
   if (!_dbus_set_fd_nonblocking (listen_fd, error))
     {

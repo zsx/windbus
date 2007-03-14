@@ -68,7 +68,7 @@ if(MSVC)
 		set(CMAKE_CXX_WARNING_LEVEL 3 CACHE TYPE STRING FORCE)
 	endif (WALL)
 	
-	SET(MSVC_W_ERROR   " /we4028 /we4013 /we4133 /we4047 /we4031 /we4002 /we4003 /we4114 /we4022")
+	SET(MSVC_W_ERROR   " /we4028 /we4013 /we4133 /we4047 /we4031 /we4002 /we4003 /we4114")
 	SET(MSVC_W_DISABLE " /wd4127 /wd4090 /wd4101 /wd4244")
 
 	SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
@@ -93,7 +93,8 @@ if(wince)
 	include_directories(${wcelibcex}/include/wcelibcex ${wcelibcex}/src)
 	
 	add_definitions(
-			-DDBUS_WINCE
+# see config.h.cmake
+#			-DDBUS_WINCE
 			-DWINCE
 			-DWIN32_PLATFORM_PSPC
 			-D_WINDOWS
@@ -226,11 +227,6 @@ OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)
 
 #AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentation (requires xmlto)]),enable_xml_docs=$enableval,enable_xml_docs=auto)
 #xmldocs missing
-
-#AC_ARG_ENABLE(doxygen-docs, AS_HELP_STRING([--enable-doxygen-docs],[build DOXYGEN documentation (requires Doxygen)]),enable_doxygen_docs=$enableval,enable_doxygen_docs=auto)
-if(DOXYGEN)
-  OPTION(DBUS_ENABLE_DOXYGEN_DOCS "build DOXYGEN documentation (requires Doxygen)" ON)
-endif(DOXYGEN)
 
 #AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
 OPTION(DBUS_GCOV_ENABLED "compile with coverage profiling instrumentation (gcc only)" OFF)
@@ -449,6 +445,7 @@ if (DBUS_BUILD_TESTS)
 	add_subdirectory( test )
 endif (DBUS_BUILD_TESTS)
 add_subdirectory( tools )
+add_subdirectory( doc )
 
 
 OPTION(DBUS_INSTALL_SYSTEM_LIBS "install required system libraries" OFF)

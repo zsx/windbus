@@ -117,9 +117,20 @@
 /* Define to 1 if you have struct cmsgred */
 #cmakedefine    HAVE_CMSGCRED 1
 
-#if defined(_WIN32) || defined(_WIN64)
+// system type defines
+#if defined(_WIN32) || defined(_WIN64) || defined (_WIN32_WCE)
 # define DBUS_WIN
 # define DBUS_WIN_FIXME 1
+# ifdef _WIN32_WCE
+#  define DBUS_WINCE
+# else
+#  define DBUS_WIN32
+# endif
+#else
+# define DBUS_UNIX
+#endif 
+
+#if defined(_WIN32) || defined(_WIN64)
 // mingw mode_t
 # ifdef HAVE_STDIO_H
 #  include <stdio.h>

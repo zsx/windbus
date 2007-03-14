@@ -40,25 +40,13 @@
 #include <share.h>
 #include <direct.h>
 
-//#define mkdir(path, mode) _mkdir (path)
+#define mkdir(path, mode) _mkdir (path)
 
 #ifndef DBUS_WINCE
 #ifndef S_ISREG
 #define S_ISREG(mode) (((mode) & S_IFMT) == S_IFREG)
 #endif
-#endif // !DBUS_WINCE
-
-#ifdef DBUS_WINCE
-#define DBUS_WINCE_EXE_PATH _T("\\Program Files\\DBus\\dbus-daemon.exe")
 #endif
-
-#ifndef _tfdopen
-#ifdef _UNICODE
-#define _tfdopen _wfdopen
-#else
-#define _tfdopen _fdopen
-#endif // _UNICODE
-#endif // _tfdopen
 
 /* Declarations missing in mingw's headers */
 extern BOOL WINAPI ConvertStringSidToSidA (LPCSTR  StringSid, PSID *Sid);
@@ -134,20 +122,20 @@ _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
 
 typedef struct DBusFile DBusFile;
 
-dbus_bool_t _dbus_open_file (DBusFile   *file,
+dbus_bool_t _dbus_file_open (DBusFile   *file,
                              const char *filename,
                              int         oflag,
                              int         pmode);
 
-dbus_bool_t _dbus_close_file (DBusFile  *file,
+dbus_bool_t _dbus_file_close (DBusFile  *file,
                               DBusError *error);
 
 
-int _dbus_read_file  (DBusFile   *file,
+int _dbus_file_read  (DBusFile   *file,
                       DBusString *buffer,
                       int         count);
 
-int _dbus_write_file (DBusFile         *file,
+int _dbus_file_write (DBusFile         *file,
                       const DBusString *buffer,
                       int               start,
                       int               len);

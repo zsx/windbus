@@ -46,7 +46,6 @@
 #include "dbus-list.h"
 
 #include <windows.h>
-#include <tchar.h>
 #include <fcntl.h>
 
 #include <process.h>
@@ -130,18 +129,15 @@ DBusString *_dbus_get_working_dir(void)
  *
  */
 dbus_bool_t
-_dbus_open_file (DBusFile   *file,
+_dbus_file_open (DBusFile   *file,
                  const char *filename,
                  int         oflag,
                  int         pmode)
 {
-#ifndef DBUS_WINCE
   if (pmode!=-1)
     file->FDATA = _open (filename, oflag, pmode);
   else
-#endif // DBUS_WINCE
     file->FDATA = _open (filename, oflag);
-
   if (file->FDATA >= 0)
     return TRUE;
   else
@@ -152,7 +148,7 @@ _dbus_open_file (DBusFile   *file,
 }
 
 dbus_bool_t
-_dbus_close_file (DBusFile  *file,
+_dbus_file_close (DBusFile  *file,
                   DBusError *error)
 {
   const int fd = file->FDATA;
@@ -176,7 +172,7 @@ _dbus_close_file (DBusFile  *file,
 }
 
 int
-_dbus_read_file(DBusFile   *file,
+_dbus_file_read(DBusFile   *file,
                 DBusString *buffer,
                 int         count)
 {
@@ -228,7 +224,7 @@ _dbus_read_file(DBusFile   *file,
 }
 
 int
-_dbus_write_file (DBusFile         *file,
+_dbus_file_write (DBusFile         *file,
                   const DBusString *buffer,
                   int               start,
                   int               len)
@@ -270,25 +266,58 @@ dbus_bool_t _dbus_fstat (DBusFile    *file,
   return fstat(file->FDATA, sb) >= 0;
 }
 
+/**
+ * write data to a pipe.
+ *
+ * @param pipe the pipe instance
+ * @param buffer the buffer to write data from
+ * @param start the first byte in the buffer to write
+ * @param len the number of bytes to try to write
+ * @param error error return
+ * @returns the number of bytes written or -1 on error
+ */
 int
-_dbus_write_pipe (DBusPipe          pipe,
+_dbus_pipe_write (DBusPipe         *pipe,
                   const DBusString *buffer,
                   int               start,
-                  int               len)
+                  int               len,
+                  DBusError        *error)
 {
-	DBusFile file;
-	file.FDATA = pipe;
-	return _dbus_write_file(&file, buffer, start, len);
+  int written;
+  DBusFile file;
+  file.FDATA = pipe->fd_or_handle;
+  written = _dbus_file_write (&file, buffer, start, len);
+  if (written < 0)
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "Writing to pipe: %s\n",
+                      _dbus_strerror (errno));
+    }
+  return written;
 }
 
+/**
+ * close a pipe.
+ *
+ * @param pipe the pipe instance
+ * @param error return location for an error
+ * @returns #FALSE if error is set
+ */
 int
-_dbus_read_pipe(DBusPipe    pipe,
-                DBusString *buffer,
-                int         count)
+_dbus_pipe_close  (DBusPipe         *pipe,
+                   DBusError        *error)
 {
-	DBusFile file;
-	file.FDATA = pipe;
-	return _dbus_read_file(&file, buffer, count);
+  DBusFile file;
+  file.FDATA = pipe->fd_or_handle;
+  if (_dbus_file_close (&file, error) < 0)
+    {
+      return -1;
+    }
+  else
+    {
+      _dbus_pipe_invalidate (pipe);
+      return 0;
+    }
 }
 
 #undef FDATA
@@ -649,7 +678,7 @@ _dbus_close_socket (int        handle,
       if (s->port_file_fd >= 0)
         {
           _chsize (s->port_file_fd, 0);
-          _close (s->port_file_fd);
+          close (s->port_file_fd);
           s->port_file_fd = -1;
           unlink (_dbus_string_get_const_data (&s->port_file));
           free ((char *) _dbus_string_get_const_data (&s->port_file));
@@ -864,7 +893,6 @@ _dbus_connect_unix_socket (const char     *path,
                            DBusError      *error)
 {
 #ifdef DBUS_WINCE
-	// We don't support this on WinCE
 	return -1;
 #else
   int fd, n, port;
@@ -940,7 +968,6 @@ _dbus_listen_unix_socket (const char     *path,
                           DBusError      *error)
 {
 #ifdef DBUS_WINCE
-	// We don't support this on WinCE
 	return -1;
 #else
   DBusSocket *s;
@@ -1074,10 +1101,6 @@ _dbus_account_to_win_sid (const wchar_t  *waccount,
                           void          **ppsid,
                           DBusError      *error)
 {
-#ifdef DBUS_WINCE
-	return TRUE;
-	//TODO
-#else
   dbus_bool_t retval = FALSE;
   DWORD sid_length, wdomain_length;
   SID_NAME_USE use;
@@ -1134,7 +1157,6 @@ out1:
     }
 
   return retval;
-#endif // DBUS_WINCE
 }
 
 
@@ -1315,7 +1337,9 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
   else
     {
       char *dc_string = _dbus_win_utf16_to_utf8(dc,error);
-      _dbus_warn("NetUserGetInfo() failed with errorcode %d '%s', %s\n",ret,_dbus_lm_strerror(ret),dc_string);
+	  char *user_name = _dbus_win_utf16_to_utf8(wname,error);
+      _dbus_warn("NetUserGetInfo() for user '%s' failed with errorcode %d '%s', %s\n",user_name, ret,_dbus_lm_strerror(ret),dc_string);
+      dbus_free(user_name);
       dbus_free(dc_string);
       /* Not set, so use something random. */
       info->homedir = _dbus_strdup ("\\");
@@ -1585,22 +1609,13 @@ int _dbus_printf_string_upper_bound (const char *format,
    */
   char p[1024];
   int len;
-#ifdef DBUS_WINCE
-  len = _vsnprintf (p, sizeof(p)-1, format, args);
-#else
   len = vsnprintf (p, sizeof(p)-1, format, args);
-#endif
   if (len == -1) // try again
     {
       char *p;
       p = malloc (strlen(format)*3);
-#ifdef DBUS_WINCE
-      len = _vsnprintf (p, sizeof(p)-1, format, args);
-#else
       len = vsnprintf (p, sizeof(p)-1, format, args);
-#endif
-	  free(p);
-
+      free(p);
     }
   return len;
 }
@@ -1711,10 +1726,6 @@ _dbus_win_account_to_sid (const wchar_t *waccount,
                           void      	 **ppsid,
                           DBusError 	  *error)
 {
-#ifdef DBUS_WINCE
-	return TRUE;
-	//TODO
-#else
   dbus_bool_t retval = FALSE;
   DWORD sid_length, wdomain_length;
   SID_NAME_USE use;
@@ -1771,7 +1782,6 @@ out1:
     }
 
   return retval;
-#endif // DBUS_WINCE
 }
 
 static void
@@ -1800,10 +1810,6 @@ _sid_atom_cache_shutdown (void *unused)
 dbus_uid_t
 _dbus_win_sid_to_uid_t (PSID psid)
 {
-#ifdef DBUS_WINCE
-  //TODO
-  return 0;
-#else
   dbus_uid_t uid;
   dbus_uid_t olduid;
   char *string;
@@ -1854,15 +1860,10 @@ _dbus_win_sid_to_uid_t (PSID psid)
   _DBUS_UNLOCK (sid_atom_cache);
 
   return uid;
-#endif
 }
 
 dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
 {
-#ifdef DBUS_WINCE
-  //TODO
-  return FALSE;
-#else
   void* atom;
   char string[255];
 
@@ -1885,7 +1886,6 @@ dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
     }
   _dbus_verbose("%s converted %s into sid \n",__FUNCTION__, string);
   return TRUE;
-#endif
 }
 
 
@@ -1898,10 +1898,6 @@ dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
 dbus_uid_t
 _dbus_getuid(void)
 {
-#ifdef DBUS_WINCE
-  //TODO
-  return 0;
-#else
   dbus_uid_t retval = DBUS_UID_UNSET;
   HANDLE process_token = NULL;
   TOKEN_USER *token_user = NULL;
@@ -1922,7 +1918,6 @@ _dbus_getuid(void)
 
   _dbus_verbose("_dbus_getuid() returns %d\n",retval);
   return retval;
-#endif
 }
 
 #ifdef DBUS_BUILD_TESTS
@@ -1932,10 +1927,6 @@ _dbus_getuid(void)
 dbus_gid_t
 _dbus_getgid (void)
 {
-#ifdef DBUS_WINCE
-  //TODO
-  return 0;
-#else
   dbus_gid_t retval = DBUS_GID_UNSET;
   HANDLE process_token = NULL;
   TOKEN_PRIMARY_GROUP *token_primary_group = NULL;
@@ -1957,7 +1948,6 @@ _dbus_getgid (void)
     CloseHandle (process_token);
 
   return retval;
-#endif // DBUS_WINCE
 }
 
 #if 0
@@ -2501,30 +2491,26 @@ void
 _dbus_win_set_error_from_win_error (DBusError *error,
                                     int        code)
 {
-  LPTSTR msg;
+  char *msg;
 
   /* As we want the English message, use the A API */
-  FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER |
+  FormatMessageA (FORMAT_MESSAGE_ALLOCATE_BUFFER |
                   FORMAT_MESSAGE_IGNORE_INSERTS |
                   FORMAT_MESSAGE_FROM_SYSTEM,
                   NULL, code, MAKELANGID (LANG_ENGLISH, SUBLANG_ENGLISH_US),
                   (LPTSTR) &msg, 0, NULL);
   if (msg)
     {
-      char * msg_copy;
-      msg_copy = dbus_malloc (_tcslen (msg));
+      char *msg_copy;
 
-#ifdef _UNICODE
-	  sprintf(msg_copy, "%S", msg);
-#else
-      strcpy(msg_copy, msg);
-#endif
+      msg_copy = dbus_malloc (strlen (msg));
+      strcpy (msg_copy, msg);
       LocalFree (msg);
 
-	  dbus_set_error (error, "Win32 error", "%s", msg_copy);
+      dbus_set_error (error, "win32.error", "%s", msg_copy);
     }
   else
-    dbus_set_error_const (error, "Win32 error", "Unknown error code or FormatMessage failed");
+    dbus_set_error_const (error, "win32.error", "Unknown error code or FormatMessage failed");
 }
 
 void
@@ -3485,16 +3471,18 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port);
  * Creates a socket and binds it to the given port,
  * then listens on the socket. The socket is
  * set to be nonblocking. 
+ * In case of port=0 a random free port is used and 
+ * returned in the port parameter. 
  *
  * @param host the interface to listen on, NULL for loopback, empty for any
- * @param port the port to listen on, if zero a free port will be used
+ * @param port the port to listen on, if zero a free port will be used 
  * @param error return location for errors
  * @returns the listening file descriptor or -1 on error
  */
 
 int
 _dbus_listen_tcp_socket (const char     *host,
-                         dbus_uint32_t   port,
+                         dbus_uint32_t  *port,
                          DBusError      *error)
 {
   DBusSocket slisten;
@@ -3502,7 +3490,7 @@ _dbus_listen_tcp_socket (const char     *host,
   struct sockaddr_in addr;
   struct hostent *he;
   struct in_addr *haddr;
-  int len =  sizeof (struct sockaddr);
+  socklen_t len = (socklen_t) sizeof (struct sockaddr);
   struct in_addr ina;
 
 
@@ -3551,14 +3539,14 @@ _dbus_listen_tcp_socket (const char     *host,
   _DBUS_ZERO (addr);
   memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
   addr.sin_family = AF_INET;
-  addr.sin_port = htons (port);
+  addr.sin_port = htons (*port);
 
   if (bind (slisten.fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
     {
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to bind socket \"%s:%d\": %s",
-                      host, port, _dbus_strerror (errno));
+                      host, *port, _dbus_strerror (errno));
       DBUS_CLOSE_SOCKET (slisten.fd);
       return -1;
     }
@@ -3568,14 +3556,14 @@ _dbus_listen_tcp_socket (const char     *host,
       DBUS_SOCKET_SET_ERRNO ();
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to listen on socket \"%s:%d\": %s",
-                      host, port, _dbus_strerror (errno));
+                      host, *port, _dbus_strerror (errno));
       DBUS_CLOSE_SOCKET (slisten.fd);
       return -1;
     }
 
-
   getsockname(slisten.fd, (struct sockaddr*) &addr, &len);
-
+  *port = (dbus_uint32_t) ntohs(addr.sin_port);
+  
   _dbus_daemon_init(host, ntohs(addr.sin_port));
 
   handle = _dbus_socket_to_handle (&slisten);
@@ -3632,30 +3620,61 @@ retry:
 
 
 dbus_bool_t
-write_credentials_byte (int             server_fd,
+write_credentials_byte (int            handle,
                         DBusError      *error)
 {
-  /* FIXME: for the session bus credentials shouldn't matter (?), but
-   * for the system bus they are presumably essential. A rough outline
-   * of a way to implement the credential transfer would be this:
-   *
-   * client waits to *read* a byte.
-   *
-   * server creates a named pipe with a random name, sends a byte
-   * contining its length, and its name.
-   *
-   * client reads the name, connects to it (using Win32 API).
-   *
-   * server waits for connection to the named pipe, then calls
-   * ImpersonateNamedPipeClient(), notes its now-current credentials,
-   * calls RevertToSelf(), closes its handles to the named pipe, and
-   * is done. (Maybe there is some other way to get the SID of a named
-   * pipe client without having to use impersonation?)
-   *
-   * client closes its handles and is done.
-   *
-   */
+/* FIXME: for the session bus credentials shouldn't matter (?), but
+ * for the system bus they are presumably essential. A rough outline
+ * of a way to implement the credential transfer would be this:
+ *
+ * client waits to *read* a byte.
+ *
+ * server creates a named pipe with a random name, sends a byte
+ * contining its length, and its name.
+ *
+ * client reads the name, connects to it (using Win32 API).
+ *
+ * server waits for connection to the named pipe, then calls
+ * ImpersonateNamedPipeClient(), notes its now-current credentials,
+ * calls RevertToSelf(), closes its handles to the named pipe, and
+ * is done. (Maybe there is some other way to get the SID of a named
+ * pipe client without having to use impersonation?)
+ *
+ * client closes its handles and is done.
+ * 
+ * Ralf: Why not sending credentials over the given this connection ?
+ * Using named pipes makes it impossible to be connected from a unix client.  
+ *
+ */
+  int bytes_written;
+  DBusString buf; 
 
+  _dbus_string_init_const_len (&buf, "\0", 1);
+again:
+  bytes_written = _dbus_write_socket (handle, &buf, 0, 1 );
+
+  if (bytes_written < 0 && errno == EINTR)
+    goto again;
+
+  if (bytes_written < 0)
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Failed to write credentials byte: %s",
+                     _dbus_strerror (errno));
+      return FALSE;
+    }
+  else if (bytes_written == 0)
+    {
+      dbus_set_error (error, DBUS_ERROR_IO_ERROR,
+                      "wrote zero bytes writing credentials byte");
+      return FALSE;
+    }
+  else
+    {
+      _dbus_assert (bytes_written == 1);
+      _dbus_verbose ("wrote 1 zero byte, credential sending isn't implemented yet\n");
+      return TRUE;
+    }
   return TRUE;
 }
 
@@ -3678,12 +3697,23 @@ write_credentials_byte (int             server_fd,
  * @returns #TRUE on success
  */
 dbus_bool_t
-_dbus_read_credentials_unix_socket  (int              client_fd,
+_dbus_read_credentials_unix_socket  (int              handle,
                                      DBusCredentials *credentials,
                                      DBusError       *error)
 {
-  /* FIXME bogus testing credentials */
+  int bytes_read;
+  DBusString buf;
+  _dbus_string_init(&buf);
+
+  bytes_read = _dbus_read_socket(handle, &buf, 1 );
+  if (bytes_read > 0) 
+    {
+		_dbus_verbose("got one zero byte from server");
+    }
+
+  _dbus_string_free(&buf);
   _dbus_credentials_from_current_process (credentials);
+  _dbus_verbose("FIXME: get faked credentials from current process");
 
   return TRUE;
 }
@@ -3949,7 +3979,7 @@ _dbus_file_get_contents (DBusString       *str,
   filename_c = _dbus_string_get_const_data (filename);
 
   /* O_BINARY useful on Cygwin and Win32 */
-  if (!_dbus_open_file (&file, filename_c, O_RDONLY | O_BINARY, -1))
+  if (!_dbus_file_open (&file, filename_c, O_RDONLY | O_BINARY, -1))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to open \"%s\": %s",
@@ -3968,7 +3998,7 @@ _dbus_file_get_contents (DBusString       *str,
       _dbus_verbose ("fstat() failed: %s",
                      _dbus_strerror (errno));
 
-      _dbus_close_file (&file, NULL);
+      _dbus_file_close (&file, NULL);
 
       return FALSE;
     }
@@ -3978,7 +4008,7 @@ _dbus_file_get_contents (DBusString       *str,
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "File size %lu of \"%s\" is too large.",
                       (unsigned long) sb.st_size, filename_c);
-      _dbus_close_file (&file, NULL);
+      _dbus_file_close (&file, NULL);
       return FALSE;
     }
 
@@ -3990,7 +4020,7 @@ _dbus_file_get_contents (DBusString       *str,
 
       while (total < (int) sb.st_size)
         {
-          bytes_read = _dbus_read_file (&file, str,
+          bytes_read = _dbus_file_read (&file, str,
                                         sb.st_size - total);
           if (bytes_read <= 0)
             {
@@ -4002,7 +4032,7 @@ _dbus_file_get_contents (DBusString       *str,
               _dbus_verbose ("read() failed: %s",
                              _dbus_strerror (errno));
 
-              _dbus_close_file (&file, NULL);
+              _dbus_file_close (&file, NULL);
               _dbus_string_set_length (str, orig_len);
               return FALSE;
             }
@@ -4010,7 +4040,7 @@ _dbus_file_get_contents (DBusString       *str,
             total += bytes_read;
         }
 
-      _dbus_close_file (&file, NULL);
+      _dbus_file_close (&file, NULL);
       return TRUE;
     }
   else if (sb.st_size != 0)
@@ -4019,12 +4049,12 @@ _dbus_file_get_contents (DBusString       *str,
       dbus_set_error (error, DBUS_ERROR_FAILED,
                       "\"%s\" is not a regular file",
                       filename_c);
-      _dbus_close_file (&file, NULL);
+      _dbus_file_close (&file, NULL);
       return FALSE;
     }
   else
     {
-      _dbus_close_file (&file, NULL);
+      _dbus_file_close (&file, NULL);
       return TRUE;
     }
 }
@@ -4088,7 +4118,7 @@ _dbus_string_save_to_file (const DBusString *str,
   filename_c = _dbus_string_get_const_data (filename);
   tmp_filename_c = _dbus_string_get_const_data (&tmp_filename);
 
-  if (!_dbus_open_file (&file, tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
+  if (!_dbus_file_open (&file, tmp_filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
                         0600))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -4106,7 +4136,7 @@ _dbus_string_save_to_file (const DBusString *str,
     {
       int bytes_written;
 
-      bytes_written = _dbus_write_file (&file, str, total,
+      bytes_written = _dbus_file_write (&file, str, total,
                                         bytes_to_write - total);
 
       if (bytes_written <= 0)
@@ -4121,7 +4151,7 @@ _dbus_string_save_to_file (const DBusString *str,
       total += bytes_written;
     }
 
-  if (!_dbus_close_file (&file, NULL))
+  if (!_dbus_file_close (&file, NULL))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Could not close file %s: %s",
@@ -4152,7 +4182,7 @@ out:
    */
 
   if (_dbus_is_valid_file(&file))
-    _dbus_close_file (&file, NULL);
+    _dbus_file_close (&file, NULL);
 
   if (need_unlink && unlink (tmp_filename_c) < 0)
     _dbus_verbose ("Failed to unlink temp file %s: %s\n",
@@ -4184,7 +4214,7 @@ _dbus_create_file_exclusively (const DBusString *filename,
 
   filename_c = _dbus_string_get_const_data (filename);
 
-  if (!_dbus_open_file (&file, filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
+  if (!_dbus_file_open (&file, filename_c, O_WRONLY | O_BINARY | O_EXCL | O_CREAT,
                         0600))
     {
       dbus_set_error (error,
@@ -4195,7 +4225,7 @@ _dbus_create_file_exclusively (const DBusString *filename,
       return FALSE;
     }
 
-  if (!_dbus_close_file (&file, NULL))
+  if (!_dbus_file_close (&file, NULL))
     {
       dbus_set_error (error,
                       DBUS_ERROR_FAILED,
@@ -4744,7 +4774,7 @@ dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
 }
 
 static
-HANDLE _dbus_global_lock (LPCTSTR mutexname)
+HANDLE _dbus_global_lock (const char *mutexname)
 {
   HANDLE mutex;
   DWORD gotMutex;
@@ -4781,44 +4811,34 @@ void _dbus_global_unlock (HANDLE mutex)
 static HANDLE hDBusDaemonMutex = NULL;
 static HANDLE hDBusSharedMem = NULL;
 // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
-LPCTSTR cUniqueDBusInitMutex = _T("UniqueDBusInitMutex");
+static const char *cUniqueDBusInitMutex = "UniqueDBusInitMutex";
 // sync _dbus_get_autolaunch_address
-LPCTSTR cDBusAutolaunchMutex = _T("DBusAutolaunchMutex");
+static const char *cDBusAutolaunchMutex = "DBusAutolaunchMutex";
 // mutex to determine if dbus-daemon is already started (per user)
-LPCTSTR cDBusDaemonMutex = _T("DBusDaemonMutex");
+static const char *cDBusDaemonMutex = "DBusDaemonMutex";
 // named shm for dbus adress info (per user)
-LPCTSTR cDBusDaemonAddressInfo = _T("DBusDaemonAddressInfo");
-
-#define USERNAME_SIZE 64
-#define DAEMON_MUTEX_SIZE 128
-#define DAEMON_ADDRESS_INFO_SIZE 128
-#define ADDRESS_SIZE 128
+static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfo";
 
 void
 _dbus_daemon_init(const char *host, dbus_uint32_t port)
 {
   HANDLE lock;
   const char *adr = NULL;
-  TCHAR szUserName[USERNAME_SIZE];
-  DWORD dwUserNameSize = USERNAME_SIZE;
-  TCHAR szDBusDaemonMutex[DAEMON_MUTEX_SIZE];
-  TCHAR szDBusDaemonAddressInfo[DAEMON_ADDRESS_INFO_SIZE];
-  TCHAR szAddress[ADDRESS_SIZE];
+  char szUserName[64];
+  DWORD dwUserNameSize = sizeof(szUserName);
+  char szDBusDaemonMutex[128];
+  char szDBusDaemonAddressInfo[128];
+  char szAddress[128];
 
   _dbus_assert(host);
   _dbus_assert(port);
 
-  _sntprintf(szAddress, ADDRESS_SIZE - 1, _T("tcp:host=%s,port=%d"), host, port);
+  _snprintf(szAddress, sizeof(szAddress) - 1, "tcp:host=%s,port=%d", host, port);
 
-#ifdef DBUS_WINCE
-  lstrcpy(szUserName, _T("WinCE_User"));
-#else
   _dbus_assert( GetUserName(szUserName, &dwUserNameSize) != 0);
-#endif
-
-  _sntprintf(szDBusDaemonMutex, DAEMON_MUTEX_SIZE - 1, _T("%s:%s"),
+  _snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%s",
             cDBusDaemonMutex, szUserName);
-  _sntprintf(szDBusDaemonAddressInfo, DAEMON_ADDRESS_INFO_SIZE - 1, _T("%s:%s"),
+  _snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%s",
             cDBusDaemonAddressInfo, szUserName);
 
   // before _dbus_global_lock to keep correct lock/release order
@@ -4831,18 +4851,14 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
 
   // create shm
   hDBusSharedMem = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                      0, _tcslen( szAddress ) + 1, szDBusDaemonAddressInfo );
+                                      0, strlen( szAddress ) + 1, szDBusDaemonAddressInfo );
   _dbus_assert( hDBusSharedMem );
 
   adr = MapViewOfFile( hDBusSharedMem, FILE_MAP_WRITE, 0, 0, 0 );
 
   _dbus_assert( adr );
 
-#ifdef DBUS_WINCE
-  _dbus_assert(WideCharToMultiByte(CP_ACP, WC_SEPCHARS, szAddress, -1, adr, _tcslen( szAddress ), NULL, NULL));
-#else
   strcpy(adr, szAddress);
-#endif
 
   // cleanup
   UnmapViewOfFile( adr );
@@ -4874,31 +4890,21 @@ _dbus_daemon_release()
 static dbus_bool_t
 _dbus_get_autolaunch_shm(DBusString *adress)
 {
-  HANDLE sharedMem = 0;
+  HANDLE sharedMem;
   const char *adr;
-  TCHAR szUserName[USERNAME_SIZE];
-  DWORD dwUserNameSize = USERNAME_SIZE;
-  TCHAR szDBusDaemonAddressInfo[DAEMON_ADDRESS_INFO_SIZE];
+  char szUserName[64];
+  DWORD dwUserNameSize = sizeof(szUserName);
+  char szDBusDaemonAddressInfo[128];
 
-#ifdef DBUS_WINCE
-  lstrcpy(szUserName, _T("WinCE_User"));
-#else
   if( !GetUserName(szUserName, &dwUserNameSize) )
       return FALSE;
-#endif
-
-  _sntprintf(szDBusDaemonAddressInfo, DAEMON_ADDRESS_INFO_SIZE - 1, _T("%s:%s"),
+  _snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%s",
             cDBusDaemonAddressInfo, szUserName);
 
   // read shm
   do {
       // we know that dbus-daemon is available, so we wait until shm is available
-#ifndef DBUS_WINCE
-	  sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, szDBusDaemonAddressInfo );
-#else
-      // TODO
-	  // A possible solution is available here: http://svn.apache.org/viewvc/apr/apr/trunk/shmem/win32/shm.c?revision=428317&view=markup
-#endif
+      sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, szDBusDaemonAddressInfo );
       if( sharedMem == 0 )
           Sleep( 100 );
   } while( sharedMem == 0 );
@@ -4929,20 +4935,16 @@ _dbus_daemon_already_runs (DBusString *adress)
   HANDLE lock;
   HANDLE daemon;
   dbus_bool_t bRet = TRUE;
-  TCHAR szUserName[USERNAME_SIZE];
-  DWORD dwUserNameSize = USERNAME_SIZE;
-  TCHAR szDBusDaemonMutex[DAEMON_MUTEX_SIZE];
+  char szUserName[64];
+  DWORD dwUserNameSize = sizeof(szUserName);
+  char szDBusDaemonMutex[128];
 
   // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
-#ifdef DBUS_WINCE
-  lstrcpy(szUserName, _T("WinCE_User"));
-#else
-  _dbus_assert( GetUserName(szUserName, &dwUserNameSize) != 0);
-#endif
-
-  _sntprintf(szDBusDaemonMutex, DAEMON_MUTEX_SIZE - 1, _T("%s:%s"),
+  if( !GetUserName(szUserName, &dwUserNameSize) )
+      return FALSE;
+  _snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%s",
             cDBusDaemonMutex, szUserName);
 
   // do checks
@@ -4972,12 +4974,12 @@ _dbus_get_autolaunch_address (DBusString *address,
                               DBusError *error)
 {
   HANDLE mutex;
-  STARTUPINFO si;
+  STARTUPINFOA si;
   PROCESS_INFORMATION pi;
   dbus_bool_t retval = FALSE;
-  LPTSTR lpFile;
-  TCHAR dbus_exe_path[MAX_PATH];
-  TCHAR dbus_args[MAX_PATH * 2];
+  LPSTR lpFile;
+  char dbus_exe_path[MAX_PATH];
+  char dbus_args[MAX_PATH * 2];
 
   mutex = _dbus_global_lock ( cDBusAutolaunchMutex );
 
@@ -4990,33 +4992,27 @@ _dbus_get_autolaunch_address (DBusString *address,
         goto out;
     }
 
-#ifdef DBUS_WINCE
-  _tcscpy(dbus_exe_path, DBUS_WINCE_EXE_PATH);
-#else
-  if (!SearchPath(NULL, _T("dbus-daemon.exe"), NULL, MAX_PATH, dbus_exe_path, &lpFile))
+  if (!SearchPathA(NULL, "dbus-daemon.exe", NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
     {
       printf ("could not find dbus-daemon executable\n");
       goto out;
     }
-#endif
 
   // Create process
   ZeroMemory( &si, sizeof(si) );
   si.cb = sizeof(si);
   ZeroMemory( &pi, sizeof(pi) );
 
-  _sntprintf(dbus_args, MAX_PATH * 2 - 1, _T("\"%s\" %s"), dbus_exe_path,  _T(" --session"));
+  _snprintf(dbus_args, sizeof(dbus_args) - 1, "\"%s\" %s", dbus_exe_path,  " --session");
 
 //  argv[i] = "--config-file=bus\\session.conf";
-  _tprintf(_T("create process \"%s\" %s\n"), dbus_exe_path, dbus_args);
-  if(CreateProcess(dbus_exe_path, dbus_args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+  printf("create process \"%s\" %s\n", dbus_exe_path, dbus_args);
+  if(CreateProcessA(dbus_exe_path, dbus_args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
     {
       retval = TRUE;
 
-#ifndef DBUS_WINCE
-	  // Wait until started (see _dbus_get_autolaunch_shm())
+      // Wait until started (see _dbus_get_autolaunch_shm())
       WaitForInputIdle(pi.hProcess, INFINITE);
-#endif
 
       retval = _dbus_get_autolaunch_shm( address );
     } else {

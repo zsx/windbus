@@ -141,7 +141,7 @@ int _dbus_connect_tcp_socket  (const char     *host,
                                dbus_uint32_t   port,
                                DBusError      *error);
 int _dbus_listen_tcp_socket   (const char     *host,
-                               dbus_uint32_t   port,
+                               dbus_uint32_t  *port,
                                DBusError      *error);
 int _dbus_accept              (int             listen_fd);
 
@@ -302,6 +302,25 @@ dbus_bool_t _dbus_path_is_absolute    (const DBusString *filename);
 
 dbus_bool_t _dbus_get_standard_session_servicedirs (DBusList **dirs);
 
+typedef struct {
+  int fd_or_handle;
+} DBusPipe;
+
+void        _dbus_pipe_init                (DBusPipe         *pipe,
+                                            int               fd);
+void        _dbus_pipe_init_stdout         (DBusPipe         *pipe);
+int         _dbus_pipe_write               (DBusPipe         *pipe,
+                                            const DBusString *buffer,
+                                            int               start,
+                                            int               len,
+                                            DBusError        *error);
+int         _dbus_pipe_close               (DBusPipe         *pipe,
+                                            DBusError        *error);
+dbus_bool_t _dbus_pipe_is_valid            (DBusPipe         *pipe);
+void        _dbus_pipe_invalidate          (DBusPipe         *pipe);
+dbus_bool_t _dbus_pipe_is_stdout_or_stderr (DBusPipe         *pipe);
+
+
 /** Opaque type for reading a directory listing */
 typedef struct DBusDirIter DBusDirIter;
 
@@ -368,7 +387,7 @@ dbus_bool_t _dbus_full_duplex_pipe (int              *fd1,
 void        _dbus_print_backtrace  (void);
 
 dbus_bool_t _dbus_become_daemon   (const DBusString *pidfile,
-				   int               print_pid_fd,
+                                   DBusPipe         *print_pid_pipe,
                                    DBusError        *error);
 dbus_bool_t _dbus_write_pid_file  (const DBusString *filename,
                                    unsigned long     pid,

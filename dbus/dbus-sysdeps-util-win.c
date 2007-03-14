@@ -52,7 +52,7 @@
  */
 dbus_bool_t
 _dbus_become_daemon (const DBusString *pidfile,
-                     int               print_pid_fd,
+                     DBusPipe         *print_pid_pipe,
                      DBusError        *error)
 {
   return TRUE;
@@ -77,7 +77,7 @@ _dbus_write_pid_file (const DBusString *filename,
 
   cfilename = _dbus_string_get_const_data (filename);
 
-  if (!_dbus_open_file(&file, cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644))
+  if (!_dbus_file_open(&file, cfilename, O_WRONLY|O_CREAT|O_EXCL|O_BINARY, 0644))
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to open \"%s\": %s", cfilename,
@@ -85,15 +85,11 @@ _dbus_write_pid_file (const DBusString *filename,
       return FALSE;
     }
 
-  if ((f = _tfdopen (
-#ifdef DBUS_WINCE
-      (void*)
-#endif
-      file.FDATA, _T("w"))) == NULL)
+  if ((f = fdopen (file.FDATA, "w")) == NULL)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to fdopen fd %d: %s", file.FDATA, _dbus_strerror (errno));
-      _dbus_close_file (&file, NULL);
+      _dbus_file_close (&file, NULL);
       return FALSE;
     }
 
@@ -451,7 +447,7 @@ DIR * _dbus_opendir(const char *dir)
   dp = (DIR *)malloc(sizeof(DIR));
   dp->offset = 0;
   dp->finished = 0;
-  dp->dir = _strdup(dir);
+  dp->dir = strdup(dir);
 
   if ((handle = _findfirst(filespec, &(dp->fileinfo))) < 0)
     {

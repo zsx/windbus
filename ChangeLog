@@ -1,3 +1,144 @@
+2007-03-14 Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* cmake: add doxygen support
+
+2007-03-14  Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/config.h.cmake: WINCE fixes, defined DBUS_UNIX.
+
+2007-03-13  Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-util-win.c (dbus_become_daemon): 
+	win32 compile fix. 
+
+2007-03-13  Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* dbus-win.patch: removed obsolate patches. 
+
+2007-03-13  Ralf.Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c: added zero byte sending 
+	and receiving after connection start up
+
+2007-03-11  Havoc Pennington  <hp@redhat.com>
+
+	* tools/dbus-launch.c (do_close_stderr): fix C89 problem and
+	formatting problem
+
+	* Mostly fix the DBusPipe mess.
+	- put line break after function return types
+	- put space before parens
+	- do not pass structs around by value
+	- don't use dbus_strerror after calling supposedly cross-platform
+	api
+	- don't name pipe variables "fd"
+	- abstract special fd numbers like -1 and 1
+
+2007-03-12  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.h, dbus/dbus-sysdeps-win.c, 
+	dbus/dbus-sysdeps-util-win.c: renamed functions 
+	_dbus_xxx_file() to _dbus_file_xxx() to reflect 
+	struct name DBusFile. 
+
+2007-03-12  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-util-unix.c (_dbus_become_daemon):
+	fix _dbus_pid_fd check. 
+
+2007-03-10  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* tools/dbus-print-message.c (print_message):
+	added printing of the reply serial to method returns and 
+	errors, so you can actually figure out the message/reply 
+	pairs - patch by olli.salli at collabora.co.uk.
+
+2007-03-10  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus-win.patch: removed committed patches. 
+
+2007-03-10  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* bus/bus.c, bus/bus.h, bus/main.c, bus/test.c,
+	dbus/dbus-sysdeps-unix.c, dbus/dbus-sysdeps-util-unix.c,
+	dbus/dbus-sysdeps-util-win.c, dbus/dbus-sysdeps-win.c,
+	dbus/dbus-sysdeps.h: renamed _dbus_xxx_pipe to _dbus_pipe_xxx,
+	completed _dbus_pipe support. 
+
+2007-03-10  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps.h (_dbus_listen_tcp_socket):
+	changed type or port to pointer, because the port is given back.
+
+	* dbus/dbus-server-socket.c (_dbus_server_new_for_tcp_socket):
+	implemented returning tcp port. Skipping port parameter
+	and non integer port values in config <listen> statement
+	needs more effort.
+
+	* dbus/dbus-sysdeps-unix.c, dbus/dbus-sysdeps-win.c
+	(_dbus_listen_tcp_socket): return the real used tcp port.
+
+	* bus/dbus-daemon.1.in: added <listen> tcp examples
+
+2007-03-09  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/config.h.cmake: win32 msvc bug fix
+
+2007-03-09  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/config.h.cmake: fixed DBUS_WINxx defines,
+	using _WINCE does not work.
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus-win.patch: removed _dbus_write_pipe() patch, it is now 
+	committed.
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* bus/bus.c, dbus/dbus-sysdeps-unix.c, dbus/dbus-sysdeps.h:
+	rename pipe related write() function calls to _dbus_write_pipe().
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus-win.patch: added bus/config-loader-libexpat.c patch, 
+	uses DBUS_WIN for alls win32 related #ifdefs, 
+	some minor cleanups
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus-win.patch: updated patch for bus/dispatch.c.
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus-win.patch: dbus-connection.c (dbus_connection_get_unix_user,
+	dbus_connection_get_unix_process_id): Let return them valid user id's, 
+	otherwise bus-test fails. How to replace on win32 ?.
+	
+	* dbus/dbus-sysdeps-win.c (fill_win_user_info_homedir):
+	fix memory leak.
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* dbus/dbus-sysdeps-win.c (_dbus_win_set_error_from_win_error):
+	use dbus friendly error name.
+	(fill_win_user_info_homedir): print user name in error case too.
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* cmake/ConfigureChecks.cmake: fixed socketpair check
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* bus/dispatch.c: disabled segfault test on win32 for now
+
+2007-03-08  Ralf Habacker  <ralf.habacker@freenet.de>
+
+	* configure.in, cmake/ConfigureChecks.cmake: added check 
+	for setrlimit. 
+	* test/test-segfault.c: only include setrlimit stuff only 
+	when available.  
+
 2007-03-07  Ralf Habacker  <ralf.habacker@freenet.de>
 
 	* test/test-segfault.c: unix compile fix.
