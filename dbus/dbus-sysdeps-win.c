@@ -649,7 +649,7 @@ _dbus_close_socket (int        handle,
       if (s->port_file_fd >= 0)
         {
           _chsize (s->port_file_fd, 0);
-          close (s->port_file_fd);
+          _close (s->port_file_fd);
           s->port_file_fd = -1;
           unlink (_dbus_string_get_const_data (&s->port_file));
           free ((char *) _dbus_string_get_const_data (&s->port_file));
