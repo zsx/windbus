@@ -267,7 +267,7 @@ _dbus_is_valid_file (DBusFile* file)
 dbus_bool_t _dbus_fstat (DBusFile    *file,
                          struct stat *sb)
 {
-  return _fstat(file->FDATA, sb) >= 0;
+  return fstat(file->FDATA, sb) >= 0;
 }
 
 int
