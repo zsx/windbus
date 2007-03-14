@@ -135,10 +135,13 @@ _dbus_open_file (DBusFile   *file,
                  int         oflag,
                  int         pmode)
 {
+#ifndef DBUS_WINCE
   if (pmode!=-1)
     file->FDATA = _open (filename, oflag, pmode);
   else
+#endif // DBUS_WINCE
     file->FDATA = _open (filename, oflag);
+
   if (file->FDATA >= 0)
     return TRUE;
   else
@@ -264,7 +267,7 @@ _dbus_is_valid_file (DBusFile* file)
 dbus_bool_t _dbus_fstat (DBusFile    *file,
                          struct stat *sb)
 {
-  return fstat(file->FDATA, sb) >= 0;
+  return _fstat(file->FDATA, sb) >= 0;
 }
 
 int
@@ -861,6 +864,7 @@ _dbus_connect_unix_socket (const char     *path,
                            DBusError      *error)
 {
 #ifdef DBUS_WINCE
+	// We don't support this on WinCE
 	return -1;
 #else
   int fd, n, port;
@@ -936,6 +940,7 @@ _dbus_listen_unix_socket (const char     *path,
                           DBusError      *error)
 {
 #ifdef DBUS_WINCE
+	// We don't support this on WinCE
 	return -1;
 #else
   DBusSocket *s;
@@ -4869,7 +4874,7 @@ _dbus_daemon_release()
 static dbus_bool_t
 _dbus_get_autolaunch_shm(DBusString *adress)
 {
-  HANDLE sharedMem;
+  HANDLE sharedMem = 0;
   const char *adr;
   TCHAR szUserName[USERNAME_SIZE];
   DWORD dwUserNameSize = USERNAME_SIZE;
@@ -4986,7 +4991,7 @@ _dbus_get_autolaunch_address (DBusString *address,
     }
 
 #ifdef DBUS_WINCE
-  dbus_exe_path = DBUS_WINCE_EXE_PATH;
+  _tcscpy(dbus_exe_path, DBUS_WINCE_EXE_PATH);
 #else
   if (!SearchPath(NULL, _T("dbus-daemon.exe"), NULL, MAX_PATH, dbus_exe_path, &lpFile))
     {
