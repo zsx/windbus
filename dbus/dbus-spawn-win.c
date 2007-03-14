@@ -572,8 +572,13 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter           **sitter_p,
   sitter->envp = envp;
 
   PING();
+
+#ifdef DBUS_WINCE
+  sitter_thread = CreateThread(NULL, 0, babysitter, sitter, 0, &sitter_thread_id);
+#else
   sitter_thread = (HANDLE) _beginthreadex (NULL, 0, babysitter,
                   sitter, 0, &sitter_thread_id);
+#endif
 
   if (sitter_thread == 0)
     {
