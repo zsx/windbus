@@ -445,7 +445,8 @@ if (DBUS_BUILD_TESTS)
 	add_subdirectory( test )
 endif (DBUS_BUILD_TESTS)
 add_subdirectory( tools )
-add_subdirectory( doc )
+# there is currently no directory 'doc'
+#add_subdirectory( doc )
 
 
 OPTION(DBUS_INSTALL_SYSTEM_LIBS "install required system libraries" OFF)
