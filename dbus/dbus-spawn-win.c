@@ -61,10 +61,10 @@ struct DBusBabysitter
     int refcount;
 
     HANDLE start_sync_event;
-#ifdef DBUS_BUILD_TESTS
+//#ifdef DBUS_BUILD_TESTS
 
     HANDLE end_sync_event;
-#endif
+//#endif
 
     char *executable;
     DBusSpawnChildSetupFunc child_setup;

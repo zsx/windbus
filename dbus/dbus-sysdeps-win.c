@@ -142,13 +142,7 @@ _dbus_file_open (DBusFile   *file,
 #endif // DBUS_WINCE
     file->FDATA = _open (filename, oflag);
 
-  if (file->FDATA >= 0)
-    return TRUE;
-  else
-    {
-      file->FDATA = -1;
-      return FALSE;
-    }
+  return file->FDATA != -1;
 }
 
 dbus_bool_t
@@ -159,7 +153,11 @@ _dbus_file_close (DBusFile  *file,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
+#ifdef DBUS_WINCE
+  _dbus_assert (fd != -1);
+#else
   _dbus_assert (fd >= 0);
+#endif
 
   if (_close (fd) == -1)
     {
@@ -196,7 +194,11 @@ _dbus_file_read(DBusFile   *file,
 
   data = _dbus_string_get_data_len (buffer, start, count);
 
+#ifdef DBUS_WINCE
+  _dbus_assert (fd != -1);
+#else
   _dbus_assert (fd >= 0);
+#endif
 
   _dbus_verbose ("read: count=%d fd=%d\n", count, fd);
   bytes_read = read (fd, data, count);
@@ -239,7 +241,11 @@ _dbus_file_write (DBusFile         *file,
 
   data = _dbus_string_get_const_data_len (buffer, start, len);
 
+#ifdef DBUS_WINCE
+  _dbus_assert (fd != -1);
+#else
   _dbus_assert (fd >= 0);
+#endif
 
   _dbus_verbose ("write: len=%d fd=%d\n", len, fd);
   bytes_written = write (fd, data, len);
@@ -2099,8 +2105,20 @@ _dbus_full_duplex_pipe (int        *fd1,
       goto out1;
     }
 
-  if (connect (socket1, (struct sockaddr  *)&saddr, len) != SOCKET_ERROR ||
-      WSAGetLastError () != WSAEWOULDBLOCK)
+  
+  // Win32 and WinCE winsocks do not behave the same here. connect() succeeds (i.e. returns 0)
+  // under WinCE although the socket was set to non-blocking. Under Win32 connect() returns
+  // SOCKET_ERROR as expected and WSAGetLastError() gives WSAEWOULDBLOCK, and the connection
+  // proceeds.
+  if(connect (socket1, (struct sockaddr  *)&saddr, len) != SOCKET_ERROR)
+    {
+#ifdef DBUS_WIN32
+      dbus_set_error_const (error, DBUS_ERROR_FAILED,
+                            "_dbus_full_duplex_pipe socketpair() emulation failed");
+      goto out1;
+#endif
+    }
+  else if (WSAGetLastError () != WSAEWOULDBLOCK)
     {
       dbus_set_error_const (error, DBUS_ERROR_FAILED,
                             "_dbus_full_duplex_pipe socketpair() emulation failed");
@@ -4887,7 +4905,13 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
   _dbus_assert(host);
   _dbus_assert(port);
 
-  _sntprintf(szAddress, ADDRESS_SIZE - 1, _T("tcp:host=%s,port=%d"), host, port);
+  _sntprintf(szAddress, ADDRESS_SIZE - 1,
+#ifdef _UNICODE
+  L"tcp:host=%S,port=%d", 
+#else
+  "tcp:host=%s,port=%d", 
+#endif
+  host, port);
 
 #ifdef DBUS_WINCE
   lstrcpy(szUserName, _T("WinCE_User"));
@@ -4918,7 +4942,7 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
   _dbus_assert( adr );
 
 #ifdef DBUS_WINCE
-  _dbus_assert(WideCharToMultiByte(CP_ACP, WC_SEPCHARS, szAddress, -1, adr, _tcslen( szAddress ), NULL, NULL));
+  WideCharToMultiByte(CP_ACP, WC_SEPCHARS, szAddress, -1, adr, _tcslen( szAddress ), NULL, NULL);
 #else
   strcpy(adr, szAddress);
 #endif
