@@ -36,13 +36,23 @@ struct DBusCondVar {
 static DWORD dbus_cond_event_tls = TLS_OUT_OF_INDEXES;
 
 
-BOOL WINAPI DllMain (HINSTANCE hinstDLL,
+BOOL WINAPI DllMain (
+#ifdef DBUS_WINCE
+             HANDLE hinstDLL, 
+#else
+			 HINSTANCE hinstDLL,
+#endif
 		     DWORD     fdwReason,
 		     LPVOID    lpvReserved);
 
 /* We need this to free the TLS events on thread exit */
 BOOL WINAPI
-DllMain (HINSTANCE hinstDLL,
+DllMain (
+#ifdef DBUS_WINCE
+     HANDLE hinstDLL, 
+#else
+	 HINSTANCE hinstDLL,
+#endif
 	 DWORD     fdwReason,
 	 LPVOID    lpvReserved)
 {
