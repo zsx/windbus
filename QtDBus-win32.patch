@@ -1,40 +1,15 @@
 diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/demos/dbus-viewer/dbus-viewer.pro demos/dbus-viewer/dbus-viewer.pro
---- tools\qdbus\tools\qdbuscpp2xml\qdbuscpp2xml.cpp.orig	2006-10-20 18:27:34.000000000 +0200
-+++ tools\qdbus\tools\qdbuscpp2xml\qdbuscpp2xml.cpp	2006-12-21 08:58:42.515625000 +0100
-@@ -95,7 +95,7 @@
- QByteArray MocParser::readLine()
- {
-     ++lineNumber;
--    return input->readLine();
-+    return input->readLine().replace("\r\n", "\n");
- }
+--- tools/qdbus/tools/qdbuscpp2xml/qdbuscpp2xml.cpp	Thu Apr 12 13:22:27 CEST 2007
++++ tools/qdbus/tools/qdbuscpp2xml/qdbuscpp2xml.cpp	Thu Apr 12 13:22:27 CEST 2007
+@@ -366,7 +366,7 @@
+         else {
+             // run moc on this file
+             QProcess proc;
+-            proc.start(QLibraryInfo::location(QLibraryInfo::BinariesPath) + QLatin1String("/moc"), QStringList() << QFile::decodeName(argv[i]));
++            proc.start(QLibraryInfo::location(QLibraryInfo::BinariesPath) + QLatin1String("/moc"), QStringList() << QFile::decodeName(argv[i]), QIODevice::ReadOnly | QIODevice::Text);
  
- void MocParser::loadIntData(uint *&data)
---- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/demos/dbus-viewer/dbus-viewer.pro	2006-09-21 01:24:06.000000000 +0200
-+++ demos/dbus-viewer/dbus-viewer.pro	2006-09-21 16:31:04.000000000 +0200
-@@ -16,6 +16,8 @@
- CONFIG += qdbus
- QT += xml
- 
-+win32:DESTDIR=../../bin
-+
- # install
- target.path = $$[QT_INSTALL_DEMOS]/dbus-viewer
- sources.files = $$SOURCES $$HEADERS *.pro *.html *.doc images
-diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/mkspecs/features/qdbus.prf mkspecs/features/qdbus.prf
---- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/mkspecs/features/qdbus.prf	2006-09-21 01:23:30.000000000 +0200
-+++ mkspecs/features/qdbus.prf	2006-09-21 16:31:04.000000000 +0200
-@@ -1,6 +1,10 @@
- 
- qtAddLibrary(QtDBus)
- 
-+win32: !contains(QT, gui):contains(TEMPLATE, app) {
-+	CONFIG += console
-+}
-+
- isEmpty(QMAKE_QDBUSXML2CPP) {
-     win32:QMAKE_QDBUSXML2CPP = $$[QT_INSTALL_BINS]\qdbusxml2cpp.exe
-     else:QMAKE_QDBUSXML2CPP = $$[QT_INSTALL_BINS]/qdbusxml2cpp
+             if (!proc.waitForStarted()) {
+                 fprintf(stderr, PROGRAMNAME ": could not execute moc! Aborting.\n");
 diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/README-qdbus.txt README-qdbus.txt
 --- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/README-qdbus.txt	1970-01-01 01:00:00.000000000 +0100
 +++ README-qdbus.txt	2006-09-21 16:32:40.000000000 +0200
@@ -44,44 +19,3 @@ diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/README-qdbus.tx
 +and the following in case of mingw compiler
 +CONFIG += sse
 +to .qmake.cache after configuring and run your make tool
-diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src/src.pro tools/qdbus/src/src.pro
---- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/src/src.pro	2006-09-21 01:23:54.000000000 +0200
-+++ tools/qdbus/src/src.pro	Mon Oct 23 10:47:32 2006
-@@ -45,6 +45,14 @@
-    LIBS += -lws2_32 -ladvapi32 -lnetapi32
-    CONFIG(debug, debug|release):LIBS += -ldbus-1d
-    else:LIBS += -ldbus-1
-+   DBUS_INSTALL_DIR=$$(DBUSDIR)
-+   isEmpty( DBUS_INSTALL_DIR ) {
-+      
-+      DBUS_INSTALL_DIR = "$$(PROGRAMFILES)/dbus"
-+      message( "DBUSDIR not specified. Using $$DBUS_INSTALL_DIR" )
-+   }
-+   INCLUDEPATH += "$$DBUS_INSTALL_DIR/include"
-+   LIBS +=  -L\"$$DBUS_INSTALL_DIR/lib\" -luser32
- }
- 
- #load up the headers info
-diff -u -r -N qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/tools.pro tools/tools.pro
---- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/tools.pro	2006-09-21 01:24:00.000000000 +0200
-+++ tools/tools.pro	2006-09-21 16:33:26.000000000 +0200
-@@ -2,7 +2,7 @@
- no-png {
-     message("Tools not available without PNG support")
- } else {
--    unix:contains(QT_CONFIG, qdbus):SUBDIRS += qdbus
-+    contains(QT_CONFIG, qdbus):SUBDIRS += qdbus
-     SUBDIRS		+= assistant/lib \
- 			assistant \
- 			porting \
---- qt-win-opensource-src-4.2.0-snapshot-20060921-orig/tools/qdbus/tools/qdbus/qdbus.pro	2006-09-29 16:39:38.000000000 +0200
-+++ tools/qdbus/tools/qdbus/qdbus.pro	2006-10-08 21:55:12.000000000 +0200
-@@ -1,7 +1,7 @@
- SOURCES = qdbus.cpp
- DESTDIR = ../../../../bin
- TARGET = qdbus
--QT = core
-+QT = core xml
- CONFIG += qdbus
- CONFIG -= app_bundle
- 
