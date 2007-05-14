@@ -1626,20 +1626,12 @@ int _dbus_printf_string_upper_bound (const char *format,
    */
   char p[1024];
   int len;
-#ifdef DBUS_WINCE
   len = _vsnprintf (p, sizeof(p)-1, format, args);
-#else
-  len = vsnprintf (p, sizeof(p)-1, format, args);
-#endif
   if (len == -1) // try again
     {
       char *p;
       p = malloc (strlen(format)*3);
-#ifdef DBUS_WINCE
       len = _vsnprintf (p, sizeof(p)-1, format, args);
-#else
-      len = vsnprintf (p, sizeof(p)-1, format, args);
-#endif
       free(p);
 
     }
