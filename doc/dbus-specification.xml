@@ -385,7 +385,7 @@
               </row><row>
                 <entry><literal>STRING</literal></entry>
                 <entry>115 (ASCII 's')</entry>
-                <entry>UTF-8 string (<emphasis>must</emphasis> be valid UTF-8). Must be nul terminated.</entry>
+                <entry>UTF-8 string (<emphasis>must</emphasis> be valid UTF-8). Must be nul terminated and contain no other nul bytes.</entry>
               </row><row>
                 <entry><literal>OBJECT_PATH</literal></entry>
                 <entry>111 (ASCII 'o')</entry>
@@ -503,7 +503,7 @@
                 <entry><literal>STRING</literal></entry>
                 <entry>A <literal>UINT32</literal> indicating the string's 
                   length in bytes excluding its terminating nul, followed by 
-                  string data of the given length, followed by a terminating nul 
+                  non-nul string data of the given length, followed by a terminating nul 
                   byte.
                 </entry>
                 <entry>
@@ -921,8 +921,13 @@
                   <entry>1</entry>
                   <entry><literal>OBJECT_PATH</literal></entry>
                   <entry><literal>METHOD_CALL</literal>, <literal>SIGNAL</literal></entry>
-                  <entry>The object to send a call to, 
+                  <entry>The object to send a call to,
                     or the object a signal is emitted from.
+                    The special path
+                    <literal>/org/freedesktop/DBus/Local</literal> is reserved;
+                    implementations should not send messages with this path,
+                    and the reference implementation of the bus daemon will
+                    disconnect any application that attempts to do so.
                   </entry>
                 </row>
                 <row>
@@ -934,6 +939,12 @@
                     The interface to invoke a method call on, or 
                     that a signal is emitted from. Optional for 
                     method calls, required for signals.
+                    The special interface
+                    <literal>org.freedesktop.DBus.Local</literal> is reserved;
+                    implementations should not send messages with this
+                    interface, and the reference implementation of the bus
+                    daemon will disconnect any application that attempts to
+                    do so.
                   </entry>
                 </row>
                 <row>
@@ -2444,6 +2455,8 @@
               org.freedesktop.DBus.Properties.Set (in STRING interface_name,
                                                    in STRING property_name,
                                                    in VARIANT value);
+              org.freedesktop.DBus.Properties.GetAll (in STRING interface_name,
+                                                      out DICT&lt;STRING,VARIANT&gt; props);
         </programlisting>
       </para>
       <para>

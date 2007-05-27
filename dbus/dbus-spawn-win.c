@@ -1,6 +1,8 @@
 #include "config.h"
 
-#if !defined(DBUS_ENABLE_VERBOSE_MODE) || defined(_MSC_VER)
+//#define SPAWN_DEBUG
+
+#if !defined(SPAWN_DEBUG) || defined(_MSC_VER)
 #define PING()
 #else
 #define PING() fprintf (stderr, "%s:%s:%d\n", __FILE__, __FUNCTION__, __LINE__); fflush (stderr)
@@ -61,10 +63,10 @@ struct DBusBabysitter
     int refcount;
 
     HANDLE start_sync_event;
-//#ifdef DBUS_BUILD_TESTS
+#ifdef DBUS_BUILD_TESTS
 
     HANDLE end_sync_event;
-//#endif
+#endif
 
     char *executable;
     DBusSpawnChildSetupFunc child_setup;
@@ -453,7 +455,6 @@ babysitter (void *parameter)
     }
 
   _dbus_verbose ("babysitter: spawning %s\n", sitter->executable);
-  fprintf (stderr, "babysitter: spawning %s\n", sitter->executable);
 
   PING();
   if (sitter->envp != NULL)
@@ -572,13 +573,8 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter           **sitter_p,
   sitter->envp = envp;
 
   PING();
-
-#ifdef DBUS_WINCE
-  sitter_thread = CreateThread(NULL, 0, babysitter, sitter, 0, &sitter_thread_id);
-#else
   sitter_thread = (HANDLE) _beginthreadex (NULL, 0, babysitter,
                   sitter, 0, &sitter_thread_id);
-#endif
 
   if (sitter_thread == 0)
     {

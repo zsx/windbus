@@ -1,6 +1,6 @@
 set (PACKAGE dbus)
 set (VERSION_MAJOR "1")
-set (VERSION_MINOR "0")
+set (VERSION_MINOR "1")
 set (VERSION_PATCH "0")
 set (VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH} )
 project(${PACKAGE})
@@ -68,12 +68,18 @@ if(MSVC)
 		set(CMAKE_CXX_WARNING_LEVEL 3 CACHE TYPE STRING FORCE)
 	endif (WALL)
 	
-	SET(MSVC_W_ERROR   " /we4028 /we4013 /we4133 /we4047 /we4031 /we4002 /we4003 /we4114 /we4022")
+	SET(MSVC_W_ERROR   " /we4028 /we4013 /we4133 /we4047 /we4031 /we4002 /we4003 /we4114")
 	SET(MSVC_W_DISABLE " /wd4127 /wd4090 /wd4101 /wd4244")
 
 	SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
 	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
 endif(MSVC)
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+   # used by executables, CMAKE_DEBUG_POSTFIX does not handle this case
+   set (CMAKE_EXE_POSTFIX "d")
+   set (CMAKE_DEBUG_POSTFIX "d")
+endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
 
 #########################################################################
@@ -225,9 +231,6 @@ OPTION(DBUS_DISABLE_ASSERTS "Disable assertion checking" OFF)
 #AC_ARG_ENABLE(checks, AS_HELP_STRING([--enable-checks],[include sanity checks on public API]),enable_checks=$enableval,enable_checks=yes)
 OPTION(DBUS_DISABLE_CHECKS "Disable public API sanity checking" OFF)
 
-#AC_ARG_ENABLE(xml-docs, AS_HELP_STRING([--enable-xml-docs],[build XML documentation (requires xmlto)]),enable_xml_docs=$enableval,enable_xml_docs=auto)
-#xmldocs missing
-
 #AC_ARG_ENABLE(gcov, AS_HELP_STRING([--enable-gcov],[compile with coverage profiling instrumentation (gcc only)]),enable_gcov=$enableval,enable_gcov=no)
 OPTION(DBUS_GCOV_ENABLED "compile with coverage profiling instrumentation (gcc only)" OFF)
 if(DBUS_GCOV_ENABLED)
@@ -330,20 +333,12 @@ if (WIN32)
 	set (EXT ".exe")
 endif(WIN32)
 
-# confirure.in:
-#TEST_PATH(SERVICE_DIR,          data/valid-service-files)
-#TEST_PATH(SERVICE_BINARY,       test-service)
-#TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
-#TEST_PATH(EXIT_BINARY,          test-exit)
-#TEST_PATH(SEGFAULT_BINARY,      test-segfault)
-#TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
-
 set(TEST_SERVICE_DIR          ${CMAKE_BINARY_DIR}/test/data/valid-service-files     CACHE STRING "Full path to test file test/data/valid-service-files in builddir")
-set(TEST_SERVICE_BINARY       ${EXPANDED_BINDIR}/test-service${EXT}       CACHE STRING "Full path to test file test/test-service in builddir")
-set(TEST_SHELL_SERVICE_BINARY ${EXPANDED_BINDIR}/test-shell-service${EXT} CACHE STRING "Full path to test file test/test-shell-service in builddir")    
-set(TEST_EXIT_BINARY          ${EXPANDED_BINDIR}/test-exit${EXT}          CACHE STRING "Full path to test file test/test-exit in builddir")
-set(TEST_SEGFAULT_BINARY      ${EXPANDED_BINDIR}/test-segfault${EXT}      CACHE STRING "Full path to test file test/test-segfault in builddir")
-set(TEST_SLEEP_FOREVER_BINARY ${EXPANDED_BINDIR}/test-sleep-forever${EXT} CACHE STRING "Full path to test file test/test-sleep-forever in builddir")
+set(TEST_SERVICE_BINARY       ${CMAKE_BINARY_DIR}/bin/test-service${EXT}       CACHE STRING "Full path to test file test/test-service in builddir")
+set(TEST_SHELL_SERVICE_BINARY ${CMAKE_BINARY_DIR}/bin/test-shell-service${EXT} CACHE STRING "Full path to test file test/test-shell-service in builddir")    
+set(TEST_EXIT_BINARY          ${CMAKE_BINARY_DIR}/bin/test-exit${EXT}          CACHE STRING "Full path to test file test/test-exit in builddir")
+set(TEST_SEGFAULT_BINARY      ${CMAKE_BINARY_DIR}/bin/test-segfault${EXT}      CACHE STRING "Full path to test file test/test-segfault in builddir")
+set(TEST_SLEEP_FOREVER_BINARY ${CMAKE_BINARY_DIR}/bin/test-sleep-forever${EXT} CACHE STRING "Full path to test file test/test-sleep-forever in builddir")
 
 #### Find socket directories
 if (NOT WIN32)
@@ -445,8 +440,7 @@ if (DBUS_BUILD_TESTS)
 	add_subdirectory( test )
 endif (DBUS_BUILD_TESTS)
 add_subdirectory( tools )
-# there is currently no directory 'doc'
-#add_subdirectory( doc )
+add_subdirectory( doc )
 
 
 OPTION(DBUS_INSTALL_SYSTEM_LIBS "install required system libraries" OFF)

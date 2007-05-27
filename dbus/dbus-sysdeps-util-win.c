@@ -42,8 +42,6 @@
 #include <stdlib.h>
 #include <fcntl.h>
 
-#include <tchar.h>
-
 /**
  * Does the chdir, fork, setsid, etc. to become a daemon process.
  *
@@ -87,11 +85,7 @@ _dbus_write_pid_file (const DBusString *filename,
       return FALSE;
     }
 
-  if ((f = _tfdopen (
-#ifdef DBUS_WINCE
-      (void*)
-#endif
-      file.FDATA, _T("w"))) == NULL)
+  if ((f = fdopen (file.FDATA, "w")) == NULL)
     {
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to fdopen fd %d: %s", file.FDATA, _dbus_strerror (errno));
@@ -453,7 +447,7 @@ DIR * _dbus_opendir(const char *dir)
   dp = (DIR *)malloc(sizeof(DIR));
   dp->offset = 0;
   dp->finished = 0;
-  dp->dir = _strdup(dir);
+  dp->dir = strdup(dir);
 
   if ((handle = _findfirst(filespec, &(dp->fileinfo))) < 0)
     {

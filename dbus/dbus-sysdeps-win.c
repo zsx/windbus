@@ -46,7 +46,6 @@
 #include "dbus-list.h"
 
 #include <windows.h>
-#include <tchar.h>
 #include <fcntl.h>
 
 #include <process.h>
@@ -135,14 +134,17 @@ _dbus_file_open (DBusFile   *file,
                  int         oflag,
                  int         pmode)
 {
-#ifndef DBUS_WINCE
   if (pmode!=-1)
     file->FDATA = _open (filename, oflag, pmode);
   else
-#endif // DBUS_WINCE
     file->FDATA = _open (filename, oflag);
-
-  return file->FDATA != -1;
+  if (file->FDATA >= 0)
+    return TRUE;
+  else
+    {
+      file->FDATA = -1;
+      return FALSE;
+    }
 }
 
 dbus_bool_t
@@ -153,11 +155,7 @@ _dbus_file_close (DBusFile  *file,
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-#ifdef DBUS_WINCE
-  _dbus_assert (fd != -1);
-#else
   _dbus_assert (fd >= 0);
-#endif
 
   if (_close (fd) == -1)
     {
@@ -194,11 +192,7 @@ _dbus_file_read(DBusFile   *file,
 
   data = _dbus_string_get_data_len (buffer, start, count);
 
-#ifdef DBUS_WINCE
-  _dbus_assert (fd != -1);
-#else
   _dbus_assert (fd >= 0);
-#endif
 
   _dbus_verbose ("read: count=%d fd=%d\n", count, fd);
   bytes_read = read (fd, data, count);
@@ -241,11 +235,7 @@ _dbus_file_write (DBusFile         *file,
 
   data = _dbus_string_get_const_data_len (buffer, start, len);
 
-#ifdef DBUS_WINCE
-  _dbus_assert (fd != -1);
-#else
   _dbus_assert (fd >= 0);
-#endif
 
   _dbus_verbose ("write: len=%d fd=%d\n", len, fd);
   bytes_written = write (fd, data, len);
@@ -688,7 +678,7 @@ _dbus_close_socket (int        handle,
       if (s->port_file_fd >= 0)
         {
           _chsize (s->port_file_fd, 0);
-          _close (s->port_file_fd);
+          close (s->port_file_fd);
           s->port_file_fd = -1;
           unlink (_dbus_string_get_const_data (&s->port_file));
           free ((char *) _dbus_string_get_const_data (&s->port_file));
@@ -903,7 +893,6 @@ _dbus_connect_unix_socket (const char     *path,
                            DBusError      *error)
 {
 #ifdef DBUS_WINCE
-	// We don't support this on WinCE
 	return -1;
 #else
   int fd, n, port;
@@ -979,7 +968,6 @@ _dbus_listen_unix_socket (const char     *path,
                           DBusError      *error)
 {
 #ifdef DBUS_WINCE
-	// We don't support this on WinCE
 	return -1;
 #else
   DBusSocket *s;
@@ -1113,10 +1101,6 @@ _dbus_account_to_win_sid (const wchar_t  *waccount,
                           void          **ppsid,
                           DBusError      *error)
 {
-#ifdef DBUS_WINCE
-	return TRUE;
-	//TODO
-#else
   dbus_bool_t retval = FALSE;
   DWORD sid_length, wdomain_length;
   SID_NAME_USE use;
@@ -1173,7 +1157,6 @@ out1:
     }
 
   return retval;
-#endif // DBUS_WINCE
 }
 
 
@@ -1327,7 +1310,7 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
       if (ret != NERR_Success)
         {
           info->homedir = _dbus_strdup ("\\");
-          _dbus_warn("NetGetAnyDCName() failed with errorcode %d '%s'\n",ret,_dbus_lm_strerror(ret));
+          _dbus_verbose("NetGetAnyDCName() failed with errorcode %d '%s'\n",ret,_dbus_lm_strerror(ret));
           return TRUE;
         }
     }
@@ -1355,7 +1338,7 @@ fill_win_user_info_homedir (wchar_t  	 *wname,
     {
       char *dc_string = _dbus_win_utf16_to_utf8(dc,error);
 	  char *user_name = _dbus_win_utf16_to_utf8(wname,error);
-      _dbus_warn("NetUserGetInfo() for user '%s' failed with errorcode %d '%s', %s\n",user_name, ret,_dbus_lm_strerror(ret),dc_string);
+      _dbus_verbose("NetUserGetInfo() for user '%s' failed with errorcode %d '%s', %s\n",user_name, ret,_dbus_lm_strerror(ret),dc_string);
       dbus_free(user_name);
       dbus_free(dc_string);
       /* Not set, so use something random. */
@@ -1633,7 +1616,6 @@ int _dbus_printf_string_upper_bound (const char *format,
       p = malloc (strlen(format)*3);
       len = _vsnprintf (p, sizeof(p)-1, format, args);
       free(p);
-
     }
   return len;
 }
@@ -1744,10 +1726,6 @@ _dbus_win_account_to_sid (const wchar_t *waccount,
                           void      	 **ppsid,
                           DBusError 	  *error)
 {
-#ifdef DBUS_WINCE
-	return TRUE;
-	//TODO
-#else
   dbus_bool_t retval = FALSE;
   DWORD sid_length, wdomain_length;
   SID_NAME_USE use;
@@ -1804,7 +1782,6 @@ out1:
     }
 
   return retval;
-#endif // DBUS_WINCE
 }
 
 static void
@@ -1833,10 +1810,6 @@ _sid_atom_cache_shutdown (void *unused)
 dbus_uid_t
 _dbus_win_sid_to_uid_t (PSID psid)
 {
-#ifdef DBUS_WINCE
-  //TODO
-  return 0;
-#else
   dbus_uid_t uid;
   dbus_uid_t olduid;
   char *string;
@@ -1887,15 +1860,10 @@ _dbus_win_sid_to_uid_t (PSID psid)
   _DBUS_UNLOCK (sid_atom_cache);
 
   return uid;
-#endif
 }
 
 dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
 {
-#ifdef DBUS_WINCE
-  //TODO
-  return FALSE;
-#else
   void* atom;
   char string[255];
 
@@ -1918,7 +1886,6 @@ dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
     }
   _dbus_verbose("%s converted %s into sid \n",__FUNCTION__, string);
   return TRUE;
-#endif
 }
 
 
@@ -1931,10 +1898,6 @@ dbus_bool_t  _dbus_uid_t_to_win_sid (dbus_uid_t uid, PSID *ppsid)
 dbus_uid_t
 _dbus_getuid(void)
 {
-#ifdef DBUS_WINCE
-  //TODO
-  return 0;
-#else
   dbus_uid_t retval = DBUS_UID_UNSET;
   HANDLE process_token = NULL;
   TOKEN_USER *token_user = NULL;
@@ -1955,7 +1918,6 @@ _dbus_getuid(void)
 
   _dbus_verbose("_dbus_getuid() returns %d\n",retval);
   return retval;
-#endif
 }
 
 #ifdef DBUS_BUILD_TESTS
@@ -1965,10 +1927,6 @@ _dbus_getuid(void)
 dbus_gid_t
 _dbus_getgid (void)
 {
-#ifdef DBUS_WINCE
-  //TODO
-  return 0;
-#else
   dbus_gid_t retval = DBUS_GID_UNSET;
   HANDLE process_token = NULL;
   TOKEN_PRIMARY_GROUP *token_primary_group = NULL;
@@ -1990,7 +1948,6 @@ _dbus_getgid (void)
     CloseHandle (process_token);
 
   return retval;
-#endif // DBUS_WINCE
 }
 
 #if 0
@@ -2097,23 +2054,10 @@ _dbus_full_duplex_pipe (int        *fd1,
       goto out1;
     }
 
-  
-  // Win32 and WinCE winsocks do not behave the same here. connect() succeeds (i.e. returns 0)
-  // under WinCE although the socket was set to non-blocking. Under Win32 connect() returns
-  // SOCKET_ERROR as expected and WSAGetLastError() gives WSAEWOULDBLOCK, and the connection
-  // proceeds.
-  if(connect (socket1, (struct sockaddr  *)&saddr, len) != SOCKET_ERROR)
+  if (connect (socket1, (struct sockaddr  *)&saddr, len) != SOCKET_ERROR ||
+      WSAGetLastError () != WSAEWOULDBLOCK)
     {
-#ifdef DBUS_WIN32
-      dbus_set_error_const (error, DBUS_ERROR_FAILED,
-                            "_dbus_full_duplex_pipe socketpair() emulation failed");
-      goto out1;
-#endif
-    }
-  else if (WSAGetLastError () != WSAEWOULDBLOCK)
-    {
-      dbus_set_error_const (error, DBUS_ERROR_FAILED,
-                            "_dbus_full_duplex_pipe socketpair() emulation failed");
+      DBUS_SOCKET_SET_ERRNO ();
       goto out1;
     }
 
@@ -2546,30 +2490,26 @@ void
 _dbus_win_set_error_from_win_error (DBusError *error,
                                     int        code)
 {
-  LPTSTR msg;
+  char *msg;
 
   /* As we want the English message, use the A API */
-  FormatMessage (FORMAT_MESSAGE_ALLOCATE_BUFFER |
+  FormatMessageA (FORMAT_MESSAGE_ALLOCATE_BUFFER |
                   FORMAT_MESSAGE_IGNORE_INSERTS |
                   FORMAT_MESSAGE_FROM_SYSTEM,
                   NULL, code, MAKELANGID (LANG_ENGLISH, SUBLANG_ENGLISH_US),
                   (LPTSTR) &msg, 0, NULL);
   if (msg)
     {
-      char * msg_copy;
-      msg_copy = dbus_malloc (_tcslen (msg));
+      char *msg_copy;
 
-#ifdef _UNICODE
-	  sprintf(msg_copy, "%S", msg);
-#else
-      strcpy(msg_copy, msg);
-#endif
+      msg_copy = dbus_malloc (strlen (msg));
+      strcpy (msg_copy, msg);
       LocalFree (msg);
 
       dbus_set_error (error, "win32.error", "%s", msg_copy);
     }
   else
-    dbus_set_error_const (error, "win32.error", "Unknown error code or FormatMessage failed");
+    dbus_set_error (error, "win32.error", "Unknown error code %d or FormatMessage failed", code);
 }
 
 void
@@ -4833,7 +4773,7 @@ dbus_bool_t _dbus_read_local_machine_uuid   (DBusGUID         *machine_id,
 }
 
 static
-HANDLE _dbus_global_lock (LPCTSTR mutexname)
+HANDLE _dbus_global_lock (const char *mutexname)
 {
   HANDLE mutex;
   DWORD gotMutex;
@@ -4870,50 +4810,34 @@ void _dbus_global_unlock (HANDLE mutex)
 static HANDLE hDBusDaemonMutex = NULL;
 static HANDLE hDBusSharedMem = NULL;
 // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
-LPCTSTR cUniqueDBusInitMutex = _T("UniqueDBusInitMutex");
+static const char *cUniqueDBusInitMutex = "UniqueDBusInitMutex";
 // sync _dbus_get_autolaunch_address
-LPCTSTR cDBusAutolaunchMutex = _T("DBusAutolaunchMutex");
+static const char *cDBusAutolaunchMutex = "DBusAutolaunchMutex";
 // mutex to determine if dbus-daemon is already started (per user)
-LPCTSTR cDBusDaemonMutex = _T("DBusDaemonMutex");
+static const char *cDBusDaemonMutex = "DBusDaemonMutex";
 // named shm for dbus adress info (per user)
-LPCTSTR cDBusDaemonAddressInfo = _T("DBusDaemonAddressInfo");
-
-#define USERNAME_SIZE 64
-#define DAEMON_MUTEX_SIZE 128
-#define DAEMON_ADDRESS_INFO_SIZE 128
-#define ADDRESS_SIZE 128
+static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfo";
 
 void
 _dbus_daemon_init(const char *host, dbus_uint32_t port)
 {
   HANDLE lock;
   const char *adr = NULL;
-  TCHAR szUserName[USERNAME_SIZE];
-  DWORD dwUserNameSize = USERNAME_SIZE;
-  TCHAR szDBusDaemonMutex[DAEMON_MUTEX_SIZE];
-  TCHAR szDBusDaemonAddressInfo[DAEMON_ADDRESS_INFO_SIZE];
-  TCHAR szAddress[ADDRESS_SIZE];
+  char szUserName[64];
+  DWORD dwUserNameSize = sizeof(szUserName);
+  char szDBusDaemonMutex[128];
+  char szDBusDaemonAddressInfo[128];
+  char szAddress[128];
 
   _dbus_assert(host);
   _dbus_assert(port);
 
-  _sntprintf(szAddress, ADDRESS_SIZE - 1,
-#ifdef _UNICODE
-  L"tcp:host=%S,port=%d", 
-#else
-  "tcp:host=%s,port=%d", 
-#endif
-  host, port);
+  _snprintf(szAddress, sizeof(szAddress) - 1, "tcp:host=%s,port=%d", host, port);
 
-#ifdef DBUS_WINCE
-  lstrcpy(szUserName, _T("WinCE_User"));
-#else
   _dbus_assert( GetUserName(szUserName, &dwUserNameSize) != 0);
-#endif
-
-  _sntprintf(szDBusDaemonMutex, DAEMON_MUTEX_SIZE - 1, _T("%s:%s"),
+  _snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%s",
             cDBusDaemonMutex, szUserName);
-  _sntprintf(szDBusDaemonAddressInfo, DAEMON_ADDRESS_INFO_SIZE - 1, _T("%s:%s"),
+  _snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%s",
             cDBusDaemonAddressInfo, szUserName);
 
   // before _dbus_global_lock to keep correct lock/release order
@@ -4926,18 +4850,14 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
 
   // create shm
   hDBusSharedMem = CreateFileMapping( INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE,
-                                      0, _tcslen( szAddress ) + 1, szDBusDaemonAddressInfo );
+                                      0, strlen( szAddress ) + 1, szDBusDaemonAddressInfo );
   _dbus_assert( hDBusSharedMem );
 
   adr = MapViewOfFile( hDBusSharedMem, FILE_MAP_WRITE, 0, 0, 0 );
 
   _dbus_assert( adr );
 
-#ifdef DBUS_WINCE
-  WideCharToMultiByte(CP_ACP, WC_SEPCHARS, szAddress, -1, adr, _tcslen( szAddress ), NULL, NULL);
-#else
   strcpy(adr, szAddress);
-#endif
 
   // cleanup
   UnmapViewOfFile( adr );
@@ -4969,31 +4889,21 @@ _dbus_daemon_release()
 static dbus_bool_t
 _dbus_get_autolaunch_shm(DBusString *adress)
 {
-  HANDLE sharedMem = 0;
+  HANDLE sharedMem;
   const char *adr;
-  TCHAR szUserName[USERNAME_SIZE];
-  DWORD dwUserNameSize = USERNAME_SIZE;
-  TCHAR szDBusDaemonAddressInfo[DAEMON_ADDRESS_INFO_SIZE];
+  char szUserName[64];
+  DWORD dwUserNameSize = sizeof(szUserName);
+  char szDBusDaemonAddressInfo[128];
 
-#ifdef DBUS_WINCE
-  lstrcpy(szUserName, _T("WinCE_User"));
-#else
   if( !GetUserName(szUserName, &dwUserNameSize) )
       return FALSE;
-#endif
-
-  _sntprintf(szDBusDaemonAddressInfo, DAEMON_ADDRESS_INFO_SIZE - 1, _T("%s:%s"),
+  _snprintf(szDBusDaemonAddressInfo, sizeof(szDBusDaemonAddressInfo) - 1, "%s:%s",
             cDBusDaemonAddressInfo, szUserName);
 
   // read shm
   do {
       // we know that dbus-daemon is available, so we wait until shm is available
-#ifndef DBUS_WINCE
       sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, szDBusDaemonAddressInfo );
-#else
-      // TODO
-	  // A possible solution is available here: http://svn.apache.org/viewvc/apr/apr/trunk/shmem/win32/shm.c?revision=428317&view=markup
-#endif
       if( sharedMem == 0 )
           Sleep( 100 );
   } while( sharedMem == 0 );
@@ -5024,20 +4934,16 @@ _dbus_daemon_already_runs (DBusString *adress)
   HANDLE lock;
   HANDLE daemon;
   dbus_bool_t bRet = TRUE;
-  TCHAR szUserName[USERNAME_SIZE];
-  DWORD dwUserNameSize = USERNAME_SIZE;
-  TCHAR szDBusDaemonMutex[DAEMON_MUTEX_SIZE];
+  char szUserName[64];
+  DWORD dwUserNameSize = sizeof(szUserName);
+  char szDBusDaemonMutex[128];
 
   // sync _dbus_daemon_init, _dbus_daemon_uninit and _dbus_daemon_already_runs
   lock = _dbus_global_lock( cUniqueDBusInitMutex );
 
-#ifdef DBUS_WINCE
-  lstrcpy(szUserName, _T("WinCE_User"));
-#else
-  _dbus_assert( GetUserName(szUserName, &dwUserNameSize) != 0);
-#endif
-
-  _sntprintf(szDBusDaemonMutex, DAEMON_MUTEX_SIZE - 1, _T("%s:%s"),
+  if( !GetUserName(szUserName, &dwUserNameSize) )
+      return FALSE;
+  _snprintf(szDBusDaemonMutex, sizeof(szDBusDaemonMutex) - 1, "%s:%s",
             cDBusDaemonMutex, szUserName);
 
   // do checks
@@ -5067,12 +4973,12 @@ _dbus_get_autolaunch_address (DBusString *address,
                               DBusError *error)
 {
   HANDLE mutex;
-  STARTUPINFO si;
+  STARTUPINFOA si;
   PROCESS_INFORMATION pi;
   dbus_bool_t retval = FALSE;
-  LPTSTR lpFile;
-  TCHAR dbus_exe_path[MAX_PATH];
-  TCHAR dbus_args[MAX_PATH * 2];
+  LPSTR lpFile;
+  char dbus_exe_path[MAX_PATH];
+  char dbus_args[MAX_PATH * 2];
 
   mutex = _dbus_global_lock ( cDBusAutolaunchMutex );
 
@@ -5085,33 +4991,27 @@ _dbus_get_autolaunch_address (DBusString *address,
         goto out;
     }
 
-#ifdef DBUS_WINCE
-  _tcscpy(dbus_exe_path, DBUS_WINCE_EXE_PATH);
-#else
-  if (!SearchPath(NULL, _T("dbus-daemon.exe"), NULL, MAX_PATH, dbus_exe_path, &lpFile))
+  if (!SearchPathA(NULL, "dbus-daemon.exe", NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
     {
       printf ("could not find dbus-daemon executable\n");
       goto out;
     }
-#endif
 
   // Create process
   ZeroMemory( &si, sizeof(si) );
   si.cb = sizeof(si);
   ZeroMemory( &pi, sizeof(pi) );
 
-  _sntprintf(dbus_args, MAX_PATH * 2 - 1, _T("\"%s\" %s"), dbus_exe_path,  _T(" --session"));
+  _snprintf(dbus_args, sizeof(dbus_args) - 1, "\"%s\" %s", dbus_exe_path,  " --session");
 
 //  argv[i] = "--config-file=bus\\session.conf";
-  _tprintf(_T("create process \"%s\" %s\n"), dbus_exe_path, dbus_args);
-  if(CreateProcess(dbus_exe_path, dbus_args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
+  printf("create process \"%s\" %s\n", dbus_exe_path, dbus_args);
+  if(CreateProcessA(dbus_exe_path, dbus_args, NULL, NULL, FALSE, 0, NULL, NULL, &si, &pi))
     {
       retval = TRUE;
 
-#ifndef DBUS_WINCE
       // Wait until started (see _dbus_get_autolaunch_shm())
       WaitForInputIdle(pi.hProcess, INFINITE);
-#endif
 
       retval = _dbus_get_autolaunch_shm( address );
     } else {
@@ -5147,125 +5047,6 @@ _dbus_make_file_world_readable(const DBusString *filename,
 
 #define DBUS_STANDARD_SESSION_SERVICEDIR "/dbus-1/services"
 
-// @TODO: this function is duplicated from dbus-sysdeps-unix.c
-//        and differs only in the path separator, may be we should 
-//        use a dbus path separator variable
-
-#define _dbus_path_seperator ";"
-
-static dbus_bool_t
-split_paths_and_append (DBusString *dirs, 
-                        const char *suffix, 
-                        DBusList **dir_list)
-{
-   int start;
-   int i;
-   int len;
-   char *cpath;
-   const DBusString file_suffix;
-
-   start = 0;
-   i = 0;
-
-   _dbus_string_init_const (&file_suffix, suffix);
-
-   len = _dbus_string_get_length (dirs);
-
-   while (_dbus_string_find (dirs, start, _dbus_path_seperator, &i))
-     {
-       DBusString path;
-
-       if (!_dbus_string_init (&path))
-          goto oom;
-
-       if (!_dbus_string_copy_len (dirs,
-                                   start,
-                                   i - start,
-                                   &path,
-                                   0))
-          {
-            _dbus_string_free (&path);
-            goto oom;
-          }
-
-        _dbus_string_chop_white (&path);
-
-        /* check for an empty path */
-        if (_dbus_string_get_length (&path) == 0)
-          goto next;
-
-        if (!_dbus_concat_dir_and_file (&path,
-                                        &file_suffix))
-          {
-            _dbus_string_free (&path);
-            goto oom;
-          }
-
-        if (!_dbus_string_copy_data(&path, &cpath))
-          {
-            _dbus_string_free (&path);
-            goto oom;
-          }
-
-        if (!_dbus_list_append (dir_list, cpath))
-          {
-            _dbus_string_free (&path);              
-            dbus_free (cpath);
-            goto oom;
-          }
-
-       next:
-        _dbus_string_free (&path);
-        start = i + 1;
-    } 
-      
-  if (start != len)
-    { 
-      DBusString path;
-
-      if (!_dbus_string_init (&path))
-        goto oom;
-
-      if (!_dbus_string_copy_len (dirs,
-                                  start,
-                                  len - start,
-                                  &path,
-                                  0))
-        {
-          _dbus_string_free (&path);
-          goto oom;
-        }
-
-      if (!_dbus_concat_dir_and_file (&path,
-                                      &file_suffix))
-        {
-          _dbus_string_free (&path);
-          goto oom;
-        }
-
-      if (!_dbus_string_copy_data(&path, &cpath))
-        {
-          _dbus_string_free (&path);
-          goto oom;
-        }
-
-      if (!_dbus_list_append (dir_list, cpath))
-        {
-          _dbus_string_free (&path);              
-          dbus_free (cpath);
-          goto oom;
-        }
-
-      _dbus_string_free (&path); 
-    }
-
-  return TRUE;
-
- oom:
-  _dbus_list_foreach (dir_list, (DBusForeachFunction)dbus_free, NULL); 
-  _dbus_list_clear (dir_list);
-  return FALSE;
-}
 
 /**
  * Returns the standard directories for a session bus to look for service 
@@ -5292,7 +5073,7 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
   if (!_dbus_string_init (&servicedir_path))
     return FALSE;
 
-  if (!_dbus_string_append (&servicedir_path, DBUS_DATADIR";"))
+  if (!_dbus_string_append (&servicedir_path, DBUS_DATADIR _DBUS_PATH_SEPARATOR))
         goto oom;
 
   common_progs = _dbus_getenv ("CommonProgramFiles");
@@ -5302,11 +5083,11 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
       if (!_dbus_string_append (&servicedir_path, common_progs))
         goto oom;
 
-      if (!_dbus_string_append (&servicedir_path, ";"))
+      if (!_dbus_string_append (&servicedir_path, _DBUS_PATH_SEPARATOR))
         goto oom;
     }
 
-  if (!split_paths_and_append (&servicedir_path, 
+  if (!_dbus_split_paths_and_append (&servicedir_path, 
                                DBUS_STANDARD_SESSION_SERVICEDIR, 
                                dirs))
     goto oom;

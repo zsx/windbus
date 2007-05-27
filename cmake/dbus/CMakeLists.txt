@@ -68,6 +68,11 @@ if(UNIX)
 	    ${DBUS_DIR}/dbus-transport-unix.c
 	    ${DBUS_DIR}/dbus-server-unix.c
 	)
+else(UNIX)
+    set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
+#	    ${DBUS_DIR}/dbus-transport-win.c
+	    ${DBUS_DIR}/dbus-server-win.c
+	)
 endif(UNIX)
 
 set (DBUS_LIB_HEADERS
@@ -167,7 +172,7 @@ set (DBUS_UTIL_HEADERS
 if (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
 		${DBUS_DIR}/dbus-sysdeps-win.c
-		${DBUS_DIR}/dbus-sysdeps-win-thread.c
+		${DBUS_DIR}/dbus-sysdeps-thread-win.c
 		${DBUS_DIR}/dbus-sysdeps-util-win.c
 		${DBUS_DIR}/dbus-spawn-win.c
 	)
@@ -205,7 +210,6 @@ set(libdbus_HEADERS
 	${DBUS_UTIL_HEADERS}
 )
 
-set(CMAKE_DEBUG_POSTFIX "d")
 if(MSVC)
 	add_library(dbus-1 STATIC ${libdbus_SOURCES} ${libdbus_HEADERS} )
 	project_source_group(${GROUP_CODE} libdbus_SOURCES libdbus_HEADERS)
@@ -234,10 +238,10 @@ install_files(/include/dbus FILES ${dbusinclude_HEADERS})
 
 if (DBUS_BUILD_TESTS)
 	set (TESTS_ENVIRONMENT "DBUS_TEST_DATA=${CMAKE_SOURCE_DIR}/test/data DBUS_TEST_HOMEDIR=${CMAKE_BUILD_DIR}/dbus")
-	ADD_EXECUTABLE(dbus-test  ${CMAKE_SOURCE_DIR}/../dbus/dbus-test-main.c)
+	ADD_EXECUTABLE(dbus-test ${CMAKE_SOURCE_DIR}/../dbus/dbus-test-main.c)
 	target_link_libraries(dbus-test dbus-1 ${LIBS})
 	add_test(dbus-test ${EXECUTABLE_OUTPUT_PATH}/dbus-test ${CMAKE_SOURCE_DIR}/../test/data)
-	install_targets(/bin dbus-test)
+	#install_targets(/bin dbus-test)
 ENDIF (DBUS_BUILD_TESTS)
 
 if (UNIX)

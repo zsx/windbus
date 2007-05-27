@@ -1,4 +1,3 @@
-? doc/Thumbs.db
 Index: bus/config-loader-expat.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/config-loader-expat.c,v
@@ -88,80 +87,6 @@ diff -u -r1.8 config-loader-libxml.c
    if (parser == NULL)
      {
        _DBUS_SET_OOM (error);
-Index: bus/config-parser.c
-===================================================================
-RCS file: /cvs/dbus/dbus/bus/config-parser.c,v
-retrieving revision 1.47
-diff -u -r1.47 config-parser.c
---- bus/config-parser.c	26 Jan 2007 16:10:09 -0000	1.47
-+++ bus/config-parser.c	8 Mar 2007 20:25:40 -0000
-@@ -3070,10 +3071,15 @@
- 
- static const char *test_service_dir_matches[] = 
-         {
-+#ifdef DBUS_WIN
-+         DBUS_DATADIR"/dbus-1/services",
-+         NULL,
-+#else
-          "/testusr/testlocal/testshare/dbus-1/services",
-          "/testusr/testshare/dbus-1/services",
-          DBUS_DATADIR"/dbus-1/services",
-          "/testhome/foo/.testlocal/testshare/dbus-1/services",         
-+#endif 
-          NULL
-         };
- 
-@@ -3082,11 +3088,32 @@
- {
-   DBusList *dirs;
-   DBusList *link;
-+  DBusString progs;
-+  const char *common_progs;
-   int i;
- 
-+  common_progs = _dbus_getenv ("CommonProgramFiles");
-+  if (common_progs) 
-+    {
-+      if (!_dbus_string_init (&progs))
-+        return FALSE;
-+
-+      if (!_dbus_string_append (&progs, common_progs)) 
-+        {
-+          _dbus_string_free (&progs);
-+          return FALSE;
-+        }
-+
-+      if (!_dbus_string_append (&progs, "/dbus-1/services")) 
-+        {
-+          _dbus_string_free (&progs);
-+          return FALSE;
-+        }
-+      test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
-+    }
-   dirs = NULL;
- 
--  printf ("Testing retriving the default session service directories\n");
-+  printf ("Testing retrieving the default session service directories\n");
-   if (!_dbus_get_standard_session_servicedirs (&dirs))
-     _dbus_assert_not_reached ("couldn't get stardard dirs");
- 
-@@ -3097,7 +3124,7 @@
-       
-       printf ("    default service dir: %s\n", (char *)link->data);
-       _dbus_string_init_const (&path, (char *)link->data);
--      if (!_dbus_string_ends_with_c_str (&path, "share/dbus-1/services"))
-+      if (!_dbus_string_ends_with_c_str (&path, "dbus-1/services"))
-         {
-           printf ("error with default session service directories\n");
-           return FALSE;
-@@ -3150,6 +3177,7 @@
-       return FALSE;
-     }
-     
-+  _dbus_string_free (&progs);
-   return TRUE;
- }
- 			   
 Index: bus/dispatch.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/bus/dispatch.c,v
@@ -318,27 +243,6 @@ diff -u -r1.36 main.c
    if (!_dbus_string_init (&config_file))
      return 1;
  
-Index: bus/policy.c
-===================================================================
-RCS file: /cvs/dbus/dbus/bus/policy.c,v
-retrieving revision 1.24
-diff -u -r1.24 policy.c
---- bus/policy.c	12 Dec 2006 21:24:07 -0000	1.24
-+++ bus/policy.c	8 Mar 2007 20:25:40 -0000
-@@ -324,9 +324,13 @@
- 
-   if (!dbus_connection_get_unix_user (connection, &uid))
-     {
-+#ifdef DBUS_WIN
-+		_dbus_verbose ("policy.c: dbus_connection_get_unix_user check disabled under windows\n");
-+#else
-       dbus_set_error (error, DBUS_ERROR_FAILED,
-                       "No user ID known for connection, cannot determine security policy\n");
-       goto failed;
-+#endif
-     }
- 
-   if (_dbus_hash_table_get_n_entries (policy->rules_by_uid) > 0)
 Index: dbus/dbus-bus.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-bus.c,v
@@ -422,22 +326,6 @@ diff -u -r1.49 dbus-connection.h
  unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
  void*        dbus_watch_get_data    (DBusWatch        *watch);
  void         dbus_watch_set_data    (DBusWatch        *watch,
-Index: dbus/dbus-internals.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-internals.c,v
-retrieving revision 1.55
-diff -u -r1.55 dbus-internals.c
---- dbus/dbus-internals.c	15 Nov 2006 01:52:01 -0000	1.55
-+++ dbus/dbus-internals.c	8 Mar 2007 20:25:40 -0000
-@@ -295,7 +295,7 @@
- #include <pthread.h>
- #endif
- 
--static inline void
-+static void
- _dbus_verbose_init (void)
- {
-   if (!verbose_initted)
 Index: dbus/dbus-mainloop.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-mainloop.c,v
@@ -445,17 +333,6 @@ retrieving revision 1.19
 diff -u -r1.19 dbus-mainloop.c
 --- dbus/dbus-mainloop.c	20 Oct 2006 03:04:59 -0000	1.19
 +++ dbus/dbus-mainloop.c	8 Mar 2007 20:25:40 -0000
-@@ -90,8 +90,8 @@
-   Callback callback;
-   DBusTimeout *timeout;
-   DBusTimeoutFunction function;
--  unsigned long last_tv_sec;
--  unsigned long last_tv_usec;
-+  long last_tv_sec;
-+  long last_tv_usec;
- } TimeoutCallback;
- 
- #define WATCH_CALLBACK(callback)   ((WatchCallback*)callback)
 @@ -598,7 +598,7 @@
  
  #if MAINLOOP_SPEW
@@ -483,28 +360,6 @@ diff -u -r1.19 dbus-mainloop.c
                               watch_flags_to_string (dbus_watch_get_flags (wcb->watch)));
  #endif
              }
-@@ -640,8 +640,8 @@
-   timeout = -1;
-   if (loop->timeout_count > 0)
-     {
--      unsigned long tv_sec;
--      unsigned long tv_usec;
-+      long tv_sec;
-+      long tv_usec;
-       
-       _dbus_get_current_time (&tv_sec, &tv_usec);
-           
-@@ -710,8 +710,8 @@
- 
-   if (loop->timeout_count > 0)
-     {
--      unsigned long tv_sec;
--      unsigned long tv_usec;
-+      long tv_sec;
-+      long tv_usec;
- 
-       _dbus_get_current_time (&tv_sec, &tv_usec);
- 
 @@ -883,6 +883,8 @@
    
    loop->depth -= 1;
@@ -530,49 +385,6 @@ diff -u -r1.3 dbus-server-socket.c
  
        client_fd = _dbus_accept (listen_fd);
        
-Index: dbus/dbus-server.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-server.c,v
-retrieving revision 1.54
-diff -u -r1.54 dbus-server.c
---- dbus/dbus-server.c	21 Oct 2006 23:09:18 -0000	1.54
-+++ dbus/dbus-server.c	8 Mar 2007 20:25:40 -0000
-@@ -509,8 +509,10 @@
-                                    DBusServer      **server_p,
-                                    DBusError        *error);
- } listen_funcs[] = {
--  { _dbus_server_listen_socket },
--  { _dbus_server_listen_platform_specific }
-+  { _dbus_server_listen_socket }
-+#ifndef DBUS_WIN
-+  , { _dbus_server_listen_platform_specific }
-+#endif
- #ifdef DBUS_BUILD_TESTS
-   , { _dbus_server_listen_debug_pipe }
- #endif
-@@ -1114,6 +1116,13 @@
- dbus_bool_t
- _dbus_server_test (void)
- {
-+#if defined(DBUS_WIN) || defined(DBUS_WINCE)
-+  const char *valid_addresses[] = {
-+    "tcp:port=1234",
-+    "tcp:host=localhost,port=1234",
-+    "tcp:host=localhost,port=1234;tcp:port=5678",
-+  };
-+#else
-   const char *valid_addresses[] = {
-     "tcp:port=1234",
-     "unix:path=./boogie",
-@@ -1121,7 +1130,7 @@
-     "tcp:host=localhost,port=1234;tcp:port=5678",
-     "tcp:port=1234;unix:path=./boogie",
-   };
--
-+#endif
-   DBusServer *server;
-   int i;
-   
 Index: dbus/dbus-spawn.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-spawn.c,v
@@ -622,40 +434,6 @@ diff -u -r1.10 dbus-sysdeps-util.c
  #ifdef DBUS_WIN
    check_path_absolute ("c:/", TRUE);
    check_path_absolute ("c:/foo", TRUE);
-Index: dbus/dbus-sysdeps.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps.c,v
-retrieving revision 1.120
-diff -u -r1.120 dbus-sysdeps.c
---- dbus/dbus-sysdeps.c	1 Jan 2007 21:29:59 -0000	1.120
-+++ dbus/dbus-sysdeps.c	8 Mar 2007 20:25:41 -0000
-@@ -119,11 +119,14 @@
-        * will get upset about.
-        */
-       
--      putenv_value = malloc (len + 1);
-+      putenv_value = malloc (len + 2);
-       if (putenv_value == NULL)
-         return FALSE;
- 
-       strcpy (putenv_value, varname);
-+#if defined(DBUS_WIN)
-+      strcat (putenv_value, "=");
-+#endif
-       
-       return (putenv (putenv_value) == 0);
- #endif
-@@ -413,6 +416,10 @@
- ascii_strtod (const char *nptr,
- 	      char      **endptr)
- {
-+  /* FIXME: The Win32 C library's strtod() doesn't handle hex.
-+   * Presumably many Unixes don't either.
-+   */
-+
-   char *fail_pos;
-   double val;
-   struct lconv *locale_data;
 Index: dbus/dbus-sysdeps.h
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps.h,v
@@ -671,23 +449,6 @@ diff -u -r1.69 dbus-sysdeps.h
  dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
                                      DBusError        *error);
  dbus_bool_t _dbus_close_socket     (int               fd,
-Index: dbus/dbus-test.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-test.c,v
-retrieving revision 1.44
-diff -u -r1.44 dbus-test.c
---- dbus/dbus-test.c	15 Nov 2006 03:07:59 -0000	1.44
-+++ dbus/dbus-test.c	8 Mar 2007 20:25:41 -0000
-@@ -156,7 +156,9 @@
-   
-   run_test ("hash", specific_test, _dbus_hash_test);
- 
-+#if !defined(DBUS_WINCE)
-   run_data_test ("spawn", specific_test, _dbus_spawn_test, test_data_dir);
-+#endif
-   
-   run_data_test ("userdb", specific_test, _dbus_userdb_test, test_data_dir);
-   
 Index: dbus/dbus-threads.c
 ===================================================================
 RCS file: /cvs/dbus/dbus/dbus/dbus-threads.c,v

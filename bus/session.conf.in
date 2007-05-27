@@ -14,12 +14,16 @@
 
   <policy context="default">
     <!-- Allow everything to be sent -->
-    <allow send_destination="*"/>
+    <allow send_destination="*" eavesdrop="true"/>
     <!-- Allow everything to be received -->
     <allow eavesdrop="true"/>
     <!-- Allow anyone to own anything -->
     <allow own="*"/>
   </policy>
+
+  <!-- Config files are placed here that among other things, 
+       further restrict the above policy for specific services. -->
+  <includedir>session.d</includedir>
 
   <!-- This is included last so local configuration can override what's 
        in this standard file -->

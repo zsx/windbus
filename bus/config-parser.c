@@ -1181,7 +1181,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_interface && receive_member) ||
        (send_interface && receive_error) ||
        (send_interface && receive_sender) ||
-       (send_interface && eavesdrop) ||
        (send_interface && receive_requested_reply) ||
        (send_interface && own) ||
        (send_interface && user) ||
@@ -1192,7 +1191,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_member && receive_member) ||
        (send_member && receive_error) ||
        (send_member && receive_sender) ||
-       (send_member && eavesdrop) ||
        (send_member && receive_requested_reply) ||
        (send_member && own) ||
        (send_member && user) ||
@@ -1202,7 +1200,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_error && receive_member) ||
        (send_error && receive_error) ||
        (send_error && receive_sender) ||
-       (send_error && eavesdrop) ||
        (send_error && receive_requested_reply) ||
        (send_error && own) ||
        (send_error && user) ||
@@ -1212,7 +1209,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_destination && receive_member) ||
        (send_destination && receive_error) ||
        (send_destination && receive_sender) ||
-       (send_destination && eavesdrop) ||
        (send_destination && receive_requested_reply) ||
        (send_destination && own) ||
        (send_destination && user) ||
@@ -1222,7 +1218,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_type && receive_member) ||
        (send_type && receive_error) ||
        (send_type && receive_sender) ||
-       (send_type && eavesdrop) ||
        (send_type && receive_requested_reply) ||
        (send_type && own) ||
        (send_type && user) ||
@@ -1232,7 +1227,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_path && receive_member) ||
        (send_path && receive_error) ||
        (send_path && receive_sender) ||
-       (send_path && eavesdrop) ||
        (send_path && receive_requested_reply) ||
        (send_path && own) ||
        (send_path && user) ||
@@ -1242,7 +1236,6 @@ append_rule_from_element (BusConfigParser   *parser,
        (send_requested_reply && receive_member) ||
        (send_requested_reply && receive_error) ||
        (send_requested_reply && receive_sender) ||
-       (send_requested_reply && eavesdrop) ||
        (send_requested_reply && receive_requested_reply) ||
        (send_requested_reply && own) ||
        (send_requested_reply && user) ||
@@ -1319,6 +1312,16 @@ append_rule_from_element (BusConfigParser   *parser,
             }
         }
 
+      if (eavesdrop &&
+          !(strcmp (eavesdrop, "true") == 0 ||
+            strcmp (eavesdrop, "false") == 0))
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "Bad value \"%s\" for %s attribute, must be true or false",
+                          "eavesdrop", eavesdrop);
+          return FALSE;
+        }
+
       if (send_requested_reply &&
           !(strcmp (send_requested_reply, "true") == 0 ||
             strcmp (send_requested_reply, "false") == 0))
@@ -1333,9 +1336,12 @@ append_rule_from_element (BusConfigParser   *parser,
       if (rule == NULL)
         goto nomem;
       
+      if (eavesdrop)
+        rule->d.send.eavesdrop = (strcmp (eavesdrop, "true") == 0);
+
       if (send_requested_reply)
         rule->d.send.requested_reply = (strcmp (send_requested_reply, "true") == 0);
-      
+
       rule->d.send.message_type = message_type;
       rule->d.send.path = _dbus_strdup (send_path);
       rule->d.send.interface = _dbus_strdup (send_interface);
@@ -3071,10 +3077,14 @@ process_test_equiv_subdir (const DBusString *test_base_dir,
 
 static const char *test_service_dir_matches[] = 
         {
+#ifdef DBUS_UNIX
          "/testusr/testlocal/testshare/dbus-1/services",
          "/testusr/testshare/dbus-1/services",
+#endif
          DBUS_DATADIR"/dbus-1/services",
-         "/testhome/foo/.testlocal/testshare/dbus-1/services",         
+#ifdef DBUS_UNIX
+         "/testhome/foo/.testlocal/testshare/dbus-1/services",
+#endif
          NULL
         };
 
@@ -3083,11 +3093,36 @@ test_default_session_servicedirs (void)
 {
   DBusList *dirs;
   DBusList *link;
+  DBusString progs;
+  const char *common_progs;
   int i;
 
+  /* On Unix we don't actually use this variable, but it's easier to handle the
+   * deallocation if we always allocate it, whether needed or not */
+  if (!_dbus_string_init (&progs))
+    _dbus_assert_not_reached ("OOM allocating progs");
+
+  common_progs = _dbus_getenv ("CommonProgramFiles");
+#ifndef DBUS_UNIX
+  if (common_progs) 
+    {
+      if (!_dbus_string_append (&progs, common_progs)) 
+        {
+          _dbus_string_free (&progs);
+          return FALSE;
+        }
+
+      if (!_dbus_string_append (&progs, "/dbus-1/services")) 
+        {
+          _dbus_string_free (&progs);
+          return FALSE;
+        }
+      test_service_dir_matches[1] = _dbus_string_get_const_data(&progs);
+    }
+#endif
   dirs = NULL;
 
-  printf ("Testing retriving the default session service directories\n");
+  printf ("Testing retrieving the default session service directories\n");
   if (!_dbus_get_standard_session_servicedirs (&dirs))
     _dbus_assert_not_reached ("couldn't get stardard dirs");
 
@@ -3098,9 +3133,12 @@ test_default_session_servicedirs (void)
       
       printf ("    default service dir: %s\n", (char *)link->data);
       _dbus_string_init_const (&path, (char *)link->data);
-      if (!_dbus_string_ends_with_c_str (&path, "share/dbus-1/services"))
+      if (!_dbus_string_ends_with_c_str (&path, "dbus-1/services"))
         {
           printf ("error with default session service directories\n");
+	      dbus_free (link->data);
+    	  _dbus_list_free_link (link);
+          _dbus_string_free (&progs);
           return FALSE;
         }
  
@@ -3108,12 +3146,13 @@ test_default_session_servicedirs (void)
       _dbus_list_free_link (link);
     }
 
+#ifdef DBUS_UNIX
   if (!_dbus_setenv ("XDG_DATA_HOME", "/testhome/foo/.testlocal/testshare"))
     _dbus_assert_not_reached ("couldn't setenv XDG_DATA_HOME");
 
   if (!_dbus_setenv ("XDG_DATA_DIRS", ":/testusr/testlocal/testshare: :/testusr/testshare:"))
     _dbus_assert_not_reached ("couldn't setenv XDG_DATA_DIRS");
-
+#endif
   if (!_dbus_get_standard_session_servicedirs (&dirs))
     _dbus_assert_not_reached ("couldn't get stardard dirs");
 
@@ -3125,6 +3164,9 @@ test_default_session_servicedirs (void)
       if (test_service_dir_matches[i] == NULL)
         {
           printf ("more directories parsed than in match set\n");
+          dbus_free (link->data);
+          _dbus_list_free_link (link);
+          _dbus_string_free (&progs);
           return FALSE;
         }
  
@@ -3134,6 +3176,9 @@ test_default_session_servicedirs (void)
           printf ("%s directory does not match %s in the match set\n", 
                   (char *)link->data,
                   test_service_dir_matches[i]);
+          dbus_free (link->data);
+          _dbus_list_free_link (link);
+          _dbus_string_free (&progs);
           return FALSE;
         }
 
@@ -3148,9 +3193,11 @@ test_default_session_servicedirs (void)
       printf ("extra data %s in the match set was not matched\n",
               test_service_dir_matches[i]);
 
+      _dbus_string_free (&progs);
       return FALSE;
     }
     
+  _dbus_string_free (&progs);
   return TRUE;
 }
 			   
