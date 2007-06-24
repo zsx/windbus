@@ -15,10 +15,13 @@
 #cmakedefine DBUS_SYSTEM_BUS_DEFAULT_ADDRESS  "@DBUS_SYSTEM_BUS_DEFAULT_ADDRESS@"
 #cmakedefine DBUS_MACHINE_UUID_FILE "@DBUS_MACHINE_UUID_FILE@"
 //#cmakedefine DBUS_SESSION_BUS_DEFAULT_ADDRESS "@DBUS_SESSION_BUS_DEFAULT_ADDRESS@"
+#cmakedefine DBUS_DAEMONDIR "@DBUS_DAEMONDIR@"
 #cmakedefine PACKAGE "@PACKAGE@"
 /* Version number of package */
 #cmakedefine VERSION "@VERSION@"
 // test binaries
+/* Full path to test file test/test-exit in builddir */
+#define TEST_BUS_BINARY          "@TEST_BUS_BINARY@"
 /* Full path to test file test/test-exit in builddir */
 #define TEST_EXIT_BINARY          "@TEST_EXIT_BINARY@"
 /* Full path to test file test/test-segfault in builddir */
@@ -82,8 +85,14 @@
 /* Define to 1 if you have unistd.h */
 #cmakedefine   HAVE_UNISTD_H 1
 
+/* Define to 1 if you have errno.h */
+#cmakedefine   HAVE_ERRNO_H 1
+
 /* Define to 1 if you have stdio.h */
 #cmakedefine   HAVE_STDIO_H 1
+
+/* Define to 1 if you have sys/syslimits.h */
+#cmakedefine   HAVE_SYS_SYSLIMITS_H 1
 
 // symbols
 /* Define to 1 if you have backtrace */
@@ -112,6 +121,9 @@
 
 /* Define to 1 if you have writev */
 #cmakedefine   HAVE_WRITEV 1
+
+/* Define to 1 if you have socklen_t */
+#cmakedefine   HAVE_SOCKLEN_T 1
 
 // structs
 /* Define to 1 if you have struct cmsgred */

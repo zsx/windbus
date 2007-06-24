@@ -22,6 +22,15 @@
  *
  */
 
+/* #define ENABLE_DBUSGROUPINFO */
+
+#ifdef ENABLE_DBUSGROUPINFO
+typedef struct {
+    int gid;
+    char *groupname;
+} DBusGroupInfo;
+#endif
+
 #undef open
 
 #define STRSAFE_NO_DEPRECATE
@@ -41,6 +50,28 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <errno.h>
+
+#if defined __MINGW32__ || (defined _MSC_VER && _MSC_VER <= 1310)
+/* save string functions version
+   using DBusString needs to much time because of uncommon api 
+*/ 
+#define errno_t int
+
+errno_t strcat_s(char *dest, size_t size, char *src) 
+{
+  _dbus_assert(strlen(dest) + strlen(src) +1 <= size);
+  strcat(dest,src);
+  return 0;
+}
+
+errno_t strcpy_s(char *dest, size_t size, char *src)
+{
+  _dbus_assert(strlen(src) +1 <= size);
+  strcpy(dest,src);  
+  return 0;
+}
+#endif
 
 /**
  * Does the chdir, fork, setsid, etc. to become a daemon process.
@@ -111,6 +142,32 @@ _dbus_write_pid_file (const DBusString *filename,
       return FALSE;
     }
 
+  return TRUE;
+}
+
+/**
+ * Verify that after the fork we can successfully change to this user.
+ *
+ * @param user the username given in the daemon configuration
+ * @returns #TRUE if username is valid
+ */
+dbus_bool_t
+_dbus_verify_daemon_user (const char *user)
+{
+  return TRUE;
+}
+
+/**
+ * Changes the user and group the bus is running as.
+ *
+ * @param user the user to become
+ * @param error return location for errors
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_change_to_daemon_user  (const char    *user,
+                              DBusError     *error)
+{
   return TRUE;
 }
 
@@ -255,6 +312,34 @@ _dbus_set_signal_handler (int               sig,
   _dbus_verbose ("_dbus_set_signal_handler() has to be implemented\n");
 }
 
+/** Checks if a file exists
+*
+* @param file full path to the file
+* @returns #TRUE if file exists
+*/
+dbus_bool_t 
+_dbus_file_exists (const char *file)
+{
+  HANDLE h = CreateFile(
+          file, /* LPCTSTR lpFileName*/
+          0, /* DWORD dwDesiredAccess */
+          0, /* DWORD dwShareMode*/
+          NULL, /* LPSECURITY_ATTRIBUTES lpSecurityAttributes */
+          OPEN_EXISTING, /* DWORD dwCreationDisposition */
+          FILE_ATTRIBUTE_NORMAL, /* DWORD dwFlagsAndAttributes */
+          NULL /* HANDLE hTemplateFile */
+        );
+
+    /* file not found, use local copy of session.conf  */
+    if (h != INVALID_HANDLE_VALUE && GetLastError() != ERROR_PATH_NOT_FOUND)
+      {
+        CloseHandle(h);
+        return TRUE;
+      }
+    else
+        return FALSE;  
+}
+
 /**
  * stat() wrapper.
  *
@@ -328,8 +413,11 @@ _dbus_stat(const DBusString *filename,
       return FALSE;
     }
 
+#ifdef ENABLE_UID_TO_SID
+  /* FIXME */
   statbuf->uid = _dbus_win_sid_to_uid_t (owner_sid);
   statbuf->gid = _dbus_win_sid_to_uid_t (group_sid);
+#endif
 
   LocalFree (sd);
 
@@ -632,7 +720,7 @@ _dbus_path_is_absolute (const DBusString *filename)
     return FALSE;
 }
 
-
+#ifdef ENABLE_DBUSGROPINFO
 static dbus_bool_t
 fill_group_info(DBusGroupInfo    *info,
                 dbus_gid_t        gid,
@@ -743,6 +831,7 @@ _dbus_group_info_fill (DBusGroupInfo    *info,
   return fill_group_info (info, DBUS_GID_UNSET,
                           groupname, error);
 }
+#endif
 
 /** @} */ /* End of DBusInternalsUtils functions */
 
@@ -816,6 +905,92 @@ _dbus_string_get_dirname(const DBusString *filename,
     return _dbus_string_copy_len (filename, 0, sep - 0,
                                   dirname, _dbus_string_get_length (dirname));
 }
+
+
+/**
+ * Checks to see if the UNIX user ID matches the UID of
+ * the process. Should always return #FALSE on Windows.
+ *
+ * @param uid the UNIX user ID
+ * @returns #TRUE if this uid owns the process.
+ */
+dbus_bool_t
+_dbus_unix_user_is_process_owner (dbus_uid_t uid)
+{
+  return FALSE;
+}
+
+/*=====================================================================
+  unix emulation functions - should be removed sometime in the future
+ =====================================================================*/
+
+/**
+ * Checks to see if the UNIX user ID is at the console.
+ * Should always fail on Windows (set the error to
+ * #DBUS_ERROR_NOT_SUPPORTED).
+ *
+ * @param uid UID of person to check 
+ * @param error return location for errors
+ * @returns #TRUE if the UID is the same as the console user and there are no errors
+ */
+dbus_bool_t
+_dbus_unix_user_is_at_console (dbus_uid_t         uid,
+                               DBusError         *error)
+{
+  return FALSE;
+}
+
+
+/**
+ * Parse a UNIX group from the bus config file. On Windows, this should
+ * simply always fail (just return #FALSE).
+ *
+ * @param groupname the groupname text
+ * @param gid_p place to return the gid
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_parse_unix_group_from_config (const DBusString  *groupname,
+                                    dbus_gid_t        *gid_p)
+{
+  return FALSE;
+}
+
+/**
+ * Parse a UNIX user from the bus config file. On Windows, this should
+ * simply always fail (just return #FALSE).
+ *
+ * @param username the username text
+ * @param uid_p place to return the uid
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_parse_unix_user_from_config (const DBusString  *username,
+                                   dbus_uid_t        *uid_p)
+{
+  return FALSE;
+}
+
+
+/**
+ * Gets all groups corresponding to the given UNIX user ID. On UNIX,
+ * just calls _dbus_groups_from_uid(). On Windows, should always
+ * fail since we don't know any UNIX groups.
+ *
+ * @param uid the UID
+ * @param group_ids return location for array of group IDs
+ * @param n_group_ids return location for length of returned array
+ * @returns #TRUE if the UID existed and we got some credentials
+ */
+dbus_bool_t
+_dbus_unix_groups_from_uid (dbus_uid_t            uid,
+                            dbus_gid_t          **group_ids,
+                            int                  *n_group_ids)
+{
+  return FALSE;
+}
+
+
 
 /** @} */ /* DBusString stuff */
 

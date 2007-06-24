@@ -34,11 +34,11 @@
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-hash.h>
 #include <dbus/dbus-internals.h>
-#include <dbus/dbus-userdb.h>
 
 struct BusContext
 {
   int refcount;
+  DBusGUID uuid;
   char *config_file;
   char *type;
   char *address;
@@ -533,7 +533,6 @@ bus_context_new (const DBusString *config_file,
 {
   BusContext *context;
   BusConfigParser *parser;
-  DBusCredentials creds;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
@@ -554,6 +553,8 @@ bus_context_new (const DBusString *config_file,
     }
   context->refcount = 1;
 
+  _dbus_generate_uuid (&context->uuid);
+  
   if (!_dbus_string_copy_data (config_file, &context->config_file))
     {
       BUS_SET_OOM (error);
@@ -660,13 +661,7 @@ bus_context_new (const DBusString *config_file,
   /* check user before we fork */
   if (context->user != NULL)
     {
-      DBusString u;
-
-      _dbus_string_init_const (&u, context->user);
-
-      if (!_dbus_credentials_from_username (&u, &creds) ||
-          creds.uid < 0 ||
-          creds.gid < 0)
+      if (!_dbus_verify_daemon_user (context->user))
         {
           dbus_set_error (error, DBUS_ERROR_FAILED,
                           "Could not get UID and GID for username \"%s\"",
@@ -747,11 +742,6 @@ bus_context_new (const DBusString *config_file,
       _dbus_string_free (&pid);
     }
 
-  if (!bus_selinux_full_init ())
-    {
-      _dbus_warn ("SELinux initialization failed\n");
-    }
-
   if (!process_config_postinit (context, parser, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -769,11 +759,16 @@ bus_context_new (const DBusString *config_file,
    */
   if (context->user != NULL)
     {
-      if (!_dbus_change_identity (creds.uid, creds.gid, error))
+      if (!_dbus_change_to_daemon_user (context->user, error))
 	{
 	  _DBUS_ASSERT_ERROR_IS_SET (error);
 	  goto failed;
 	}
+    }
+
+  if (!bus_selinux_full_init ())
+    {
+      _dbus_warn ("SELinux initialization failed\n");
     }
   
   dbus_server_free_data_slot (&server_data_slot);
@@ -793,6 +788,13 @@ bus_context_new (const DBusString *config_file,
 }
 
 dbus_bool_t
+bus_context_get_id (BusContext       *context,
+                    DBusString       *uuid)
+{
+  return _dbus_uuid_encode (&context->uuid, uuid);
+}
+
+dbus_bool_t
 bus_context_reload_config (BusContext *context,
 			   DBusError  *error)
 {
@@ -801,7 +803,7 @@ bus_context_reload_config (BusContext *context,
   dbus_bool_t ret;
 
   /* Flush the user database cache */
-  _dbus_user_database_flush_system ();
+  _dbus_flush_caches ();
 
   ret = FALSE;
   _dbus_string_init_const (&config_file, context->config_file);
@@ -1002,11 +1004,23 @@ bus_context_get_loop (BusContext *context)
 }
 
 dbus_bool_t
-bus_context_allow_user (BusContext   *context,
-                        unsigned long uid)
+bus_context_allow_unix_user (BusContext   *context,
+                             unsigned long uid)
 {
-  return bus_policy_allow_user (context->policy,
-                                uid);
+  return bus_policy_allow_unix_user (context->policy,
+                                     uid);
+}
+
+/* For now this is never actually called because the default
+ * DBusConnection behavior of 'same user that owns the bus can connect'
+ * is all it would do.
+ */
+dbus_bool_t
+bus_context_allow_windows_user (BusContext       *context,
+                                const char       *windows_sid)
+{
+  return bus_policy_allow_windows_user (context->policy,
+                                        windows_sid);
 }
 
 BusPolicy *

@@ -158,6 +158,7 @@ _dbus_sysdeps_test (void)
       _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
       exit (1);
     }
+
 #ifdef DBUS_WIN
   check_path_absolute ("c:/", TRUE);
   check_path_absolute ("c:/foo", TRUE);

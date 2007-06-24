@@ -1,8 +1,16 @@
 set (PACKAGE dbus)
+
+# the version major, minor and release number should be synchron to the dbus cvs - windows releases should only update the patch level
 set (VERSION_MAJOR "1")
 set (VERSION_MINOR "1")
-set (VERSION_PATCH "0")
-set (VERSION ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH} )
+set (VERSION_RELEASE "1")
+set (VERSION_PATCH "2")
+if (VERSION_PATCH)
+    set (VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_RELEASE}-${VERSION_PATCH}" )
+else (VERSION_PATCH)
+    set (VERSION "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_RELEASE}" )
+endif (VERSION_PATCH)
+
 project(${PACKAGE})
 
 # we need to be up to date
@@ -11,14 +19,22 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.4.4 FATAL_ERROR)
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/modules")
 
-
 #enable building of shared library
 SET(BUILD_SHARED_LIBS ON)
 
-# search packages used by KDE
+if (CYGWIN)
+   set (WIN32)
+endif (CYGWIN)
+    
+# search for required packages
 if (WIN32)
-	find_package(GNUWIN32)
+    # include local header first to avoid using old installed header
+    set (CMAKE_INCLUDE_PATH ${CMAKE_INCLUDE_PATH} ${CMAKE_SOURCE_DIR}/..)
+    find_package(KDEWIN)
+    find_package(KDEWIN_Packager)
 	find_package(LibIconv)
+    include(Win32Macros)
+    addExplorerWrapper(${PACKAGE})
 endif (WIN32)
 find_package(LibXml2)
 find_package(LibExpat)
@@ -77,10 +93,9 @@ endif(MSVC)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
    # used by executables, CMAKE_DEBUG_POSTFIX does not handle this case
-   set (CMAKE_EXE_POSTFIX "d")
-   set (CMAKE_DEBUG_POSTFIX "d")
+   #set (CMAKE_EXE_POSTFIX "d")
+   #set (CMAKE_DEBUG_POSTFIX "d")
 endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
-
 
 #########################################################################
 # Windows CE
@@ -143,11 +158,11 @@ ENABLE_TESTING()
 #endif(${generatedFileInSourceDir})
 #########################################################################
 
-if (WIN32)
+if (WIN32 OR CYGWIN)
 	set (LIBRARY_OUTPUT_PATH  ${CMAKE_BINARY_DIR}/bin)
-else (WIN32)
+else (WIN32 OR CYGWIN)
 	set (LIBRARY_OUTPUT_PATH  ${CMAKE_BINARY_DIR}/lib)
-endif (WIN32)
+endif (WIN32 OR CYGWIN)
 
 set (EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 
@@ -176,6 +191,7 @@ if (NOT DBUS_INSTALL_DIR)
 	set(DBUS_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}" CACHE TYPE STRING)
 endif (NOT DBUS_INSTALL_DIR)
 	
+# TODO: setting EXPANDED_... has nothing to do with DBUS_INSTALL_SYSTEM_LIBS
 if (DBUS_INSTALL_SYSTEM_LIBS)
 	set(prefix                   ${DBUS_INSTALL_DIR})
 	set(exec_prefix              ${prefix})
@@ -197,6 +213,8 @@ else (DBUS_INSTALL_SYSTEM_LIBS)
 	set(DBUS_BINDIR              ${EXPANDED_BINDIR})
 	set(DBUS_MACHINE_UUID_FILE   ${CMAKE_BINARY_DIR}/lib/dbus/machine-id)
 endif (DBUS_INSTALL_SYSTEM_LIBS)
+
+set (DBUS_DAEMONDIR ${EXPANDED_BINDIR})
 
 ########### command line options ###############
 # TODO: take check from configure.in 
@@ -423,9 +441,7 @@ endif(MINGW)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h )
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-env.bat.cmake ${CMAKE_BINARY_DIR}/bin/dbus-env.bat )
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-launch.bat.cmake ${CMAKE_BINARY_DIR}/bin/dbus-launch.bat )
 install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-env.bat)	
-install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-launch.bat)	
 
 # compiler definitions 
 add_definitions(-DHAVE_CONFIG_H=1)
@@ -531,5 +547,8 @@ if (DBUS_DISABLE_CHECKS)
 endif(DBUS_DISABLE_CHECKS)
 MESSAGE(" ")
 
-
 INCLUDE(modules/CPackInstallConfig.cmake)
+
+if (KDEWIN_PACKAGER_FOUND)
+    KDEWIN_PACKAGER(${PACKAGE} ${VERSION} "ipc library" "")
+endif (KDEWIN_PACKAGER_FOUND)

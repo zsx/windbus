@@ -89,7 +89,7 @@ struct DBusTransport
 
   DBusAuth *auth;                             /**< Authentication conversation */
 
-  DBusCredentials credentials;                /**< Credentials of other end */  
+  DBusCredentials *credentials;               /**< Credentials of other end read from the socket */  
 
   long max_live_messages_size;                /**< Max total size of received messages. */
 
@@ -104,6 +104,11 @@ struct DBusTransport
   void *unix_user_data;                         /**< Data for unix_user_function */
   
   DBusFreeFunction free_unix_user_data;         /**< Function to free unix_user_data */
+
+  DBusAllowWindowsUserFunction windows_user_function; /**< Function for checking whether a user is authorized. */
+  void *windows_user_data;                            /**< Data for windows_user_function */
+  
+  DBusFreeFunction free_windows_user_data;            /**< Function to free windows_user_data */
   
   unsigned int disconnected : 1;              /**< #TRUE if we are disconnected. */
   unsigned int authenticated : 1;             /**< Cache of auth state; use _dbus_transport_get_is_authenticated() to query value */
@@ -111,6 +116,7 @@ struct DBusTransport
   unsigned int receive_credentials_pending : 1; /**< #TRUE if we need to receive credentials */
   unsigned int is_server : 1;                 /**< #TRUE if on the server side */
   unsigned int unused_bytes_recovered : 1;    /**< #TRUE if we've recovered unused bytes from auth */
+  unsigned int allow_anonymous : 1;           /**< #TRUE if an anonymous client can connect */
 };
 
 dbus_bool_t _dbus_transport_init_base     (DBusTransport             *transport,

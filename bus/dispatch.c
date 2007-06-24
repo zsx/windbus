@@ -1264,15 +1264,28 @@ check_get_connection_unix_process_id (BusContext     *context,
         {
           ; /* good, this is a valid response */
         }
+#ifdef DBUS_WIN
+      else if (dbus_message_is_error (message, DBUS_ERROR_UNIX_PROCESS_ID_UNKNOWN))
+        {
+          /* We are expecting this error, since we know in the test suite we aren't
+           * talking to a client running on UNIX
+           */
+          _dbus_verbose ("Windows correctly does not support GetConnectionUnixProcessID\n");
+        }
+#endif   
       else
         {
           warn_unexpected (connection, message, "not this error");
-
+          
           goto out;
         }
     }
   else
     {
+#ifdef DBUS_WIN
+      warn_unexpected (connection, message, "GetConnectionUnixProcessID to fail on Windows");
+      goto out;
+#else      
       if (dbus_message_get_type (message) == DBUS_MESSAGE_TYPE_METHOD_RETURN)
         {
           ; /* good, expected */
@@ -1304,8 +1317,9 @@ check_get_connection_unix_process_id (BusContext     *context,
               _dbus_warn ("Did not get the expected DBUS_TYPE_UINT32 from GetConnectionUnixProcessID\n");
               goto out;
             }
-        } else {
-
+        }
+      else
+        {
           /* test if returned pid is the same as our own pid
            *
            * @todo It would probably be good to restructure the tests
@@ -1320,6 +1334,7 @@ check_get_connection_unix_process_id (BusContext     *context,
               goto out;
             }
         }
+#endif /* !DBUS_WIN */
     }
 
   if (!check_no_leftovers (context))

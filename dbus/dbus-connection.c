@@ -2811,6 +2811,85 @@ dbus_connection_get_is_authenticated (DBusConnection *connection)
 }
 
 /**
+ * Gets whether the connection is not authenticated as a specific
+ * user.  If the connection is not authenticated, this function
+ * returns #TRUE, and if it is authenticated but as an anonymous user,
+ * it returns #TRUE.  If it is authenticated as a specific user, then
+ * this returns #FALSE. (Note that if the connection was authenticated
+ * as anonymous then disconnected, this function still returns #TRUE.)
+ *
+ * If the connection is not anonymous, you can use
+ * dbus_connection_get_unix_user() and
+ * dbus_connection_get_windows_user() to see who it's authorized as.
+ *
+ * If you want to prevent non-anonymous authorization, use
+ * dbus_server_set_auth_mechanisms() to remove the mechanisms that
+ * allow proving user identity (i.e. only allow the ANONYMOUS
+ * mechanism).
+ * 
+ * @param connection the connection
+ * @returns #TRUE if not authenticated or authenticated as anonymous 
+ */
+dbus_bool_t
+dbus_connection_get_is_anonymous (DBusConnection *connection)
+{
+  dbus_bool_t res;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  
+  CONNECTION_LOCK (connection);
+  res = _dbus_transport_get_is_anonymous (connection->transport);
+  CONNECTION_UNLOCK (connection);
+  
+  return res;
+}
+
+/**
+ * Gets the ID of the server address we are authenticated to, if this
+ * connection is on the client side. If the connection is on the
+ * server side, this will always return #NULL - use dbus_server_get_id()
+ * to get the ID of your own server, if you are the server side.
+ * 
+ * If a client-side connection is not authenticated yet, the ID may be
+ * available if it was included in the server address, but may not be
+ * available. The only way to be sure the server ID is available
+ * is to wait for authentication to complete.
+ *
+ * In general, each mode of connecting to a given server will have
+ * its own ID. So for example, if the session bus daemon is listening
+ * on UNIX domain sockets and on TCP, then each of those modalities
+ * will have its own server ID.
+ *
+ * If you want an ID that identifies an entire session bus, look at
+ * dbus_bus_get_id() instead (which is just a convenience wrapper
+ * around the org.freedesktop.DBus.GetId method invoked on the bus).
+ *
+ * You can also get a machine ID; see dbus_get_local_machine_id() to
+ * get the machine you are on.  There isn't a convenience wrapper, but
+ * you can invoke org.freedesktop.DBus.Peer.GetMachineId on any peer
+ * to get the machine ID on the other end.
+ * 
+ * The D-Bus specification describes the server ID and other IDs in a
+ * bit more detail.
+ *
+ * @param connection the connection
+ * @returns the server ID or #NULL if no memory or the connection is server-side
+ */
+char*
+dbus_connection_get_server_id (DBusConnection *connection)
+{
+  char *id;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  
+  CONNECTION_LOCK (connection);
+  id = _dbus_strdup (_dbus_transport_get_server_id (connection->transport));
+  CONNECTION_UNLOCK (connection);
+  
+  return id;
+}
+
+/**
  * Set whether _exit() should be called when the connection receives a
  * disconnect signal. The call to _exit() comes after any handlers for
  * the disconnect signal run; handlers can cancel the exit by calling
@@ -4441,12 +4520,13 @@ dbus_connection_dispatch (DBusConnection *connection)
  * dbus_watch_get_enabled() every time anyway.
  * 
  * The DBusWatch can be queried for the file descriptor to watch using
- * dbus_watch_get_fd(), and for the events to watch for using
- * dbus_watch_get_flags(). The flags returned by
- * dbus_watch_get_flags() will only contain DBUS_WATCH_READABLE and
- * DBUS_WATCH_WRITABLE, never DBUS_WATCH_HANGUP or DBUS_WATCH_ERROR;
- * all watches implicitly include a watch for hangups, errors, and
- * other exceptional conditions.
+ * dbus_watch_get_unix_fd() or dbus_watch_get_socket(), and for the
+ * events to watch for using dbus_watch_get_flags(). The flags
+ * returned by dbus_watch_get_flags() will only contain
+ * DBUS_WATCH_READABLE and DBUS_WATCH_WRITABLE, never
+ * DBUS_WATCH_HANGUP or DBUS_WATCH_ERROR; all watches implicitly
+ * include a watch for hangups, errors, and other exceptional
+ * conditions.
  *
  * Once a file descriptor becomes readable or writable, or an exception
  * occurs, dbus_watch_handle() should be called to
@@ -4698,7 +4778,7 @@ dbus_connection_set_dispatch_status_function (DBusConnection             *connec
  * example. DO NOT read or write to the file descriptor, or try to
  * select() on it; use DBusWatch for main loop integration. Not all
  * connections will have a file descriptor. So for adding descriptors
- * to the main loop, use dbus_watch_get_fd() and so forth.
+ * to the main loop, use dbus_watch_get_unix_fd() and so forth.
  *
  * If the connection is socket-based, you can also use
  * dbus_connection_get_socket(), which will work on Windows too.
@@ -4731,7 +4811,7 @@ dbus_connection_get_unix_fd (DBusConnection *connection,
  * of the connection, if any. DO NOT read or write to the file descriptor, or try to
  * select() on it; use DBusWatch for main loop integration. Not all
  * connections will have a socket. So for adding descriptors
- * to the main loop, use dbus_watch_get_fd() and so forth.
+ * to the main loop, use dbus_watch_get_socket() and so forth.
  *
  * If the connection is not socket-based, this function will return FALSE,
  * even if the connection does have a file descriptor of some kind.
@@ -4763,8 +4843,10 @@ dbus_connection_get_socket(DBusConnection              *connection,
 
 /**
  * Gets the UNIX user ID of the connection if known.  Returns #TRUE if
- * the uid is filled in.  Always returns #FALSE on non-UNIX platforms.
- * Always returns #FALSE prior to authenticating the connection.
+ * the uid is filled in.  Always returns #FALSE on non-UNIX platforms
+ * for now, though in theory someone could hook Windows to NIS or
+ * something.  Always returns #FALSE prior to authenticating the
+ * connection.
  *
  * The UID is only read by servers from clients; clients can't usually
  * get the UID of servers, because servers do not authenticate to
@@ -4789,14 +4871,6 @@ dbus_connection_get_unix_user (DBusConnection *connection,
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (uid != NULL, FALSE);
-
-#ifdef DBUS_WIN
-  /* FIXME this should be done at a lower level, but it's kind of hard,
-   * just want to be sure we don't ship with this API returning
-   * some weird internal fake uid for 1.0
-   */
-  return FALSE;
-#endif
   
   CONNECTION_LOCK (connection);
 
@@ -4805,6 +4879,11 @@ dbus_connection_get_unix_user (DBusConnection *connection,
   else
     result = _dbus_transport_get_unix_user (connection->transport,
                                             uid);
+
+#ifdef DBUS_WIN
+  _dbus_assert (!result);
+#endif
+  
   CONNECTION_UNLOCK (connection);
 
   return result;
@@ -4812,7 +4891,7 @@ dbus_connection_get_unix_user (DBusConnection *connection,
 
 /**
  * Gets the process ID of the connection if any.
- * Returns #TRUE if the uid is filled in.
+ * Returns #TRUE if the pid is filled in.
  * Always returns #FALSE prior to authenticating the
  * connection.
  *
@@ -4828,14 +4907,6 @@ dbus_connection_get_unix_process_id (DBusConnection *connection,
 
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (pid != NULL, FALSE);
-
-#ifdef DBUS_WIN
-  /* FIXME this should be done at a lower level, but it's kind of hard,
-   * just want to be sure we don't ship with this API returning
-   * some weird internal fake uid for 1.0
-   */
-  return FALSE;
-#endif
   
   CONNECTION_LOCK (connection);
 
@@ -4844,6 +4915,10 @@ dbus_connection_get_unix_process_id (DBusConnection *connection,
   else
     result = _dbus_transport_get_unix_process_id (connection->transport,
 						  pid);
+#ifdef DBUS_WIN
+  _dbus_assert (!result);
+#endif
+  
   CONNECTION_UNLOCK (connection);
 
   return result;
@@ -4858,14 +4933,13 @@ dbus_connection_get_unix_process_id (DBusConnection *connection,
  *
  * If the function is set to #NULL (as it is by default), then
  * only the same UID as the server process will be allowed to
- * connect.
+ * connect. Also, root is always allowed to connect.
  *
  * On Windows, the function will be set and its free_data_function will
  * be invoked when the connection is freed or a new function is set.
  * However, the function will never be called, because there are
- * no UNIX user ids to pass to it.
- * 
- * @todo add a Windows API analogous to dbus_connection_set_unix_user_function()
+ * no UNIX user ids to pass to it, or at least none of the existing
+ * auth protocols would allow authenticating as a UNIX user on Windows.
  * 
  * @param connection the connection
  * @param function the predicate
@@ -4890,7 +4964,143 @@ dbus_connection_set_unix_user_function (DBusConnection             *connection,
   CONNECTION_UNLOCK (connection);
 
   if (old_free_function != NULL)
-    (* old_free_function) (old_data);    
+    (* old_free_function) (old_data);
+}
+
+/**
+ * Gets the Windows user SID of the connection if known.  Returns
+ * #TRUE if the ID is filled in.  Always returns #FALSE on non-Windows
+ * platforms for now, though in theory someone could hook UNIX to
+ * Active Directory or something.  Always returns #FALSE prior to
+ * authenticating the connection.
+ *
+ * The user is only read by servers from clients; clients can't usually
+ * get the user of servers, because servers do not authenticate to
+ * clients. The returned user is the user the connection authenticated
+ * as.
+ *
+ * The message bus is a server and the apps connecting to the bus
+ * are clients.
+ *
+ * The returned user string has to be freed with dbus_free().
+ *
+ * The return value indicates whether the user SID is available;
+ * if it's available but we don't have the memory to copy it,
+ * then the return value is #TRUE and #NULL is given as the SID.
+ * 
+ * @todo We would like to be able to say "You can ask the bus to tell
+ * you the user of another connection though if you like; this is done
+ * with dbus_bus_get_windows_user()." But this has to be implemented
+ * in bus/driver.c and dbus/dbus-bus.c, and is pointless anyway
+ * since on Windows we only use the session bus for now.
+ *
+ * @param connection the connection
+ * @param windows_sid_p return location for an allocated copy of the user ID, or #NULL if no memory
+ * @returns #TRUE if user is available (returned value may be #NULL anyway if no memory)
+ */
+dbus_bool_t
+dbus_connection_get_windows_user (DBusConnection             *connection,
+                                  char                      **windows_sid_p)
+{
+  dbus_bool_t result;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (windows_sid_p != NULL, FALSE);
+  
+  CONNECTION_LOCK (connection);
+
+  if (!_dbus_transport_get_is_authenticated (connection->transport))
+    result = FALSE;
+  else
+    result = _dbus_transport_get_windows_user (connection->transport,
+                                               windows_sid_p);
+
+#ifdef DBUS_UNIX
+  _dbus_assert (!result);
+#endif
+  
+  CONNECTION_UNLOCK (connection);
+
+  return result;
+}
+
+/**
+ * Sets a predicate function used to determine whether a given user ID
+ * is allowed to connect. When an incoming connection has
+ * authenticated with a particular user ID, this function is called;
+ * if it returns #TRUE, the connection is allowed to proceed,
+ * otherwise the connection is disconnected.
+ *
+ * If the function is set to #NULL (as it is by default), then
+ * only the same user owning the server process will be allowed to
+ * connect.
+ *
+ * On UNIX, the function will be set and its free_data_function will
+ * be invoked when the connection is freed or a new function is set.
+ * However, the function will never be called, because there is no
+ * way right now to authenticate as a Windows user on UNIX.
+ * 
+ * @param connection the connection
+ * @param function the predicate
+ * @param data data to pass to the predicate
+ * @param free_data_function function to free the data
+ */
+void
+dbus_connection_set_windows_user_function (DBusConnection              *connection,
+                                           DBusAllowWindowsUserFunction function,
+                                           void                        *data,
+                                           DBusFreeFunction             free_data_function)
+{
+  void *old_data = NULL;
+  DBusFreeFunction old_free_function = NULL;
+
+  _dbus_return_if_fail (connection != NULL);
+  
+  CONNECTION_LOCK (connection);
+  _dbus_transport_set_windows_user_function (connection->transport,
+                                             function, data, free_data_function,
+                                             &old_data, &old_free_function);
+  CONNECTION_UNLOCK (connection);
+
+  if (old_free_function != NULL)
+    (* old_free_function) (old_data);
+}
+
+/**
+ * This function must be called on the server side of a connection when the
+ * connection is first seen in the #DBusNewConnectionFunction. If set to
+ * #TRUE (the default is #FALSE), then the connection can proceed even if
+ * the client does not authenticate as some user identity, i.e. clients
+ * can connect anonymously.
+ * 
+ * This setting interacts with the available authorization mechanisms
+ * (see dbus_server_set_auth_mechanisms()). Namely, an auth mechanism
+ * such as ANONYMOUS that supports anonymous auth must be included in
+ * the list of available mechanisms for anonymous login to work.
+ *
+ * This setting also changes the default rule for connections
+ * authorized as a user; normally, if a connection authorizes as
+ * a user identity, it is permitted if the user identity is
+ * root or the user identity matches the user identity of the server
+ * process. If anonymous connections are allowed, however,
+ * then any user identity is allowed.
+ *
+ * You can override the rules for connections authorized as a
+ * user identity with dbus_connection_set_unix_user_function()
+ * and dbus_connection_set_windows_user_function().
+ * 
+ * @param connection the connection
+ * @param value whether to allow authentication as an anonymous user
+ */
+void
+dbus_connection_set_allow_anonymous (DBusConnection             *connection,
+                                     dbus_bool_t                 value)
+{
+  _dbus_return_if_fail (connection != NULL);
+  
+  CONNECTION_LOCK (connection);
+  _dbus_transport_set_allow_anonymous (connection->transport, value);
+  CONNECTION_UNLOCK (connection);
 }
 
 /**
@@ -4903,7 +5113,6 @@ dbus_connection_set_unix_user_function (DBusConnection             *connection,
  * have a bus destination name set will not be automatically
  * handled by the #DBusConnection and instead will be dispatched
  * normally to the application.
- *
  *
  * If a normal application sets this flag, it can break things badly.
  * So don't set this unless you are the message bus.

@@ -26,6 +26,7 @@
 #include "dbus-transport-socket.h"
 #include "dbus-transport-protected.h"
 #include "dbus-watch.h"
+#include "dbus-credentials.h"
 
 
 /**
@@ -266,17 +267,16 @@ read_data_into_auth (DBusTransport *transport,
     {
       /* EINTR already handled for us */
 
-      if (errno == ENOMEM)
+      if (_dbus_get_is_errno_enomem ())
         {
           *oom = TRUE;
         }
-      else if (errno == EAGAIN ||
-               errno == EWOULDBLOCK)
+      else if (_dbus_get_is_errno_eagain_or_ewouldblock ())
         ; /* do nothing, just return FALSE below */
       else
         {
           _dbus_verbose ("Error reading from remote app: %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
           do_io_error (transport);
         }
 
@@ -318,13 +318,12 @@ write_data_from_auth (DBusTransport *transport)
     {
       /* EINTR already handled for us */
       
-      if (errno == EAGAIN ||
-          errno == EWOULDBLOCK)
+      if (_dbus_get_is_errno_eagain_or_ewouldblock ())
         ;
       else
         {
           _dbus_verbose ("Error writing to remote app: %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
           do_io_error (transport);
         }
     }
@@ -332,7 +331,8 @@ write_data_from_auth (DBusTransport *transport)
   return FALSE;
 }
 
-static void
+/* FALSE on OOM */
+static dbus_bool_t
 exchange_credentials (DBusTransport *transport,
                       dbus_bool_t    do_reading,
                       dbus_bool_t    do_writing)
@@ -346,8 +346,8 @@ exchange_credentials (DBusTransport *transport,
   dbus_error_init (&error);
   if (do_writing && transport->send_credentials_pending)
     {
-      if (_dbus_send_credentials_unix_socket (socket_transport->fd,
-                                              &error))
+      if (_dbus_send_credentials_socket (socket_transport->fd,
+                                         &error))
         {
           transport->send_credentials_pending = FALSE;
         }
@@ -361,9 +361,16 @@ exchange_credentials (DBusTransport *transport,
   
   if (do_reading && transport->receive_credentials_pending)
     {
-      if (_dbus_read_credentials_unix_socket (socket_transport->fd,
-                                              &transport->credentials,
-                                              &error))
+      /* FIXME this can fail due to IO error _or_ OOM, broken
+       * (somewhat tricky to fix since the OOM error can be set after
+       * we already read the credentials byte, so basically we need to
+       * separate reading the byte and storing it in the
+       * transport->credentials). Does not really matter for now
+       * because storing in credentials never actually fails on unix.
+       */      
+      if (_dbus_read_credentials_socket (socket_transport->fd,
+                                         transport->credentials,
+                                         &error))
         {
           transport->receive_credentials_pending = FALSE;
         }
@@ -378,9 +385,12 @@ exchange_credentials (DBusTransport *transport,
   if (!(transport->send_credentials_pending ||
         transport->receive_credentials_pending))
     {
-      _dbus_auth_set_credentials (transport->auth,
-                                  &transport->credentials);
+      if (!_dbus_auth_set_credentials (transport->auth,
+                                       transport->credentials))
+        return FALSE;
     }
+
+  return TRUE;
 }
 
 static dbus_bool_t
@@ -412,7 +422,12 @@ do_authentication (DBusTransport *transport,
   while (!_dbus_transport_get_is_authenticated (transport) &&
          _dbus_transport_get_is_connected (transport))
     {      
-      exchange_credentials (transport, do_reading, do_writing);
+      if (!exchange_credentials (transport, do_reading, do_writing))
+        {
+          /* OOM */
+          oom = TRUE;
+          goto out;
+        }
       
       if (transport->send_credentials_pending ||
           transport->receive_credentials_pending)
@@ -602,13 +617,12 @@ do_writing (DBusTransport *transport)
         {
           /* EINTR already handled for us */
           
-          if (errno == EAGAIN ||
-              errno == EWOULDBLOCK)
+          if (_dbus_get_is_errno_eagain_or_ewouldblock ())
             goto out;
           else
             {
               _dbus_verbose ("Error writing to remote app: %s\n",
-                             _dbus_strerror (errno));
+                             _dbus_strerror_from_errno ());
               do_io_error (transport);
               goto out;
             }
@@ -738,19 +752,18 @@ do_reading (DBusTransport *transport)
     {
       /* EINTR already handled for us */
 
-      if (errno == ENOMEM)
+      if (_dbus_get_is_errno_enomem ())
         {
           _dbus_verbose ("Out of memory in read()/do_reading()\n");
           oom = TRUE;
           goto out;
         }
-      else if (errno == EAGAIN ||
-               errno == EWOULDBLOCK)
+      else if (_dbus_get_is_errno_eagain_or_ewouldblock ())
         goto out;
       else
         {
           _dbus_verbose ("Error reading from remote app: %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
           do_io_error (transport);
           goto out;
         }
@@ -873,7 +886,7 @@ socket_handle_watch (DBusTransport *transport,
                        flags);
       else
         _dbus_verbose ("asked to handle watch %p on fd %d that we don't recognize\n",
-                       watch, dbus_watch_get_fd (watch));
+                       watch, dbus_watch_get_socket (watch));
     }
 #endif /* DBUS_ENABLE_VERBOSE_MODE */
 
@@ -1027,7 +1040,7 @@ socket_do_iteration (DBusTransport *transport,
     again:
       poll_res = _dbus_poll (&poll_fd, 1, poll_timeout);
 
-      if (poll_res < 0 && errno == EINTR)
+      if (poll_res < 0 && _dbus_get_is_errno_eintr ())
 	goto again;
 
       if (flags & DBUS_ITERATION_BLOCK)
@@ -1070,7 +1083,7 @@ socket_do_iteration (DBusTransport *transport,
       else
         {
           _dbus_verbose ("Error from _dbus_poll(): %s\n",
-                         _dbus_strerror (errno));
+                         _dbus_strerror_from_errno ());
         }
     }
 
@@ -1161,7 +1174,7 @@ _dbus_transport_new_for_socket (int               fd,
                                                 NULL, NULL, NULL);
   if (socket_transport->read_watch == NULL)
     goto failed_3;
-  
+
   if (!_dbus_transport_init_base (&socket_transport->base,
                                   &socket_vtable,
                                   server_guid, address))

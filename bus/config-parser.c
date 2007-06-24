@@ -27,7 +27,6 @@
 #include "selinux.h"
 #include <dbus/dbus-list.h>
 #include <dbus/dbus-internals.h>
-#include <dbus/dbus-userdb.h>
 #include <string.h>
 
 typedef enum
@@ -488,7 +487,15 @@ bus_config_parser_new (const DBusString      *basedir,
       
       parser->limits.max_pending_activations = 512;
       parser->limits.max_services_per_connection = 512;
-      
+
+      /* For this one, keep in mind that it isn't only the memory used
+       * by the match rules, but slowdown from linearly walking a big
+       * list of them. A client adding more than this is almost
+       * certainly a bad idea for that reason, and should change to a
+       * smaller number of wider-net match rules - getting every last
+       * message to the bus is probably better than having a thousand
+       * match rules.
+       */
       parser->limits.max_match_rules_per_connection = 512;
       
       parser->limits.reply_timeout = 5 * 60 * 1000; /* 5 minutes */
@@ -983,8 +990,8 @@ start_busconfig_child (BusConfigParser   *parser,
           DBusString username;
           _dbus_string_init_const (&username, user);
 
-          if (_dbus_get_user_id (&username,
-                                 &e->d.policy.gid_uid_or_at_console))
+          if (_dbus_parse_unix_user_from_config (&username,
+                                                 &e->d.policy.gid_uid_or_at_console))
             e->d.policy.type = POLICY_USER;
           else
             _dbus_warn ("Unknown username \"%s\" in message bus configuration file\n",
@@ -995,8 +1002,8 @@ start_busconfig_child (BusConfigParser   *parser,
           DBusString group_name;
           _dbus_string_init_const (&group_name, group);
 
-          if (_dbus_get_group_id (&group_name,
-                                  &e->d.policy.gid_uid_or_at_console))
+          if (_dbus_parse_unix_group_from_config (&group_name,
+                                                  &e->d.policy.gid_uid_or_at_console))
             e->d.policy.type = POLICY_GROUP;
           else
             _dbus_warn ("Unknown group \"%s\" in message bus configuration file\n",
@@ -1469,7 +1476,7 @@ append_rule_from_element (BusConfigParser   *parser,
           
           _dbus_string_init_const (&username, user);
       
-          if (_dbus_get_user_id (&username, &uid))
+          if (_dbus_parse_unix_user_from_config (&username, &uid))
             {
               rule = bus_policy_rule_new (BUS_POLICY_RULE_USER, allow); 
               if (rule == NULL)
@@ -1501,7 +1508,7 @@ append_rule_from_element (BusConfigParser   *parser,
           
           _dbus_string_init_const (&groupname, group);
           
-          if (_dbus_get_user_id (&groupname, &gid))
+          if (_dbus_parse_unix_group_from_config (&groupname, &gid))
             {
               rule = bus_policy_rule_new (BUS_POLICY_RULE_GROUP, allow); 
               if (rule == NULL)
@@ -1571,7 +1578,7 @@ append_rule_from_element (BusConfigParser   *parser,
 
         case POLICY_CONSOLE:
           if (!bus_policy_append_console_rule (parser->policy, pe->d.policy.gid_uid_or_at_console,
-                                             rule))
+                                               rule))
             goto nomem;
           break;
         }

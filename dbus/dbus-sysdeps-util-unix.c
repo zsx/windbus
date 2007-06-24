@@ -43,6 +43,11 @@
 #include <sys/socket.h>
 #include <dirent.h>
 #include <sys/un.h>
+#ifdef HAVE_LIBAUDIT
+#include <sys/prctl.h>
+#include <sys/capability.h>
+#include <libaudit.h>
+#endif /* HAVE_LIBAUDIT */
 
 #ifdef HAVE_SYS_SYSLIMITS_H
 #include <sys/syslimits.h>
@@ -243,20 +248,103 @@ _dbus_write_pid_file (const DBusString *filename,
   return TRUE;
 }
 
+/**
+ * Verify that after the fork we can successfully change to this user.
+ *
+ * @param user the username given in the daemon configuration
+ * @returns #TRUE if username is valid
+ */
+dbus_bool_t
+_dbus_verify_daemon_user (const char *user)
+{
+  DBusString u;
+
+  _dbus_string_init_const (&u, user);
+
+  return _dbus_get_user_id_and_primary_group (&u, NULL, NULL);
+}
 
 /**
  * Changes the user and group the bus is running as.
  *
- * @param uid the new user ID
- * @param gid the new group ID
+ * @param user the user to become
  * @param error return location for errors
  * @returns #FALSE on failure
  */
 dbus_bool_t
-_dbus_change_identity  (dbus_uid_t     uid,
-                        dbus_gid_t     gid,
-                        DBusError     *error)
+_dbus_change_to_daemon_user  (const char    *user,
+                              DBusError     *error)
 {
+  dbus_uid_t uid;
+  dbus_gid_t gid;
+  DBusString u;
+#ifdef HAVE_LIBAUDIT
+  dbus_bool_t we_were_root;
+  cap_t new_caps;
+#endif
+  
+  _dbus_string_init_const (&u, user);
+  
+  if (!_dbus_get_user_id_and_primary_group (&u, &uid, &gid))
+    {
+      dbus_set_error (error, DBUS_ERROR_FAILED,
+                      "User '%s' does not appear to exist?",
+                      user);
+      return FALSE;
+    }
+  
+#ifdef HAVE_LIBAUDIT
+  we_were_root = _dbus_getuid () == 0;
+  new_caps = NULL;
+  /* have a tmp set of caps that we use to transition to the usr/grp dbus should
+   * run as ... doesn't really help. But keeps people happy.
+   */
+    
+  if (!we_were_root)
+    {
+      cap_value_t new_cap_list[] = { CAP_AUDIT_WRITE };
+      cap_value_t tmp_cap_list[] = { CAP_AUDIT_WRITE, CAP_SETUID, CAP_SETGID };
+      cap_t tmp_caps = cap_init();
+        
+      if (!tmp_caps || !(new_caps = cap_init ()))
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "Failed to initialize drop of capabilities: %s\n",
+                          _dbus_strerror (errno));
+
+          if (tmp_caps)
+            cap_free (tmp_caps);
+
+          return FALSE;
+        }
+
+      /* assume these work... */
+      cap_set_flag (new_caps, CAP_PERMITTED, 1, new_cap_list, CAP_SET);
+      cap_set_flag (new_caps, CAP_EFFECTIVE, 1, new_cap_list, CAP_SET);
+      cap_set_flag (tmp_caps, CAP_PERMITTED, 3, tmp_cap_list, CAP_SET);
+      cap_set_flag (tmp_caps, CAP_EFFECTIVE, 3, tmp_cap_list, CAP_SET);
+      
+      if (prctl (PR_SET_KEEPCAPS, 1, 0, 0, 0) == -1)
+        {
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+                          "Failed to set keep-capabilities: %s\n",
+                          _dbus_strerror (errno));
+          cap_free (tmp_caps);
+          goto fail;
+        }
+        
+      if (cap_set_proc (tmp_caps) == -1)
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "Failed to drop capabilities: %s\n",
+                          _dbus_strerror (errno));
+          cap_free (tmp_caps);
+          goto fail;
+        }
+      cap_free (tmp_caps);
+    }
+#endif /* HAVE_LIBAUDIT */
+  
   /* setgroups() only works if we are a privileged process,
    * so we don't return error on failure; the only possible
    * failure is that we don't have perms to do it.
@@ -276,7 +364,7 @@ _dbus_change_identity  (dbus_uid_t     uid,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to set GID to %lu: %s", gid,
                       _dbus_strerror (errno));
-      return FALSE;
+      goto fail;
     }
   
   if (setuid (uid) < 0)
@@ -284,10 +372,45 @@ _dbus_change_identity  (dbus_uid_t     uid,
       dbus_set_error (error, _dbus_error_from_errno (errno),
                       "Failed to set UID to %lu: %s", uid,
                       _dbus_strerror (errno));
-      return FALSE;
+      goto fail;
     }
   
-  return TRUE;
+#ifdef HAVE_LIBAUDIT
+  if (!we_were_root)
+    {
+      if (cap_set_proc (new_caps))
+        {
+          dbus_set_error (error, DBUS_ERROR_FAILED,
+                          "Failed to drop capabilities: %s\n",
+                          _dbus_strerror (errno));
+          goto fail;
+        }
+      cap_free (new_caps);
+
+      /* should always work, if it did above */      
+      if (prctl (PR_SET_KEEPCAPS, 0, 0, 0, 0) == -1)
+        {
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+                          "Failed to unset keep-capabilities: %s\n",
+                          _dbus_strerror (errno));
+          return FALSE;
+        }
+    }
+#endif
+
+ return TRUE;
+
+ fail:
+#ifdef HAVE_LIBAUDIT
+ if (!we_were_root)
+   {
+     /* should always work, if it did above */
+     prctl (PR_SET_KEEPCAPS, 0, 0, 0, 0);
+     cap_free (new_caps);
+   }
+#endif
+
+ return FALSE;
 }
 
 /** Installs a UNIX signal handler
@@ -751,6 +874,98 @@ _dbus_group_info_fill_gid (DBusGroupInfo *info,
                            DBusError     *error)
 {
   return fill_group_info (info, gid, NULL, error);
+}
+
+/**
+ * Parse a UNIX user from the bus config file. On Windows, this should
+ * simply always fail (just return #FALSE).
+ *
+ * @param username the username text
+ * @param uid_p place to return the uid
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_parse_unix_user_from_config (const DBusString  *username,
+                                   dbus_uid_t        *uid_p)
+{
+  return _dbus_get_user_id (username, uid_p);
+
+}
+
+/**
+ * Parse a UNIX group from the bus config file. On Windows, this should
+ * simply always fail (just return #FALSE).
+ *
+ * @param groupname the groupname text
+ * @param gid_p place to return the gid
+ * @returns #TRUE on success
+ */
+dbus_bool_t
+_dbus_parse_unix_group_from_config (const DBusString  *groupname,
+                                    dbus_gid_t        *gid_p)
+{
+  return _dbus_get_group_id (groupname, gid_p);
+}
+
+/**
+ * Gets all groups corresponding to the given UNIX user ID. On UNIX,
+ * just calls _dbus_groups_from_uid(). On Windows, should always
+ * fail since we don't know any UNIX groups.
+ *
+ * @param uid the UID
+ * @param group_ids return location for array of group IDs
+ * @param n_group_ids return location for length of returned array
+ * @returns #TRUE if the UID existed and we got some credentials
+ */
+dbus_bool_t
+_dbus_unix_groups_from_uid (dbus_uid_t            uid,
+                            dbus_gid_t          **group_ids,
+                            int                  *n_group_ids)
+{
+  return _dbus_groups_from_uid (uid, group_ids, n_group_ids);
+}
+
+/**
+ * Checks to see if the UNIX user ID is at the console.
+ * Should always fail on Windows (set the error to
+ * #DBUS_ERROR_NOT_SUPPORTED).
+ *
+ * @param uid UID of person to check 
+ * @param error return location for errors
+ * @returns #TRUE if the UID is the same as the console user and there are no errors
+ */
+dbus_bool_t
+_dbus_unix_user_is_at_console (dbus_uid_t         uid,
+                               DBusError         *error)
+{
+  return _dbus_is_console_user (uid, error);
+
+}
+
+/**
+ * Checks to see if the UNIX user ID matches the UID of
+ * the process. Should always return #FALSE on Windows.
+ *
+ * @param uid the UNIX user ID
+ * @returns #TRUE if this uid owns the process.
+ */
+dbus_bool_t
+_dbus_unix_user_is_process_owner (dbus_uid_t uid)
+{
+  return uid == _dbus_getuid ();
+}
+
+/**
+ * Checks to see if the Windows user SID matches the owner of
+ * the process. Should always return #FALSE on UNIX.
+ *
+ * @param windows_sid the Windows user SID
+ * @returns #TRUE if this user owns the process.
+ */
+dbus_bool_t
+_dbus_windows_user_is_process_owner (const char *windows_sid)
+{
+  return FALSE;
 }
 
 /** @} */ /* End of DBusInternalsUtils functions */

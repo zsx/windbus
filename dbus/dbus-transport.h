@@ -39,7 +39,9 @@ void               _dbus_transport_unref                  (DBusTransport        
 void               _dbus_transport_disconnect             (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_get_is_connected       (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_get_is_authenticated   (DBusTransport              *transport);
+dbus_bool_t        _dbus_transport_get_is_anonymous       (DBusTransport              *transport);
 const char*        _dbus_transport_get_address            (DBusTransport              *transport);
+const char*        _dbus_transport_get_server_id          (DBusTransport              *transport);
 dbus_bool_t        _dbus_transport_handle_watch           (DBusTransport              *transport,
                                                            DBusWatch                  *watch,
                                                            unsigned int                condition);
@@ -68,10 +70,18 @@ void               _dbus_transport_set_unix_user_function (DBusTransport        
                                                            DBusFreeFunction            free_data_function,
                                                            void                      **old_data,
                                                            DBusFreeFunction           *old_free_data_function);
+dbus_bool_t        _dbus_transport_get_windows_user       (DBusTransport              *transport,
+                                                           char                      **windows_sid_p);
+void               _dbus_transport_set_windows_user_function (DBusTransport              *transport,
+                                                              DBusAllowWindowsUserFunction   function,
+                                                              void                       *data,
+                                                              DBusFreeFunction            free_data_function,
+                                                              void                      **old_data,
+                                                              DBusFreeFunction           *old_free_data_function);
 dbus_bool_t        _dbus_transport_set_auth_mechanisms    (DBusTransport              *transport,
                                                            const char                **mechanisms);
-
-
+void               _dbus_transport_set_allow_anonymous    (DBusTransport              *transport,
+                                                           dbus_bool_t                 value);
 
 
 DBUS_END_DECLS

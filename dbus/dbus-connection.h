@@ -132,14 +132,28 @@ typedef void        (* DBusDispatchStatusFunction) (DBusConnection *connection,
  * to do. Set with dbus_connection_set_wakeup_main_function().
  */
 typedef void        (* DBusWakeupMainFunction)     (void           *data);
+
 /**
- * Called during authentication on UNIX systems to check whether the given
- * user ID is allowed to connect. Never called on Windows. Set with
+ * Called during authentication to check whether the given UNIX user
+ * ID is allowed to connect, if the client tried to auth as a UNIX
+ * user ID. Normally on Windows this would never happen. Set with
  * dbus_connection_set_unix_user_function().
  */ 
 typedef dbus_bool_t (* DBusAllowUnixUserFunction)  (DBusConnection *connection,
                                                     unsigned long   uid,
                                                     void           *data);
+
+/**
+ * Called during authentication to check whether the given Windows user
+ * ID is allowed to connect, if the client tried to auth as a Windows
+ * user ID. Normally on UNIX this would never happen. Set with
+ * dbus_connection_set_windows_user_function().
+ */ 
+typedef dbus_bool_t (* DBusAllowWindowsUserFunction)  (DBusConnection *connection,
+                                                       const char     *user_sid,
+                                                       void           *data);
+
+
 /**
  * Called when a pending call now has a reply available. Set with
  * dbus_pending_call_set_notify().
@@ -164,6 +178,8 @@ void               dbus_connection_unref                        (DBusConnection 
 void               dbus_connection_close                        (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_connected             (DBusConnection             *connection);
 dbus_bool_t        dbus_connection_get_is_authenticated         (DBusConnection             *connection);
+dbus_bool_t        dbus_connection_get_is_anonymous             (DBusConnection             *connection);
+char*              dbus_connection_get_server_id                (DBusConnection             *connection);
 void               dbus_connection_set_exit_on_disconnect       (DBusConnection             *connection,
                                                                  dbus_bool_t                 exit_on_disconnect);
 void               dbus_connection_flush                        (DBusConnection             *connection);
@@ -219,6 +235,14 @@ void               dbus_connection_set_unix_user_function       (DBusConnection 
                                                                  DBusAllowUnixUserFunction   function,
                                                                  void                       *data,
                                                                  DBusFreeFunction            free_data_function);
+dbus_bool_t        dbus_connection_get_windows_user             (DBusConnection             *connection,
+                                                                 char                      **windows_sid_p); 
+void               dbus_connection_set_windows_user_function    (DBusConnection             *connection,
+                                                                 DBusAllowWindowsUserFunction function,
+                                                                 void                       *data,
+                                                                 DBusFreeFunction            free_data_function);
+void               dbus_connection_set_allow_anonymous          (DBusConnection             *connection,
+                                                                 dbus_bool_t                 value);
 void               dbus_connection_set_route_peer_messages      (DBusConnection             *connection,
                                                                  dbus_bool_t                 value);
 
@@ -329,7 +353,12 @@ dbus_bool_t dbus_connection_get_socket             (DBusConnection              
  * @{
  */
 
-int          dbus_watch_get_fd      (DBusWatch        *watch);
+#ifndef DBUS_DISABLE_DEPRECATED
+DBUS_DEPRECATED int dbus_watch_get_fd      (DBusWatch        *watch);
+#endif
+
+int          dbus_watch_get_unix_fd (DBusWatch        *watch);
+int          dbus_watch_get_socket  (DBusWatch        *watch);
 unsigned int dbus_watch_get_flags   (DBusWatch        *watch);
 void*        dbus_watch_get_data    (DBusWatch        *watch);
 void         dbus_watch_set_data    (DBusWatch        *watch,

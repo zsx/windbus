@@ -78,6 +78,8 @@ dbus_bool_t       bus_context_reload_config                      (BusContext    
 void              bus_context_shutdown                           (BusContext       *context);
 BusContext*       bus_context_ref                                (BusContext       *context);
 void              bus_context_unref                              (BusContext       *context);
+dbus_bool_t       bus_context_get_id                             (BusContext       *context,
+                                                                  DBusString       *uuid);
 const char*       bus_context_get_type                           (BusContext       *context);
 const char*       bus_context_get_address                        (BusContext       *context);
 BusRegistry*      bus_context_get_registry                       (BusContext       *context);
@@ -85,8 +87,10 @@ BusConnections*   bus_context_get_connections                    (BusContext    
 BusActivation*    bus_context_get_activation                     (BusContext       *context);
 BusMatchmaker*    bus_context_get_matchmaker                     (BusContext       *context);
 DBusLoop*         bus_context_get_loop                           (BusContext       *context);
-dbus_bool_t       bus_context_allow_user                         (BusContext       *context,
+dbus_bool_t       bus_context_allow_unix_user                    (BusContext       *context,
                                                                   unsigned long     uid);
+dbus_bool_t       bus_context_allow_windows_user                 (BusContext       *context,
+                                                                  const char       *windows_sid);
 BusPolicy*        bus_context_get_policy                         (BusContext       *context);
 
 BusClientPolicy*  bus_context_create_client_policy               (BusContext       *context,

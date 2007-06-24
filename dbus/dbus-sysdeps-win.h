@@ -33,6 +33,7 @@
 #include <ctype.h>
 #include <malloc.h>
 #include <windows.h>
+#undef interface
 
 #include <aclapi.h>
 #include <lm.h>
@@ -55,6 +56,10 @@ extern BOOL WINAPI ConvertSidToStringSidA (PSID Sid, LPSTR *StringSid);
 
 #define DBUS_CONSOLE_DIR "/var/run/console/"
 
+
+//#define ENABLE_DBUSSOCKET
+
+#ifdef ENABLE_DBUSSOCKET
 typedef struct
   {
     int fd;               /* File descriptor, SOCKET or file HANDLE */
@@ -70,6 +75,7 @@ DBusSocket;
 
 extern DBusSocket *win_fds;
 extern int win32_n_fds;
+#endif
 
 
 void _dbus_win_startup_winsock (void);
@@ -77,7 +83,7 @@ void _dbus_win_warn_win_error  (const char *message,
                                 int         code);
 extern const char* _dbus_lm_strerror  (int error_number);
 
-
+#ifdef ENABLE_DBUSUSERINFO
 dbus_bool_t
 fill_win_user_info_from_uid (dbus_uid_t    uid,
                              DBusUserInfo *info,
@@ -86,6 +92,13 @@ dbus_bool_t
 fill_win_user_info_from_name (wchar_t      *wname,
                               DBusUserInfo *info,
                               DBusError    *error);
+
+dbus_bool_t
+fill_user_info (DBusUserInfo       *info,
+                dbus_uid_t          uid,
+                const DBusString   *username,
+                DBusError          *error);
+#endif
 
 dbus_bool_t _dbus_win_account_to_sid (const wchar_t *waccount,
                                       void         **ppsid,
@@ -107,6 +120,7 @@ char       *_dbus_win_utf16_to_utf8 (const wchar_t *str,
 
 void        _dbus_win_set_error_from_win_error (DBusError *error, int code);
 
+#ifdef ENABLE_UID_TO_SID
 dbus_uid_t  _dbus_win_sid_to_uid_t (void        *psid);
 dbus_bool_t _dbus_uid_t_to_win_sid (dbus_uid_t   uid,
                                     void       **ppsid);
@@ -114,6 +128,8 @@ dbus_bool_t
 _dbus_account_to_win_sid (const wchar_t  *waccount,
                           void          **ppsid,
                           DBusError      *error);
+#endif
+
 dbus_bool_t
 _dbus_win_sid_to_name_and_domain (dbus_uid_t uid,
                                   wchar_t  **wname,
@@ -140,32 +156,26 @@ int _dbus_file_write (DBusFile         *file,
                       int               start,
                       int               len);
 
+dbus_bool_t _dbus_file_exists (const char *filename);
+
+
 #define FDATA private_data
 struct DBusFile
   {
     int FDATA;
   };
 
-
+#ifdef ENABLE_DBUSSOCKET
 void _dbus_handle_to_socket (int          handle,
                              DBusSocket **socket);
 int  _dbus_socket_to_handle (DBusSocket  *socket);
+#endif
 
-dbus_bool_t
-fill_user_info (DBusUserInfo       *info,
-                dbus_uid_t          uid,
-                const DBusString   *username,
-                DBusError          *error);
 
-// replace with a windows version
-dbus_bool_t _dbus_open_unix_socket (int              *fd,
-                                    DBusError        *error);
-int _dbus_connect_unix_socket (const char     *path,
-                               dbus_bool_t     abstract,
-                               DBusError      *error);
-int _dbus_listen_unix_socket  (const char     *path,
-                               dbus_bool_t     abstract,
-                               DBusError      *error);
+dbus_bool_t _dbus_get_config_file_name(DBusString *config_file, 
+                                       char *s);
+
+
 
 #endif
 

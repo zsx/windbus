@@ -757,9 +757,7 @@
                 the major protocol version of the receiving application does not
                 match, the applications will not be able to communicate and the
                 D-Bus connection must be disconnected. The major protocol
-                version for this version of the specification is 0.
-                  FIXME this field is stupid and pointless to put in 
-                  every message.
+                version for this version of the specification is 1.
                 </entry>
               </row>
               <row>
@@ -3824,6 +3822,42 @@
 	If the rule is not found the <literal>org.freedesktop.DBus.Error.MatchRuleNotFound</literal>
 	error is returned.
        </para>
+      </sect3>
+
+      <sect3 id="bus-messages-get-id">
+        <title><literal>org.freedesktop.DBus.GetId</literal></title>
+        <para>
+          As a method:
+          <programlisting>
+            GetId (out STRING id)
+          </programlisting>
+        Reply arguments:
+        <informaltable>
+          <tgroup cols="3">
+            <thead>
+              <row>
+                <entry>Argument</entry>
+                <entry>Type</entry>
+                <entry>Description</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry>0</entry>
+                <entry>STRING</entry>
+                <entry>Unique ID identifying the bus daemon</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </informaltable>
+        Gets the unique ID of the bus. The unique ID here is shared among all addresses the 
+        bus daemon is listening on (TCP, UNIX domain socket, etc.) and its format is described in 
+        <xref linkend="uuids"/>. Each address the bus is listening on also has its own unique 
+        ID, as described in <xref linkend="addresses"/>. The per-bus and per-address IDs are not related.
+        There is also a per-machine ID, described in <xref linkend="standard-interfaces-peer"/> and returned
+        by org.freedesktop.DBus.Peer.GetMachineId().
+        For a desktop session bus, the bus ID can be used as a way to uniquely identify a user's session.
+        </para>
       </sect3>
 
     </sect2>

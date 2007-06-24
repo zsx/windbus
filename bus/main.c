@@ -28,7 +28,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <signal.h>
+#ifdef HAVE_ERRNO_H
 #include <errno.h>
+#endif
 #include "selinux.h"
 
 static BusContext *context;
@@ -289,14 +291,14 @@ main (int argc, char **argv)
         {
           check_two_config_files (&config_file, "system");
 
-          if (!_dbus_string_append (&config_file, DBUS_SYSTEM_CONFIG_FILE))
+          if (!_dbus_append_system_config_file (&config_file))
             exit (1);
         }
       else if (strcmp (arg, "--session") == 0)
         {
           check_two_config_files (&config_file, "session");
 
-          if (!_dbus_string_append (&config_file, DBUS_SESSION_CONFIG_FILE))
+          if (!_dbus_append_session_config_file (&config_file))
             exit (1);
         }
       else if (strstr (arg, "--config-file=") == arg)

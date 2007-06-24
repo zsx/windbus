@@ -22,7 +22,7 @@
  *
  */
 #include "dbus-spawn.h"
-#include "dbus-sysdeps.h"
+#include "dbus-sysdeps-unix.h"
 #include "dbus-internals.h"
 #include "dbus-test.h"
 #include "dbus-protocol.h"
@@ -31,8 +31,10 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/wait.h>
-#include <errno.h>
 #include <stdlib.h>
+#ifdef HAVE_ERRNO_H
+#include <errno.h>
+#endif
 
 /**
  * @addtogroup DBusInternalsUtils
@@ -720,7 +722,7 @@ handle_watch (DBusWatch       *watch,
   if (condition & DBUS_WATCH_HANGUP)
     revents |= _DBUS_POLLHUP;
 
-  fd = dbus_watch_get_fd (watch);
+  fd = dbus_watch_get_socket (watch);
 
   if (fd == sitter->error_pipe_from_child)
     handle_error_pipe (sitter, revents);
@@ -849,7 +851,7 @@ do_exec (int                       child_err_report_fd,
 #endif
 
   _dbus_verbose_reset ();
-  _dbus_verbose ("Child process has PID %lu\n",
+  _dbus_verbose ("Child process has PID " DBUS_PID_FORMAT "\n",
                  _dbus_getpid ());
   
   if (child_setup)

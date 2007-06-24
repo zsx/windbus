@@ -1,7 +1,10 @@
 
 configdir=$(sysconfdir)/dbus-1
 
-INCLUDES=-I$(top_builddir) -I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION -DDBUS_MACHINE_UUID_FILE=\""$(localstatedir)/lib/dbus/machine-id"\"
+INCLUDES=-I$(top_builddir) -I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION	\
+	-DDBUS_MACHINE_UUID_FILE=\""$(localstatedir)/lib/dbus/machine-id"\"		\
+	-DDBUS_SYSTEM_CONFIG_FILE=\""$(configdir)/system.conf"\"			\
+	-DDBUS_SESSION_CONFIG_FILE=\""$(configdir)/session.conf"\"
 
 dbusincludedir=$(includedir)/dbus-1.0/dbus
 dbusarchincludedir=$(libdir)/dbus-1.0/include/dbus
@@ -41,6 +44,8 @@ DBUS_LIB_SOURCES=				\
 	dbus-bus.c				\
 	dbus-connection.c			\
 	dbus-connection-internal.h		\
+	dbus-credentials.c			\
+	dbus-credentials.h			\
 	dbus-errors.c				\
 	dbus-keyring.c				\
 	dbus-keyring.h				\
@@ -128,6 +133,7 @@ DBUS_SHARED_SOURCES=				\
 ### to be unless they move to DBUS_SHARED_SOURCES later)
 DBUS_UTIL_SOURCES=				\
 	dbus-auth-util.c			\
+	dbus-credentials-util.c			\
 	dbus-mainloop.c				\
 	dbus-mainloop.h				\
 	dbus-marshal-byteswap-util.c		\

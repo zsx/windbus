@@ -4,7 +4,9 @@
 /FindDoxygen.cmake/1.1/Wed Mar 14 00:16:05 2007//
 /FindGLIB.cmake/1.1/Sat Mar  3 14:32:17 2007//
 /FindGNUWIN32.cmake/1.1/Sat Mar  3 14:32:17 2007//
+/FindKDEWIN.cmake/1.1/Thu Jun 14 07:56:47 2007//
 /FindKDEWIN32.cmake/1.1/Sat Mar  3 14:32:17 2007//
+/FindKDEWIN_Packager.cmake/1.1/Thu Jun 14 07:56:47 2007//
 /FindLibExpat.cmake/1.2/Fri Mar 16 22:34:40 2007//
 /FindLibIconv.cmake/1.1/Sat Mar  3 14:32:17 2007//
 /FindQt4.cmake/1.1/Sat Mar  3 14:32:17 2007//
@@ -12,4 +14,5 @@
 /MacroLibrary.cmake/1.1/Sat Mar  3 14:32:17 2007//
 /MacroOptionalFindPackage.cmake/1.1/Sat Mar  3 14:32:17 2007//
 /ProjectSourceGroup.cmake/1.1/Sat Mar  3 14:32:17 2007//
+/Win32Macros.cmake/1.1/Thu Jun 14 07:56:47 2007//
 D
