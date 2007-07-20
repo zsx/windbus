@@ -1,3 +1,4 @@
+project(tools)
 
 include_directories(${CMAKE_SOURCE_DIR}/..)
 
@@ -61,7 +62,7 @@ set (dbus_viewer_SOURCES
 )
 
 add_executable(dbus-send${CMAKE_EXE_POSTFIX} ${dbus_send_SOURCES})
-target_link_libraries(dbus-send${CMAKE_EXE_POSTFIX} dbus-1)
+target_link_libraries(dbus-send${CMAKE_EXE_POSTFIX} ${DBUS_1})
 install_targets(/bin dbus-send${CMAKE_EXE_POSTFIX} )
 
 # glib required 
@@ -72,7 +73,7 @@ target_link_libraries(dbus-launch${CMAKE_EXE_POSTFIX} )
 install_targets(/bin dbus-launch${CMAKE_EXE_POSTFIX} )
 
 add_executable(dbus-monitor${CMAKE_EXE_POSTFIX} ${dbus_monitor_SOURCES})
-target_link_libraries(dbus-monitor${CMAKE_EXE_POSTFIX} dbus-1)
+target_link_libraries(dbus-monitor${CMAKE_EXE_POSTFIX} ${DBUS_1})
 install_targets(/bin dbus-monitor${CMAKE_EXE_POSTFIX} )
 
 #dbus_send_LDADD= $(top_builddir)/dbus/libdbus-1.la

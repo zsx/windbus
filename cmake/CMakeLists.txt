@@ -91,13 +91,11 @@ if(MSVC)
 	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
 endif(MSVC)
 
-if(MSVC)
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-     # used by executables, CMAKE_DEBUG_POSTFIX does not handle this case
-     #set (CMAKE_EXE_POSTFIX "d")
-     set (CMAKE_DEBUG_POSTFIX "d")
-  endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
-endif(MSVC)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+   # used by executables, CMAKE_DEBUG_POSTFIX does not handle this case
+   #set (CMAKE_EXE_POSTFIX "d")
+   set (CMAKE_DEBUG_POSTFIX "d")
+endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
 
 #########################################################################
 # Windows CE
@@ -471,6 +469,24 @@ install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-env.bat)
 add_definitions(-DHAVE_CONFIG_H=1)
 add_definitions(${DBUS_BUS_CFLAGS} -DDBUS_API_SUBJECT_TO_CHANGE)
 
+
+option(splitlib "split library into dbus-lib-client, dbus-lib-generic, and dbus-lib-util, no installing possible" OFF)
+if(splitlib AND MSVC)
+	# does not work with GCC/ld
+	set(DBUS_1 dbus-lib-client dbus-lib-generic dbus-lib-util)
+	message(STATUS "")
+	message(STATUS "dbus library is splitted into dbus-lib-client, dbus-lib-generic, and dbus-lib-util")
+	message(STATUS "installing is not possible")
+	message(STATUS "disable splitting: -Dsplitlib=0")
+	message(STATUS "")
+else(splitlib AND MSVC)
+	message(STATUS "")
+	message(STATUS "for better code reading the dbus library could be splitted into three libraries:")
+	message(STATUS "dbus-lib-client, dbus-lib-generic, and dbus-lib-util (installing is then not possible)")
+	message(STATUS "enable splitting: -Dsplitlib=1")
+	message(STATUS "")
+	set(DBUS_1 dbus-1)
+endif(splitlib AND MSVC)
 
 ########### subdirs ###############
 

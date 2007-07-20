@@ -1,4 +1,4 @@
-project(dbus)
+project(dbus-lib)
 
 #INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION
 
@@ -14,7 +14,6 @@ set (dbusinclude_HEADERS
 	${DBUS_DIR}/dbus-address.h
 	${DBUS_DIR}/dbus-bus.h
 	${DBUS_DIR}/dbus-connection.h
-	${DBUS_DIR}/dbus-credentials.h
 	${DBUS_DIR}/dbus-errors.h
 	${DBUS_DIR}/dbus-macros.h
 	${DBUS_DIR}/dbus-memory.h
@@ -65,19 +64,6 @@ set (DBUS_LIB_SOURCES
 #  find a clean Windows implementation
 #  and move code to a *-win.c file
 )
-if(MSVC AND NOT MSVC_IDE)
-  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    SET(DBUS_LIB_SOURCES
-      ${DBUS_LIB_SOURCES}
-      ${CMAKE_CURRENT_SOURCE_DIR}/dbus-1d.def
-    )
-  else(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    SET(DBUS_LIB_SOURCES
-      ${DBUS_LIB_SOURCES}
-      ${CMAKE_CURRENT_SOURCE_DIR}/dbus-1.def
-    )
-  endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
-endif(MSVC AND NOT MSVC_IDE)
 if(UNIX)
 	set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
 		${DBUS_DIR}/dbus-transport-unix.c
@@ -94,6 +80,7 @@ set (DBUS_LIB_HEADERS
 	${DBUS_DIR}/dbus-auth.h
 	${DBUS_DIR}/dbus-auth-script.h
 	${DBUS_DIR}/dbus-connection-internal.h
+	${DBUS_DIR}/dbus-credentials.h
 	${DBUS_DIR}/dbus-keyring.h
 	${DBUS_DIR}/dbus-marshal-header.h
 	${DBUS_DIR}/dbus-marshal-byteswap.h
@@ -145,7 +132,6 @@ set (DBUS_SHARED_SOURCES
 	${DBUS_DIR}/dbus-sysdeps.c
 	${DBUS_DIR}/dbus-sysdeps-util.c
 )
-#	${DBUS_DIR}/dbus-userdb.c
 
 set (DBUS_SHARED_HEADERS
 	${DBUS_DIR}/dbus-dataslot.h
@@ -157,7 +143,6 @@ set (DBUS_SHARED_HEADERS
 	${DBUS_DIR}/dbus-string.h
 	${DBUS_DIR}/dbus-string-private.h
 	${DBUS_DIR}/dbus-sysdeps.h
-	${DBUS_DIR}/dbus-userdb.h
 )
 
 ### source code that is generic utility functionality used
@@ -177,7 +162,6 @@ set (DBUS_UTIL_SOURCES
 	${DBUS_DIR}/dbus-shell.c
 	${DBUS_DIR}/dbus-string-util.c
 )
-#${DBUS_DIR}/dbus-userdb-util.c
 
 if (DBUS_BUILD_TESTS)
 	set (DBUS_UTIL_SOURCES 
@@ -214,11 +198,16 @@ else (WIN32)
 		${DBUS_DIR}/dbus-sysdeps-pthread.c
 		${DBUS_DIR}/dbus-sysdeps-util-unix.c
 		${DBUS_DIR}/dbus-spawn.c
+		${DBUS_DIR}/dbus-userdb.c
 	)
 	set (DBUS_SHARED_HEADERS ${DBUS_SHARED_HEADERS} 
 		${DBUS_DIR}/dbus-server-unix.h
 		${DBUS_DIR}/dbus-transport-unix.h
 		${DBUS_DIR}/dbus-sysdeps-unix.h
+		${DBUS_DIR}/dbus-userdb.h
+	)
+	set (DBUS_UTIL_SOURCES ${DBUS_UTIL_SOURCES}
+		${DBUS_DIR}/dbus-userdb-util.c
 	)
 endif (WIN32)
 
@@ -236,17 +225,47 @@ set(libdbus_HEADERS
 	${DBUS_UTIL_HEADERS}
 )
 
-if(MSVC_IDE)
-	add_library(dbus-1 STATIC ${libdbus_SOURCES} ${libdbus_HEADERS} )
-	project_source_group(${GROUP_CODE} libdbus_SOURCES libdbus_HEADERS)
-else(MSVC_IDE)
-	add_library(dbus-1 ${libdbus_SOURCES} ${libdbus_HEADERS} )
-endif(MSVC_IDE)
+if(MSVC)
+	set(DBUS_LIB_TYPE STATIC)
+else(MSVC)
+	set(DBUS_LIB_TYPE SHARED)
+endif(MSVC)
 
-target_link_libraries(dbus-1 ${LIBS} )
 
-install_targets(/lib dbus-1 )
-install_files(/include/dbus FILES ${dbusinclude_HEADERS})
+if(splitlib AND MSVC)
+	# code for the client library and daemon/tests
+	add_library(dbus-lib-generic ${DBUS_LIB_TYPE} ${DBUS_SHARED_SOURCES} ${DBUS_SHARED_HEADERS})
+	
+	# code only for daemon/tests
+	add_library(dbus-lib-util ${DBUS_LIB_TYPE} ${DBUS_UTIL_SOURCES} ${DBUS_UTIL_HEADERS})
+	
+	# code for the client library
+	add_library(dbus-lib-client ${DBUS_LIB_TYPE} ${DBUS_LIB_SOURCES} ${DBUS_LIB_HEADERS})
+	
+	target_link_libraries(dbus-lib-generic ${LIBS})
+	target_link_libraries(dbus-lib-util ${LIBS})
+	target_link_libraries(dbus-lib-client ${LIBS})
+	
+	if(MSVC_IDE)
+		project_source_group(${GROUP_CODE} DBUS_LIB_SOURCES DBUS_LIB_HEADERS)
+		project_source_group(${GROUP_CODE} DBUS_SHARED_SOURCES DBUS_SHARED_HEADERS)
+		project_source_group(${GROUP_CODE} DBUS_UTIL_SOURCES DBUS_UTIL_SOURCES)
+	endif(MSVC_IDE)
+else(splitlib AND MSVC)
+	# all code into one library
+	add_library(dbus-1 ${DBUS_LIB_TYPE} ${libdbus_SOURCES} ${libdbus_HEADERS} )
+	target_link_libraries(dbus-1 ${LIBS})
+	
+	if(MSVC_IDE)	
+		project_source_group(${GROUP_CODE} libdbus_SOURCES libdbus_HEADERS)
+	endif(MSVC_IDE)
+endif(splitlib AND MSVC)
+
+
+if(NOT splitlib)
+	install_targets(/lib dbus-1 )
+	install_files(/include/dbus FILES ${dbusinclude_HEADERS})
+endif(NOT splitlib)
 
 #ADD_EXECUTABLE(dbus-example dbus-example.c)
 #target_link_libraries(${CMAKE_SOURCE_DIR}/../dbus/dbus-example dbus-1)
@@ -265,7 +284,7 @@ install_files(/include/dbus FILES ${dbusinclude_HEADERS})
 if (DBUS_BUILD_TESTS)
 	set (TESTS_ENVIRONMENT "DBUS_TEST_DATA=${CMAKE_SOURCE_DIR}/test/data DBUS_TEST_HOMEDIR=${CMAKE_BUILD_DIR}/dbus")
 	ADD_EXECUTABLE(dbus-test ${CMAKE_SOURCE_DIR}/../dbus/dbus-test-main.c)
-	target_link_libraries(dbus-test dbus-1 ${LIBS})
+	target_link_libraries(dbus-test ${DBUS_1} ${LIBS})
 	add_test(dbus-test ${EXECUTABLE_OUTPUT_PATH}/dbus-test ${CMAKE_SOURCE_DIR}/../test/data)
 	#install_targets(/bin dbus-test)
 ENDIF (DBUS_BUILD_TESTS)

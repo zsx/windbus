@@ -1,3 +1,4 @@
+project(test)
 
 #if HAVE_GLIB
 #    GLIB_SUBDIR=glib
@@ -89,7 +90,7 @@ set (decode_gcov_SOURCES
 )
 
 add_executable(test-service ${test-service_SOURCES})
-target_link_libraries(test-service dbus-1)
+target_link_libraries(test-service ${DBUS_1})
 #install_targets(/bin test-service)
 
 # (rh) does not work at now
@@ -98,42 +99,42 @@ ADD_TEST(test-service ${EXECUTABLE_OUTPUT_PATH}/test-service${EXT})
 
 
 add_executable(test-names ${test-names_SOURCES})
-target_link_libraries(test-names dbus-1)
+target_link_libraries(test-names ${DBUS_1})
 #install_targets(/bin test-names)
 ADD_TEST(test-names ${EXECUTABLE_OUTPUT_PATH}/test-names${EXT})
 
 add_executable(test-shell ${test-shell_SOURCES})
-target_link_libraries(test-shell dbus-1)
+target_link_libraries(test-shell ${DBUS_1})
 #install_targets(/bin test-shell)
 ADD_TEST(test-shell ${EXECUTABLE_OUTPUT_PATH}/test-shell${EXT})
 
 add_executable(test-shell-service ${test-shell_SOURCES})
-target_link_libraries(test-shell-service dbus-1)
+target_link_libraries(test-shell-service ${DBUS_1})
 #install_targets(/bin test-shell-service)
 ADD_TEST(test-shell-service ${EXECUTABLE_OUTPUT_PATH}/test-shell-service${EXT})
 
 add_executable(test-spawn ${test-spawn_SOURCES})
-target_link_libraries(test-spawn dbus-1)
+target_link_libraries(test-spawn ${DBUS_1})
 # (rh) does not work now
 #ADD_TEST(test-spawn ${EXECUTABLE_OUTPUT_PATH}/test-spawn${EXT})
 
 add_executable(test-exit ${test-exit_SOURCES})
-target_link_libraries(test-exit dbus-1)
+target_link_libraries(test-exit ${DBUS_1})
 #install_targets(/bin test-exit)
 ADD_TEST(test-exit ${EXECUTABLE_OUTPUT_PATH}/test-exit${EXT})
 
 add_executable(test-segfault ${test-segfault_SOURCES})
-target_link_libraries(test-segfault dbus-1)
+target_link_libraries(test-segfault ${DBUS_1})
 #install_targets(/bin test-segfault)
 ADD_TEST(test-segfault ${EXECUTABLE_OUTPUT_PATH}/test-segfault${EXT})
 
 add_executable(test-sleep-forever ${test-sleep-forever_SOURCES})
-target_link_libraries(test-sleep-forever dbus-1)
+target_link_libraries(test-sleep-forever ${DBUS_1})
 # (rh) don't know for what this test is good 
 #ADD_TEST(test-sleep-forever ${EXECUTABLE_OUTPUT_PATH}/test-sleep-forever${EXT})
 
 #add_executable(decode-gcov ${decode_gcov_SOURCES})
-#target_link_libraries(decode-gcov dbus-1)
+#target_link_libraries(decode-gcov ${DBUS_1})
 
 #EXTRA_DIST=
 #
