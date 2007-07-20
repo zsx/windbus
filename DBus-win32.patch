@@ -1,6 +1,6 @@
 Index: dbus/dbus-threads.c
 ===================================================================
---- dbus/dbus-threads.c	(revision 715)
+--- dbus/dbus-threads.c	(revision 722)
 +++ dbus/dbus-threads.c	(working copy)
 @@ -810,7 +810,11 @@
  dbus_bool_t
@@ -14,9 +14,21 @@ Index: dbus/dbus-threads.c
  }
  
  #endif /* DBUS_BUILD_TESTS */
+Index: dbus/dbus-sysdeps-util-win.c
+===================================================================
+--- dbus/dbus-sysdeps-util-win.c	(revision 722)
++++ dbus/dbus-sysdeps-util-win.c	(working copy)
+@@ -32,6 +32,7 @@
+ #include "dbus-string.h"
+ #include "dbus-sysdeps.h"
+ #include "dbus-sysdeps-win.h"
++#include "dbus-sockets-win.h"
+ #include "dbus-memory.h"
+ 
+ #include <io.h>
 Index: dbus/dbus-watch.c
 ===================================================================
---- dbus/dbus-watch.c	(revision 715)
+--- dbus/dbus-watch.c	(revision 722)
 +++ dbus/dbus-watch.c	(working copy)
 @@ -513,11 +513,7 @@
     * which it has, and the transport should provide the
@@ -32,7 +44,7 @@ Index: dbus/dbus-watch.c
  /**
 Index: dbus/dbus-mainloop.c
 ===================================================================
---- dbus/dbus-mainloop.c	(revision 715)
+--- dbus/dbus-mainloop.c	(revision 722)
 +++ dbus/dbus-mainloop.c	(working copy)
 @@ -883,6 +883,8 @@
    
@@ -45,7 +57,7 @@ Index: dbus/dbus-mainloop.c
  }
 Index: dbus/dbus-bus.c
 ===================================================================
---- dbus/dbus-bus.c	(revision 715)
+--- dbus/dbus-bus.c	(revision 722)
 +++ dbus/dbus-bus.c	(working copy)
 @@ -350,8 +350,10 @@
  {
@@ -71,7 +83,7 @@ Index: dbus/dbus-bus.c
  static DBusConnection *
 Index: dbus/dbus-sysdeps-util.c
 ===================================================================
---- dbus/dbus-sysdeps-util.c	(revision 715)
+--- dbus/dbus-sysdeps-util.c	(revision 722)
 +++ dbus/dbus-sysdeps-util.c	(working copy)
 @@ -141,6 +141,7 @@
        exit (1);
@@ -91,7 +103,7 @@ Index: dbus/dbus-sysdeps-util.c
    check_path_absolute ("c:/", TRUE);
 Index: dbus/dbus-sysdeps-win.c
 ===================================================================
---- dbus/dbus-sysdeps-win.c	(revision 715)
+--- dbus/dbus-sysdeps-win.c	(revision 722)
 +++ dbus/dbus-sysdeps-win.c	(working copy)
 @@ -2994,14 +2994,16 @@
  
@@ -145,7 +157,7 @@ Index: dbus/dbus-sysdeps-win.c
          {
 Index: dbus/dbus-sysdeps.c
 ===================================================================
---- dbus/dbus-sysdeps.c	(revision 715)
+--- dbus/dbus-sysdeps.c	(revision 722)
 +++ dbus/dbus-sysdeps.c	(working copy)
 @@ -999,7 +999,11 @@
  dbus_bool_t
@@ -173,7 +185,7 @@ Index: dbus/dbus-sysdeps.c
  /**
 Index: dbus/dbus-sysdeps.h
 ===================================================================
---- dbus/dbus-sysdeps.h	(revision 715)
+--- dbus/dbus-sysdeps.h	(revision 722)
 +++ dbus/dbus-sysdeps.h	(working copy)
 @@ -124,6 +124,7 @@
   * 
@@ -185,7 +197,7 @@ Index: dbus/dbus-sysdeps.h
  dbus_bool_t _dbus_close_socket     (int               fd,
 Index: bus/dispatch.c
 ===================================================================
---- bus/dispatch.c	(revision 715)
+--- bus/dispatch.c	(revision 722)
 +++ bus/dispatch.c	(working copy)
 @@ -1,4 +1,4 @@
 -/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
@@ -373,7 +385,7 @@ Index: bus/dispatch.c
  
 Index: bus/config-parser.c
 ===================================================================
---- bus/config-parser.c	(revision 715)
+--- bus/config-parser.c	(revision 722)
 +++ bus/config-parser.c	(working copy)
 @@ -3087,12 +3087,14 @@
  #ifdef DBUS_UNIX
