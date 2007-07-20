@@ -1,36 +1,138 @@
-
-Index: bus/config-parser.c
+Index: dbus/dbus-threads.c
 ===================================================================
-RCS file: /cvs/dbus/dbus/bus/config-parser.c,v
-retrieving revision 1.53
-diff -u -B -b -r1.53 config-parser.c
---- bus/config-parser.c	19 Jun 2007 17:23:55 -0000	1.53
-+++ bus/config-parser.c	24 Jun 2007 10:39:35 -0000
-@@ -3087,12 +3087,14 @@
- #ifdef DBUS_UNIX
-          "/testusr/testlocal/testshare/dbus-1/services",
-          "/testusr/testshare/dbus-1/services",
--#endif
-          DBUS_DATADIR"/dbus-1/services",
--#ifdef DBUS_UNIX
-          "/testhome/foo/.testlocal/testshare/dbus-1/services",
--#endif
-+         NULL,
+--- dbus/dbus-threads.c	(revision 715)
++++ dbus/dbus-threads.c	(working copy)
+@@ -810,7 +810,11 @@
+ dbus_bool_t
+ _dbus_threads_init_debug (void)
+ {
++#if defined(DBUS_WIN)
++  return _dbus_threads_init_platform_specific();
 +#else
-+         DBUS_DATADIR"/dbus-1/services",
-+         NULL,
-          NULL
+   return dbus_threads_init (&fake_functions);
 +#endif
-         };
+ }
  
- static dbus_bool_t
+ #endif /* DBUS_BUILD_TESTS */
+Index: dbus/dbus-watch.c
+===================================================================
+--- dbus/dbus-watch.c	(revision 715)
++++ dbus/dbus-watch.c	(working copy)
+@@ -513,11 +513,7 @@
+    * which it has, and the transport should provide the
+    * appropriate watch type)
+    */
+-#ifdef DBUS_UNIX
+   return watch->fd;
+-#else
+-  return -1;
+-#endif
+ }
+ 
+ /**
+Index: dbus/dbus-mainloop.c
+===================================================================
+--- dbus/dbus-mainloop.c	(revision 715)
++++ dbus/dbus-mainloop.c	(working copy)
+@@ -883,6 +883,8 @@
+   
+   loop->depth -= 1;
+ 
++ _dbus_daemon_release ();
++
+   _dbus_verbose ("Quit main loop, depth %d -> %d\n",
+                  loop->depth + 1, loop->depth);
+ }
+Index: dbus/dbus-bus.c
+===================================================================
+--- dbus/dbus-bus.c	(revision 715)
++++ dbus/dbus-bus.c	(working copy)
+@@ -350,8 +350,10 @@
+ {
+   int i;
+   
++#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
++   // qt example pong says "QMutex::lock: Deadlock detected"
+   _DBUS_LOCK (bus);
+-
++#endif
+   /* We are expecting to have the connection saved in only one of these
+    * slots, but someone could in a pathological case set system and session
+    * bus to the same bus or something. Or set one of them to the starter
+@@ -366,7 +368,9 @@
+         }
+     }
+ 
++#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
+   _DBUS_UNLOCK (bus);
++#endif
+ }
+ 
+ static DBusConnection *
+Index: dbus/dbus-sysdeps-util.c
+===================================================================
+--- dbus/dbus-sysdeps-util.c	(revision 715)
++++ dbus/dbus-sysdeps-util.c	(working copy)
+@@ -141,6 +141,7 @@
+       exit (1);
+     }
+ 
++#ifndef DBUS_WIN_FIXME
+   _dbus_string_init_const (&str, "0xff");
+   if (_dbus_string_parse_double (&str,
+                                  0, &val, &pos))
+@@ -148,6 +149,7 @@
+       _dbus_warn ("Should not have parsed hex as double\n");
+       exit (1);
+     }
++#endif
+ 
+ #ifdef DBUS_WIN
+   check_path_absolute ("c:/", TRUE);
+Index: dbus/dbus-sysdeps.c
+===================================================================
+--- dbus/dbus-sysdeps.c	(revision 715)
++++ dbus/dbus-sysdeps.c	(working copy)
+@@ -999,7 +999,11 @@
+ dbus_bool_t
+ _dbus_get_is_errno_enomem (void)
+ {
++#ifdef ENOMEM
+   return errno == ENOMEM;
++#else
++  return FALSE;
++#endif
+ }
+ 
+ /**
+@@ -1009,7 +1013,11 @@
+ dbus_bool_t
+ _dbus_get_is_errno_eintr (void)
+ {
++#ifdef EINTR
+   return errno == EINTR;
++#else
++  return FALSE;
++#endif
+ }
+ 
+ /**
+Index: dbus/dbus-sysdeps.h
+===================================================================
+--- dbus/dbus-sysdeps.h	(revision 715)
++++ dbus/dbus-sysdeps.h	(working copy)
+@@ -124,6 +124,7 @@
+  * 
+  */
+ 
++void        _dbus_daemon_release   (void);
+ dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
+                                     DBusError        *error);
+ dbus_bool_t _dbus_close_socket     (int               fd,
 Index: bus/dispatch.c
 ===================================================================
-RCS file: /cvs/dbus/dbus/bus/dispatch.c,v
-retrieving revision 1.83
-diff -u -B -b -r1.83 dispatch.c
---- bus/dispatch.c	18 Jun 2007 19:32:51 -0000	1.83
-+++ bus/dispatch.c	24 Jun 2007 10:39:35 -0000
+--- bus/dispatch.c	(revision 715)
++++ bus/dispatch.c	(working copy)
 @@ -428,6 +428,11 @@
      }
  }
@@ -147,215 +249,25 @@ diff -u -B -b -r1.83 dispatch.c
  
    kill_client_connection_unchecked (foo);
  
-Index: cmake/CMakeLists.txt
+Index: bus/config-parser.c
 ===================================================================
-RCS file: /cvs/dbus/dbus/cmake/CMakeLists.txt,v
-retrieving revision 1.14
-diff -u -B -b -r1.14 CMakeLists.txt
---- cmake/CMakeLists.txt	21 Jun 2007 15:08:50 -0000	1.14
-+++ cmake/CMakeLists.txt	24 Jun 2007 10:39:36 -0000
-@@ -351,12 +351,34 @@
- 	set (EXT ".exe")
- endif(WIN32)
- 
--set(TEST_SERVICE_DIR          ${CMAKE_BINARY_DIR}/test/data/valid-service-files     CACHE STRING "Full path to test file test/data/valid-service-files in builddir")
--set(TEST_SERVICE_BINARY       ${CMAKE_BINARY_DIR}/bin/test-service${EXT}       CACHE STRING "Full path to test file test/test-service in builddir")
--set(TEST_SHELL_SERVICE_BINARY ${CMAKE_BINARY_DIR}/bin/test-shell-service${EXT} CACHE STRING "Full path to test file test/test-shell-service in builddir")    
--set(TEST_EXIT_BINARY          ${CMAKE_BINARY_DIR}/bin/test-exit${EXT}          CACHE STRING "Full path to test file test/test-exit in builddir")
--set(TEST_SEGFAULT_BINARY      ${CMAKE_BINARY_DIR}/bin/test-segfault${EXT}      CACHE STRING "Full path to test file test/test-segfault in builddir")
--set(TEST_SLEEP_FOREVER_BINARY ${CMAKE_BINARY_DIR}/bin/test-sleep-forever${EXT} CACHE STRING "Full path to test file test/test-sleep-forever in builddir")
-+if (MSVC_IDE)
-+	if (test_debug)
-+		set(test_debug TRUE CACHE TYPE STRING FORCE)
-+		set(IDE_BIN Debug/ )
-+		message(STATUS)
-+		message(STATUS "Using Visual Studio: test programs will only work with the 'Debug' configuration!")
-+		message(STATUS "To run the tests with the 'Release' configuration use -Dtest_debug=0")
-+		message(STATUS "Add '..\\..\\test\\data' to the command line option of the test programs")
-+		message(STATUS)
-+	else (test_debug)
-+		set(test_debug FALSE CACHE TYPE STRING FORCE)
-+		set(IDE_BIN Release/)
-+		message(STATUS)
-+		message(STATUS "Using Visual Studio: test programs will only work with the 'Release' configuration!")
-+		message(STATUS "To run the tests with the 'Debug' configuration use -Dtest_debug=1")
-+		message(STATUS "Add '..\\..\\test\\data' to the command line option of the test programs")
-+		message(STATUS)
-+	endif (test_debug)
-+	set (TEST_PATH_FORCE FORCE)
-+	FILE(REMOVE ${CMAKE_BINARY_DIR}/data/dbus-1/services)
-+endif (MSVC_IDE)
-+
-+set(TEST_SERVICE_DIR          ${CMAKE_BINARY_DIR}/test/data/valid-service-files     CACHE STRING "Full path to test file test/data/valid-service-files in builddir" )
-+set(TEST_SERVICE_BINARY       ${CMAKE_BINARY_DIR}/bin/${IDE_BIN}test-service${EXT}       CACHE STRING "Full path to test file test/test-service in builddir" ${TEST_PATH_FORCE})
-+set(TEST_SHELL_SERVICE_BINARY ${CMAKE_BINARY_DIR}/bin/${IDE_BIN}test-shell-service${EXT} CACHE STRING "Full path to test file test/test-shell-service in builddir" ${TEST_PATH_FORCE})
-+set(TEST_EXIT_BINARY          ${CMAKE_BINARY_DIR}/bin/${IDE_BIN}test-exit${EXT}          CACHE STRING "Full path to test file test/test-exit in builddir" ${TEST_PATH_FORCE})
-+set(TEST_SEGFAULT_BINARY      ${CMAKE_BINARY_DIR}/bin/${IDE_BIN}test-segfault${EXT}      CACHE STRING "Full path to test file test/test-segfault in builddir" ${TEST_PATH_FORCE})
-+set(TEST_SLEEP_FOREVER_BINARY ${CMAKE_BINARY_DIR}/bin/${IDE_BIN}test-sleep-forever${EXT} CACHE STRING "Full path to test file test/test-sleep-forever in builddir" ${TEST_PATH_FORCE})
- 
- #### Find socket directories
- if (NOT WIN32)
-Index: cmake/test/CMakeLists.txt
-===================================================================
-RCS file: /cvs/dbus/dbus/cmake/test/CMakeLists.txt,v
-retrieving revision 1.2
-diff -u -B -b -r1.2 CMakeLists.txt
-Index: dbus/dbus-bus.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-bus.c,v
-retrieving revision 1.65
-diff -u -B -b -r1.65 dbus-bus.c
---- dbus/dbus-bus.c	18 Jun 2007 19:32:51 -0000	1.65
-+++ dbus/dbus-bus.c	24 Jun 2007 10:39:36 -0000
-@@ -350,8 +350,10 @@
- {
-   int i;
-   
-+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
-+   // qt example pong says "QMutex::lock: Deadlock detected"
-   _DBUS_LOCK (bus);
--
-+#endif
-   /* We are expecting to have the connection saved in only one of these
-    * slots, but someone could in a pathological case set system and session
-    * bus to the same bus or something. Or set one of them to the starter
-@@ -366,7 +368,9 @@
-         }
-     }
- 
-+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
-   _DBUS_UNLOCK (bus);
-+#endif
- }
- 
- static DBusConnection *
-Index: dbus/dbus-mainloop.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-mainloop.c,v
-retrieving revision 1.20
-diff -u -B -b -r1.20 dbus-mainloop.c
---- dbus/dbus-mainloop.c	18 Jun 2007 16:24:03 -0000	1.20
-+++ dbus/dbus-mainloop.c	24 Jun 2007 10:39:37 -0000
-@@ -883,6 +883,8 @@
-   
-   loop->depth -= 1;
- 
-+ _dbus_daemon_release ();
-+
-   _dbus_verbose ("Quit main loop, depth %d -> %d\n",
-                  loop->depth + 1, loop->depth);
- }
-Index: dbus/dbus-sysdeps-util.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps-util.c,v
-retrieving revision 1.12
-diff -u -B -b -r1.12 dbus-sysdeps-util.c
---- dbus/dbus-sysdeps-util.c	21 Jun 2007 21:28:59 -0000	1.12
-+++ dbus/dbus-sysdeps-util.c	24 Jun 2007 10:39:37 -0000
-@@ -141,6 +141,7 @@
-       exit (1);
-     }
- 
-+#ifndef DBUS_WIN_FIXME
-   _dbus_string_init_const (&str, "0xff");
-   if (!_dbus_string_parse_double (&str,
- 				  0, &val, &pos))
-@@ -158,6 +159,7 @@
-       _dbus_warn ("_dbus_string_parse_double of \"0xff\" returned wrong position %d", pos);
-       exit (1);
-     }
-+#endif
- 
- #ifdef DBUS_WIN
-   check_path_absolute ("c:/", TRUE);
-Index: dbus/dbus-sysdeps-win.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps-win.c,v
-retrieving revision 1.23
-diff -u -B -b -r1.23 dbus-sysdeps-win.c
-Index: dbus/dbus-sysdeps-win.h
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps-win.h,v
-retrieving revision 1.7
-diff -u -B -b -r1.7 dbus-sysdeps-win.h
-Index: dbus/dbus-sysdeps.h
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-sysdeps.h,v
-retrieving revision 1.82
-diff -u -B -b -r1.82 dbus-sysdeps.h
---- dbus/dbus-sysdeps.h	15 Jun 2007 20:10:09 -0000	1.82
-+++ dbus/dbus-sysdeps.h	24 Jun 2007 10:39:39 -0000
-@@ -124,6 +124,7 @@
-  * 
-  */
- 
-+void        _dbus_daemon_release   (void);
- dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
-                                     DBusError        *error);
- dbus_bool_t _dbus_close_socket     (int               fd,
-Index: dbus/dbus-threads.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-threads.c,v
-retrieving revision 1.36
-diff -u -B -b -r1.36 dbus-threads.c
---- dbus/dbus-threads.c	28 Oct 2006 01:41:37 -0000	1.36
-+++ dbus/dbus-threads.c	24 Jun 2007 10:39:39 -0000
-@@ -810,7 +810,11 @@
- dbus_bool_t
- _dbus_threads_init_debug (void)
- {
-+#if defined(DBUS_WIN)
-+  return _dbus_threads_init_platform_specific();
-+#else
-   return dbus_threads_init (&fake_functions);
-+#endif
- }
- 
- #endif /* DBUS_BUILD_TESTS */
-Index: dbus/dbus-watch.c
-===================================================================
-RCS file: /cvs/dbus/dbus/dbus/dbus-watch.c,v
-retrieving revision 1.25
-diff -u -B -b -r1.25 dbus-watch.c
---- dbus/dbus-watch.c	21 Jun 2007 21:28:59 -0000	1.25
-+++ dbus/dbus-watch.c	24 Jun 2007 10:39:40 -0000
-@@ -513,11 +513,7 @@
-    * which it has, and the transport should provide the
-    * appropriate watch type)
-    */
--#ifdef DBUS_UNIX
-   return watch->fd;
--#else
--  return -1;
+--- bus/config-parser.c	(revision 715)
++++ bus/config-parser.c	(working copy)
+@@ -3087,12 +3087,14 @@
+ #ifdef DBUS_UNIX
+          "/testusr/testlocal/testshare/dbus-1/services",
+          "/testusr/testshare/dbus-1/services",
 -#endif
- }
- 
- /**
-Index: dbus/dbus-sysdeps.c
-===================================================================
---- dbus/dbus-sysdeps.c	(revision 705)
-+++ dbus/dbus-sysdeps.c	(working copy)
-@@ -993,7 +993,11 @@
- dbus_bool_t
- _dbus_get_is_errno_enomem (void)
- {
-+#ifdef ENOMEM
-   return errno == ENOMEM;
+          DBUS_DATADIR"/dbus-1/services",
+-#ifdef DBUS_UNIX
+          "/testhome/foo/.testlocal/testshare/dbus-1/services",
++         NULL,
 +#else
-+  return FALSE;
-+#endif
- }
++         DBUS_DATADIR"/dbus-1/services",
++         NULL,
++         NULL
+ #endif
+-         NULL
+         };
  
- /**
-@@ -1003,7 +1007,11 @@
- dbus_bool_t
- _dbus_get_is_errno_eintr (void)
- {
-+#ifdef EINTR
-   return errno == EINTR;
-+#else
-+  return FALSE;
-+#endif
- }
- 
- /**
+ static dbus_bool_t
