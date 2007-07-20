@@ -1,4 +1,4 @@
-# - Try to find the KDEWIN library
+# - Try to find the install path of the required win32 supplementary libraries 
 # 
 # used environment vars 
 #  KDEWIN_DIR  - kdewin root dir 
@@ -25,7 +25,7 @@ if (WIN32)
       endif (MINGW)
       
       # search in the default program install folder
-      find_file(KDEWIN_DIR_tmp ${DIR} kdewin kdewin32 gnuwin32
+      find_file(KDEWIN_DIR_tmp ${DIR} kdewin kdewin32 gnuwin32 win32libs
       PATHS
         "${_progFiles}"
       )

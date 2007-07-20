@@ -16,7 +16,6 @@
 /cleanup-man-pages.sh/1.1/Sun Oct 22 00:31:08 2006//
 /configure.in/1.209/Mon Jun 18 19:51:18 2007//
 /dbus-1.pc.in/1.5/Thu May 10 15:33:57 2007//
-/dbus-win.patch/1.18/Fri Jun 22 09:56:53 2007//
 /update-dbus-docs.sh/1.7/Mon May 21 16:43:57 2007//
 D/bus////
 D/cmake////
@@ -26,3 +25,4 @@ D/glib////
 D/test////
 D/tools////
 /ChangeLog/1.1358/Fri Jul 20 16:13:32 2007//
+/dbus-win.patch/1.18/Fri Jul 20 17:52:55 2007//
