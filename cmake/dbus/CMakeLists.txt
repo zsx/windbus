@@ -64,6 +64,20 @@ set (DBUS_LIB_SOURCES
 #  find a clean Windows implementation
 #  and move code to a *-win.c file
 )
+
+if(MSVC AND NOT splitlib)
+	if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+		SET(DBUS_LIB_SOURCES
+			${DBUS_LIB_SOURCES}
+			${CMAKE_CURRENT_SOURCE_DIR}/dbus-1d.def)
+	else(CMAKE_BUILD_TYPE STREQUAL "Debug")
+		SET(DBUS_LIB_SOURCES
+			${DBUS_LIB_SOURCES}
+			${CMAKE_CURRENT_SOURCE_DIR}/dbus-1.def)
+	endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+endif(MSVC AND NOT splitlib)
+
+
 if(UNIX)
 	set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
 		${DBUS_DIR}/dbus-transport-unix.c
@@ -225,11 +239,11 @@ set(libdbus_HEADERS
 	${DBUS_UTIL_HEADERS}
 )
 
-if(MSVC)
+if(MSVC AND splitlib)
 	set(DBUS_LIB_TYPE STATIC)
-else(MSVC)
+elseif(MSVC AND splitlib)
 	set(DBUS_LIB_TYPE SHARED)
-endif(MSVC)
+endif(MSVC AND splitlib)
 
 
 if(splitlib AND MSVC)

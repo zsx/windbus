@@ -172,7 +172,6 @@ _dbus_get_malloc_blocks_outstanding
 _dbus_get_oom_wait
 _dbus_get_standard_session_servicedirs
 _dbus_get_tmpdir
-_dbus_get_working_dir
 _dbus_getenv
 _dbus_getgid
 _dbus_getpid
@@ -231,7 +230,6 @@ _dbus_header_set_field_basic
 _dbus_header_set_serial
 _dbus_header_toggle_flag
 _dbus_header_update_lengths
-_dbus_init_working_dir
 _dbus_is_valid_file
 _dbus_is_verbose_real
 _dbus_keyring_get_best_key
