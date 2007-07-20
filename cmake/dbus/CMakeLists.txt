@@ -65,6 +65,19 @@ set (DBUS_LIB_SOURCES
 #  find a clean Windows implementation
 #  and move code to a *-win.c file
 )
+if(MSVC AND NOT MSVC_IDE)
+  if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    SET(DBUS_LIB_SOURCES
+      ${DBUS_LIB_SOURCES}
+      ${CMAKE_CURRENT_SOURCE_DIR}/dbus-1d.def
+    )
+  else(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    SET(DBUS_LIB_SOURCES
+      ${DBUS_LIB_SOURCES}
+      ${CMAKE_CURRENT_SOURCE_DIR}/dbus-1.def
+    )
+  endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+endif(MSVC AND NOT MSVC_IDE)
 if(UNIX)
 	set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
 		${DBUS_DIR}/dbus-transport-unix.c
@@ -223,12 +236,12 @@ set(libdbus_HEADERS
 	${DBUS_UTIL_HEADERS}
 )
 
-if(MSVC)
+if(MSVC_IDE)
 	add_library(dbus-1 STATIC ${libdbus_SOURCES} ${libdbus_HEADERS} )
 	project_source_group(${GROUP_CODE} libdbus_SOURCES libdbus_HEADERS)
-else(MSVC)
+else(MSVC_IDE)
 	add_library(dbus-1 ${libdbus_SOURCES} ${libdbus_HEADERS} )
-endif(MSVC)
+endif(MSVC_IDE)
 
 target_link_libraries(dbus-1 ${LIBS} )
 
