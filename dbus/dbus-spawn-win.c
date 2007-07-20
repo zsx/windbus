@@ -13,7 +13,7 @@
 #include <process.h>
 #endif
 
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-spawn-win32.c Wrapper around g_spawn
  * 
  * Copyright (C) 2002, 2003, 2004  Red Hat, Inc.
@@ -444,11 +444,7 @@ static unsigned __stdcall
 babysitter (void *parameter)
 {
   DBusBabysitter *sitter = (DBusBabysitter *) parameter;
-#ifdef ENABLE_DBUSSOCKET
-  DBusSocket *sock;
-#else
   int fd;
-#endif
   PING();
   _dbus_babysitter_ref (sitter);
 
@@ -503,12 +499,7 @@ babysitter (void *parameter)
 #endif
 
   PING();
-#ifdef ENABLE_DBUSSOCKET
-  _dbus_handle_to_socket (sitter->socket_to_main, &sock);
-  send (sock->fd, " ", 1, 0);
-#else
   send (sitter->socket_to_main, " ", 1, 0);
-#endif
 
   _dbus_babysitter_unref (sitter);
 

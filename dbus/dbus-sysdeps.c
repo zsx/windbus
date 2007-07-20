@@ -1,4 +1,4 @@
-/* -*- mode: C; c-file-style: "gnu" -*- */
+/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
 /* dbus-sysdeps.c Wrappers around system/libc features shared between UNIX and Windows (internal to D-Bus implementation)
  * 
  * Copyright (C) 2002, 2003, 2006  Red Hat, Inc.
@@ -750,6 +750,12 @@ _dbus_string_parse_double (const DBusString *str,
   p = _dbus_string_get_const_data_len (str, start,
                                        _dbus_string_get_length (str) - start);
 
+  /* parsing hex works on linux but isn't portable, so intercept it
+   * here to get uniform behavior.
+   */
+  if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X'))
+    return FALSE;
+  
   end = NULL;
   errno = 0;
   v = ascii_strtod (p, &end);
