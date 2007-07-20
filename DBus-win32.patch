@@ -89,6 +89,41 @@ Index: dbus/dbus-sysdeps-util.c
  
  #ifdef DBUS_WIN
    check_path_absolute ("c:/", TRUE);
+Index: dbus/dbus-sysdeps-win.c
+===================================================================
+--- dbus/dbus-sysdeps-win.c	(revision 715)
++++ dbus/dbus-sysdeps-win.c	(working copy)
+@@ -3218,12 +3218,15 @@
+ {
+   char path[MAX_PATH*2];
+   int path_size = sizeof(path);
++  int len = 4 + strlen(s);
+ 
+   if (!_dbus_get_install_root(path,path_size))
+     return FALSE;
+ 
+-  strcat_s(path,path_size,"etc\\");
+-  strcat_s(path,path_size,s);
++  if(len > sizeof(path)-2)
++    return FALSE;
++  strcat(path,"etc\\");
++  strcat(path,s);
+   if (_dbus_file_exists(path)) 
+     {
+       // find path from executable 
+@@ -3234,8 +3237,10 @@
+     {
+       if (!_dbus_get_install_root(path,path_size))
+         return FALSE;
+-      strcat_s(path,path_size,"bus\\");
+-      strcat_s(path,path_size,s);
++      if(len + strlen(path) > sizeof(path)-2)
++        return FALSE;
++      strcat(path,"bus\\");
++      strcat(path,s);
+   
+       if (_dbus_file_exists(path)) 
+         {
 Index: dbus/dbus-sysdeps.c
 ===================================================================
 --- dbus/dbus-sysdeps.c	(revision 715)
