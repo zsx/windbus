@@ -187,6 +187,12 @@ Index: bus/dispatch.c
 ===================================================================
 --- bus/dispatch.c	(revision 715)
 +++ bus/dispatch.c	(working copy)
+@@ -1,4 +1,4 @@
+-/* -*- mode: C; c-file-style: "gnu"; indent-tabs-mode: nil; -*- */
++/* -*- mode: C; c-file-style: "gnu" -*- */
+ /* dispatch.c  Message dispatcher
+  *
+  * Copyright (C) 2003  CodeFactory AB
 @@ -428,6 +428,11 @@
      }
  }
@@ -199,11 +205,12 @@ Index: bus/dispatch.c
  static void
  spin_connection_until_authenticated (BusContext     *context,
                                       DBusConnection *connection)
-@@ -439,6 +444,19 @@
+@@ -439,6 +444,20 @@
        bus_test_run_bus_loop (context, FALSE);
        bus_test_run_clients_loop (FALSE);
      }
-+#ifdef DBUS_WIN
++#ifdef DBUS_WIN_FIXME_remove_if_it_really_works
++  /* also fails on Linux. Is it a bug? */
 +  if ( dbus_connection_get_dispatch_status(connection) != DBUS_DISPATCH_COMPLETE)
 +    {
 +      DBusMessage *message;
@@ -219,7 +226,16 @@ Index: bus/dispatch.c
    _dbus_verbose (" ... done spinning to auth connection %p\n", connection);
  }
  
-@@ -2714,9 +2732,12 @@
+@@ -2626,7 +2645,7 @@
+   return retval;
+ }
+ 
+-#ifndef DBUS_WIN_FIXME
++#ifndef DBUS_WIN_FIXME_remove_if_it_really_works
+ /* returns TRUE if the correct thing happens,
+  * but the correct thing may include OOM errors.
+  */
+@@ -2714,9 +2733,12 @@
          }
        else
          {
@@ -232,12 +248,12 @@ Index: bus/dispatch.c
          }
      }
    else
-@@ -4064,11 +4085,14 @@
+@@ -4064,11 +4086,14 @@
    if (!check_add_match_all (context, baz))
      _dbus_assert_not_reached ("AddMatch message failed");
  
 +#ifndef DBUS_WIN
-+  // must fail on Windows?
++  // TODO: Must fail on Windows?
    if (!check_get_connection_unix_user (context, baz))
      _dbus_assert_not_reached ("GetConnectionUnixUser message failed");
  
@@ -247,56 +263,108 @@ Index: bus/dispatch.c
  
    if (!check_list_services (context, baz))
      _dbus_assert_not_reached ("ListActivatableNames message failed");
-@@ -4079,8 +4103,12 @@
+@@ -4078,36 +4103,67 @@
+       _dbus_warn ("Messages were left over after setting up initial connections\n");
        _dbus_assert_not_reached ("initial connection setup failed");
      }
++
++  // TODO for all tests: sometimes endless waiting in select
    
-+#ifdef DBUS_WIN_FIXME
-+  _dbus_warn("TODO: dispatch.c create_and_hello test\n");
++#ifdef DBUS_WIN_FIXME_remove_if_it_really_works
++  _dbus_warn("\tTODO check1_try_iterations: create_and_hello\n");
 +#else
++  printf("\tcheck1_try_iterations: create_and_hello \n");
    check1_try_iterations (context, "create_and_hello",
                           check_hello_connection);
+-  
 +#endif
-   
++
++#ifdef DBUS_WIN_FIXME_remove_if_it_really_works
++  _dbus_warn("\tTODO check1_try_iterations: nonexistent_service_no_auto_start\n");
++#else
++  printf("\tcheck2_try_iterations: nonexistent_service_no_auto_start \n");
    check2_try_iterations (context, foo, "nonexistent_service_no_auto_start",
                           check_nonexistent_service_no_auto_start);
-@@ -4092,12 +4120,15 @@
++#endif
+ 
+-#ifdef DBUS_WIN_FIXME
+-  _dbus_warn("TODO: dispatch.c segfault_service_no_auto_start test\n");
++#ifdef DBUS_WIN_FIXME//_remove_if_it_really_works
++  // How should we suppress the window alerts about the crash?
++  _dbus_warn("\tTODO check2_try_iterations: segfault_service_no_auto_start\n");
+ #else
++  printf("\tcheck2_try_iterations:  segfault_service_no_auto_start\n");
+   check2_try_iterations (context, foo, "segfault_service_no_auto_start",
                           check_segfault_service_no_auto_start);
  #endif
    
-+#ifdef DBUS_WIN_FIXME
-+  _dbus_warn("TODO: dispatch.c existent_service_no_auto_start\n");
++#ifdef DBUS_WIN_FIXME//_remove_if_it_really_works
++  // Is the test really that time consuming?
++  _dbus_warn("\tTODO check2_try_iterations: existent_service_no_auto_start \n");
 +#else
++  printf("\tcheck2_try_iterations: existent_service_no_auto_start \n");
    check2_try_iterations (context, foo, "existent_service_no_auto_start",
                           check_existent_service_no_auto_start);
-   
+-  
++#endif
++
++#ifdef DBUS_WIN_FIXME//_remove_if_it_really_works
++  _dbus_warn("\tTODO check2_try_iterations: nonexistent_service_auto_start \n");  
++#else
++  printf("\tcheck2_try_iterations: nonexistent_service_auto_start \n");
    check2_try_iterations (context, foo, "nonexistent_service_auto_start",
                           check_nonexistent_service_auto_start);
 -  
 +#endif
  
- #ifdef DBUS_WIN_FIXME    
-   _dbus_warn("TODO: dispatch.c segfault_service_auto_start test\n");
-@@ -4121,8 +4152,12 @@
+-#ifdef DBUS_WIN_FIXME    
+-  _dbus_warn("TODO: dispatch.c segfault_service_auto_start test\n");
++#ifdef DBUS_WIN_FIXME//_remove_if_it_really_works
++  _dbus_warn("\tTODO check2_try_iterations: segfault_service_auto_start \n");
+ #else
++  printf("\tcheck2_try_iterations: segfault_service_auto_start \n");
+   check2_try_iterations (context, foo, "segfault_service_auto_start",
+                          check_segfault_service_auto_start);
+ #endif
+ 
++#ifdef DBUS_WIN_FIXME//_remove_if_it_really_works
++  // endless waiting
++  _dbus_warn("\tTODO check2_try_iterations: shell_fail_service_auto_start \n");
++#else
++  printf("\tcheck2_try_iterations: shell_fail_service_auto_start \n");
+   check2_try_iterations (context, foo, "shell_fail_service_auto_start",
+                          check_shell_fail_service_auto_start);
++#endif
+ 
+ #if 0
+   /* Note: need to resolve some issues with the testing code in order to run
+@@ -4118,11 +4174,17 @@
+                          check_existent_service_auto_start);
+ #endif
+   
++  printf("\tcheck: check_existent_service_auto_start \n");
    if (!check_existent_service_auto_start (context, foo))
      _dbus_assert_not_reached ("existent service auto start failed");
  
-+#ifdef DBUS_WIN_FIXME  
-+  _dbus_warn("TODO: dispatch.c check_shell_service_success_auto_start test\n");
++#ifdef DBUS_WIN_FIXME//_remove_if_it_really_works
++  _dbus_warn("\tTODO check_shell_service_success_auto_start \n");
 +#else
++  printf("\tcheck_shell_service_success_auto_start \n");
    if (!check_shell_service_success_auto_start (context, foo))
      _dbus_assert_not_reached ("shell success service auto start failed");
 +#endif
  
    _dbus_verbose ("Disconnecting foo, bar, and baz\n");
  
-@@ -4173,8 +4208,12 @@
+@@ -4173,8 +4235,14 @@
        _dbus_assert_not_reached ("initial connection setup failed");
      }
    
-+#ifdef DBUS_WIN_FIXME  
-+  _dbus_warn("TODO: dispatch.c: create_and_hello_sha1 test\n");
++#ifdef DBUS_WIN_FIXME//_remove_if_it_really_works
++  // very time consuming
++  _dbus_warn("\tTODO check1_try_iterations: create_and_hello_sha1 \n");
 +#else
++  printf("\tcheck1_try_iterations: create_and_hello_sha1 \n");
    check1_try_iterations (context, "create_and_hello_sha1",
                           check_hello_connection);
 +#endif
