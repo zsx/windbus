@@ -65,18 +65,6 @@ set (DBUS_LIB_SOURCES
 #  and move code to a *-win.c file
 )
 
-if(MSVC AND NOT splitlib)
-	if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-		SET(DBUS_LIB_SOURCES
-			${DBUS_LIB_SOURCES}
-			${CMAKE_CURRENT_SOURCE_DIR}/dbus-1d.def)
-	else(CMAKE_BUILD_TYPE STREQUAL "Debug")
-		SET(DBUS_LIB_SOURCES
-			${DBUS_LIB_SOURCES}
-			${CMAKE_CURRENT_SOURCE_DIR}/dbus-1.def)
-	endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
-endif(MSVC AND NOT splitlib)
-
 
 if(UNIX)
 	set (DBUS_LIB_SOURCES ${DBUS_LIB_SOURCES} 
@@ -270,6 +258,10 @@ else(splitlib AND MSVC)
 	add_library(dbus-1 ${DBUS_LIB_TYPE} ${libdbus_SOURCES} ${libdbus_HEADERS} )
 	target_link_libraries(dbus-1 ${LIBS})
 	
+	if(MSVC)
+		set_target_properties(dbus-1  PROPERTIES LINK_FLAGS_RELEASE /def:"${CMAKE_CURRENT_SOURCE_DIR}/dbus-1.def")
+		set_target_properties(dbus-1  PROPERTIES LINK_FLAGS_DEBUG /def:"${CMAKE_CURRENT_SOURCE_DIR}/dbus-1d.def")
+	endif(MSVC)
 	if(MSVC_IDE)	
 		project_source_group(${GROUP_CODE} libdbus_SOURCES libdbus_HEADERS)
 	endif(MSVC_IDE)

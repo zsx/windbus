@@ -90,11 +90,9 @@ if(MSVC)
 	SET(CMAKE_C_FLAGS_DEBUG   "${CMAKE_C_FLAGS_DEBUG}   /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
 	SET(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /FIconfig.h ${MSVC_W_ERROR} ${MSVC_W_DISABLE}")
 
-	if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-	   # used by executables, CMAKE_DEBUG_POSTFIX does not handle this case
-	   #set (CMAKE_EXE_POSTFIX "d")
-	   set (CMAKE_DEBUG_POSTFIX "d")
-	endif(CMAKE_BUILD_TYPE STREQUAL "Debug")
+   # used by executables, CMAKE_DEBUG_POSTFIX does not handle this case
+   #set (CMAKE_EXE_POSTFIX "d")
+   set (CMAKE_DEBUG_POSTFIX "d")
 
 endif(MSVC)
 
