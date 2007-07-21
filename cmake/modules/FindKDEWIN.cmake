@@ -25,7 +25,7 @@ if (WIN32)
       endif (MINGW)
       
       # search in the default program install folder
-      find_file(KDEWIN_DIR_tmp ${DIR} kdewin kdewin32 gnuwin32 win32libs
+      find_file(KDEWIN_DIR_tmp ${DIR} gnuwin32 win32libs kdewin
       PATHS
         "${_progFiles}"
       )
@@ -48,9 +48,9 @@ if (WIN32)
     message(STATUS "Could not find the location of the windows supplementary packages which is \n"
                     "\t\tenvironment variable KDEWIN_DIR\n"
                     "\t\t<ProgramFiles>/${DIR}\n"
-                    "\t\t<ProgramFiles>/kdewin\n" 
-                    "\t\t<ProgramFiles>/kdewin32\n" 
-                    "\t\t<ProgramFiles>/gnuwin32\n")
+                    "\t\t<ProgramFiles>/gnuwin32\n"
+                    "\t\t<ProgramFiles>/win32libs\n" 
+                    "\t\t<ProgramFiles>/kdewin\n")
    endif(KDEWIN_DIR)
   
 endif (WIN32)
