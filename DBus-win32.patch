@@ -9,7 +9,7 @@ Index: README.win
 - the FULL patch to test\data in your build directory
 - (e.g. c:\dbus\build\test\data)  
 - in something like 
-+ '..\..\test\dat' a in your build directory:
++ '..\..\test\data' a in your build directory:
    -> Project Settings
      -> Debugging
         -> Command line arguments
