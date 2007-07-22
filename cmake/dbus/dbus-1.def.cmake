@@ -1,6 +1,5 @@
 LIBRARY ${DEF_LIBRARY_NAME}
 EXPORTS
-_dbus_no_memory_message
 _dbus_abort
 _dbus_accept
 _dbus_address_append_escaped
