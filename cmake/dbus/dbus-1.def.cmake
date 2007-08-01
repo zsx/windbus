@@ -352,7 +352,7 @@ _dbus_mutex_lock
 _dbus_mutex_new
 _dbus_mutex_new_at_location
 _dbus_mutex_unlock
-_dbus_no_memory_message DATA
+_dbus_no_memory_message
 _dbus_object_tree_dispatch_and_unlock
 _dbus_object_tree_free_all_unlocked
 _dbus_object_tree_get_user_data_unlocked
