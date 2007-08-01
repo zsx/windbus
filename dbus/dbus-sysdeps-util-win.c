@@ -42,6 +42,7 @@
 #include <stdlib.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <winsock2.h>   // WSA error codes
 
 #if defined __MINGW32__ || (defined _MSC_VER && _MSC_VER <= 1310)
 /* save string functions version

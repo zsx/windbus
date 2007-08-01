@@ -2830,7 +2830,7 @@ void
 _dbus_daemon_init(const char *host, dbus_uint32_t port)
 {
   HANDLE lock;
-  const char *adr = NULL;
+  char *adr = NULL;
   char szUserName[64];
   DWORD dwUserNameSize = sizeof(szUserName);
   char szDBusDaemonMutex[128];
@@ -2865,10 +2865,10 @@ _dbus_daemon_init(const char *host, dbus_uint32_t port)
 
   _dbus_assert( adr );
 
-  strcpy( (char*) adr, szAddress);
+  strcpy( adr, szAddress);
 
   // cleanup
-  UnmapViewOfFile( (char*) adr );
+  UnmapViewOfFile( adr );
 
   _dbus_global_unlock( lock );
 }
@@ -2898,7 +2898,7 @@ static dbus_bool_t
 _dbus_get_autolaunch_shm(DBusString *adress)
 {
   HANDLE sharedMem;
-  const char *adr;
+  char *adr;
   char szUserName[64];
   DWORD dwUserNameSize = sizeof(szUserName);
   char szDBusDaemonAddressInfo[128];
@@ -2929,7 +2929,7 @@ _dbus_get_autolaunch_shm(DBusString *adress)
   _dbus_string_append( adress, adr ); 
 
   // cleanup
-  UnmapViewOfFile( (char*) adr );
+  UnmapViewOfFile( adr );
 
   CloseHandle( sharedMem );
 
