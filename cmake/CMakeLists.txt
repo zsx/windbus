@@ -92,9 +92,11 @@ if(MSVC)
 
    # used by executables, CMAKE_DEBUG_POSTFIX does not handle this case
    #set (CMAKE_EXE_POSTFIX "d")
-   set (CMAKE_DEBUG_POSTFIX "d")
 
 endif(MSVC)
+if(WIN32)
+  set (CMAKE_DEBUG_POSTFIX "d")
+endif(WIN32)
 
 #########################################################################
 # Windows CE
