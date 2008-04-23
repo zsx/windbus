@@ -89,6 +89,7 @@ _dbus_set_bad_address (DBusError  *error,
           (b) == '_' ||                                 \
           (b) == '/' ||                                 \
           (b) == '\\' ||                                \
+          (b) == '*' ||                                \
           (b) == '.')
 
 /**
@@ -691,18 +692,15 @@ static const char* invalid_escaped_values[] = {
   "%",
   "$",
   " ",
-  "*"
 };
 
 dbus_bool_t
 _dbus_address_test (void)
 {
   DBusAddressEntry **entries;
-  int len;  
-  DBusError error;
+  int len;
+  DBusError error = DBUS_ERROR_INIT;
   int i;
-
-  dbus_error_init (&error);
 
   i = 0;
   while (i < _DBUS_N_ELEMENTS (escape_tests))

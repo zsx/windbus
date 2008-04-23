@@ -58,6 +58,12 @@
 #  define DBUS_DEPRECATED
 #endif
 
+#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 8)
+#  define _DBUS_GNUC_EXTENSION __extension__
+#else
+#  define _DBUS_GNUC_EXTENSION
+#endif
+
 /* Normally docs are in .c files, but there isn't a .c file for this. */
 /**
  * @defgroup DBusMacros Utility macros
@@ -117,6 +123,13 @@
  *
  * Please don't use this in your own code, consider it
  * D-Bus internal.
+ */
+/**
+ * @def _DBUS_GNUC_EXTENSION
+ *
+ * Tells gcc not to warn about extensions to the C standard in the
+ * following expression, even if compiling with -pedantic. Do not use
+ * this macro in your own code; please consider it to be internal to libdbus.
  */
 
 /** @} */

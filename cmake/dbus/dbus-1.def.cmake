@@ -33,6 +33,7 @@ _dbus_auth_set_mechanisms
 _dbus_auth_test
 _dbus_auth_unref
 _dbus_babysitter_get_child_exited
+_dbus_babysitter_get_child_exit_status
 _dbus_babysitter_kill_child
 _dbus_babysitter_ref
 _dbus_babysitter_set_child_exit_error
@@ -170,6 +171,7 @@ _dbus_get_local_machine_uuid_encoded
 _dbus_get_malloc_blocks_outstanding
 _dbus_get_oom_wait
 _dbus_get_standard_session_servicedirs
+_dbus_get_standard_system_servicedirs
 _dbus_get_tmpdir
 _dbus_getenv
 _dbus_getgid
@@ -435,7 +437,6 @@ _dbus_sha_init
 _dbus_sha_test
 _dbus_sha_update
 _dbus_shell_parse_argv
-_dbus_shell_quote
 _dbus_shell_unquote
 _dbus_signature_test
 _dbus_sleep_milliseconds
@@ -651,7 +652,7 @@ _dbus_win_utf16_to_utf8
 _dbus_win_utf8_to_utf16
 _dbus_win_warn_win_error
 _dbus_windows_user_is_process_owner
-_dbus_write_pid_file
+_dbus_write_pid_to_file_and_pipe
 _dbus_write_socket
 _dbus_write_socket_two
 dbus_address_entries_free

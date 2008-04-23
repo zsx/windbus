@@ -34,7 +34,29 @@
  * @brief Error reporting internals
  * @{
  */
- 
+
+/**
+ * @def DBUS_ERROR_INIT
+ *
+ * Expands to a suitable initializer for a DBusError on the stack.
+ * Declaring a DBusError with:
+ *
+ * @code
+ * DBusError error = DBUS_ERROR_INIT;
+ *
+ * do_things_with (&error);
+ * @endcode
+ *
+ * is a more concise form of:
+ *
+ * @code
+ * DBusError error;
+ *
+ * dbus_error_init (&error);
+ * do_things_with (&error);
+ * @endcode
+ */
+
 /**
  * Internals of DBusError
  */
@@ -97,6 +119,8 @@ message_from_error (const char *error)
     return "Did not get a reply message.";
   else if (strcmp (error, DBUS_ERROR_FILE_NOT_FOUND) == 0)
     return "File doesn't exist.";
+  else if (strcmp (error, DBUS_ERROR_OBJECT_PATH_IN_USE) == 0)
+    return "Object path already in use";
   else
     return error;
 }
@@ -360,6 +384,7 @@ dbus_set_error (DBusError  *error,
       if (!_dbus_string_append_printf_valist (&str, format, args))
         {
           _dbus_string_free (&str);
+          va_end (args);
           goto nomem;
         }
       va_end (args);

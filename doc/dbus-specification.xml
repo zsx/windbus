@@ -251,7 +251,12 @@
         but is useful in code that implements the protocol. This type code 
         is specified to allow such code to interoperate in non-protocol contexts.
       </para>
-      
+
+      <para>
+        Empty structures are not allowed; there must be at least one
+        type code between the parentheses.
+      </para>
+
       <para>
         <literal>ARRAY</literal> has ASCII character 'a' as type code. The array type code must be
         followed by a <firstterm>single complete type</firstterm>. The single
@@ -561,7 +566,7 @@
                   given in the signature.
                   Unlike a message signature, the variant signature 
                   can contain only a single complete type.
-                  So "i" is OK, "ii" is not.
+                  So "i", "ai" or "(ii)" is OK, but "ii" is not.
                 </entry>
                 <entry>
                   1 (alignment of the signature)
@@ -2079,7 +2084,7 @@
             <listitem>
               <para>
                 The client sends the username it would like to authenticate 
-                as.
+                as, hex-encoded.
               </para>
             </listitem>
             <listitem>
@@ -2087,19 +2092,19 @@
                 The server sends the name of its "cookie context" (see below); a
                 space character; the integer ID of the secret cookie the client
                 must demonstrate knowledge of; a space character; then a
-                hex-encoded randomly-generated challenge string.
+                randomly-generated challenge string, all of this hex-encoded into
+                one, single string.
               </para>
             </listitem>
             <listitem>
               <para>
-                The client locates the cookie, and generates its own hex-encoded
-                randomly-generated challenge string.  The client then
-                concatenates the server's hex-encoded challenge, a ":"
-                character, its own hex-encoded challenge, another ":" character,
-                and the hex-encoded cookie.  It computes the SHA-1 hash of this
-                composite string.  It sends back to the server the client's
-                hex-encoded challenge string, a space character, and the SHA-1
-                hash.
+                The client locates the cookie and generates its own
+                randomly-generated challenge string. The client then concatenates
+                the server's decoded challenge, a ":" character, its own challenge,
+                another ":" character, and the cookie. It computes the SHA-1 hash
+                of this composite string as a hex digest. It concatenates the
+                client's challenge string, a space character, and the SHA-1 hex
+                digest, hex-encodes the result and sends it back to the server.
               </para>
             </listitem>
             <listitem>
@@ -3135,6 +3140,20 @@
                   only string arguments can be matched.  An example of an argument match 
                   would be arg3='Foo'. Only argument indexes from 0 to 63 should be 
                   accepted.</entry>
+                </row>
+                <row>
+                  <entry><literal>arg[0, 1, 2, 3, ...]path</literal></entry>
+                  <entry>Any string</entry>
+                  <entry>Argument path matches provide a specialised form of wildcard
+                  matching for path-like namespaces. As with normal argument matches,
+                  if the argument is exactly equal to the string given in the match
+                  rule then the rule is satisfied. Additionally, there is also a
+                  match when either the string given in the match rule or the
+                  appropriate message argument ends with '/' and is a prefix of the
+                  other. An example argument path match is arg0path='/aa/bb/'. This
+                  would match messages with first arguments of '/', '/aa/',
+                  '/aa/bb/', '/aa/bb/cc/' and '/aa/bb/cc'. It would not match
+                  messages with first arguments of '/aa/b', '/aa' or even '/aa/bb'.</entry>
                 </row>
               </tbody>
             </tgroup>

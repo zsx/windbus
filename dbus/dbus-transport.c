@@ -354,8 +354,8 @@ _dbus_transport_open (DBusAddressEntry *entry,
   const char *expected_guid_orig;
   char *expected_guid;
   int i;
-  DBusError tmp_error;
-  
+  DBusError tmp_error = DBUS_ERROR_INIT;
+
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   transport = NULL;
@@ -368,7 +368,6 @@ _dbus_transport_open (DBusAddressEntry *entry,
       return NULL;
     }
 
-  dbus_error_init (&tmp_error);
   for (i = 0; i < (int) _DBUS_N_ELEMENTS (open_funcs); ++i)
     {
       DBusTransportOpenResult result;
@@ -413,7 +412,22 @@ _dbus_transport_open (DBusAddressEntry *entry,
   else
     {
       _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
-      transport->expected_guid = expected_guid;
+
+      /* In the case of autostart the initial guid is NULL
+       * and the autostart transport recursively calls
+       * _dbus_open_transport wich returns a transport
+       * with a guid.  That guid is the definitive one.
+       *
+       * FIXME: if more transports are added they may have
+       * an effect on the expected_guid semantics (i.e. 
+       * expected_guid and transport->expected_guid may
+       * both have values).  This is very unlikely though
+       * we should either throw asserts here for those 
+       * corner cases or refactor the code so it is 
+       * clearer on what is expected and what is not
+       */
+      if(expected_guid)
+        transport->expected_guid = expected_guid;
     }
 
   return transport;

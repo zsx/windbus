@@ -37,6 +37,7 @@
 #include <io.h>
 #include <sys/stat.h>
 #include <aclapi.h>
+#include <winsock2.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -132,6 +133,84 @@ _dbus_write_pid_file (const DBusString *filename,
                       "Failed to close \"%s\": %s", cfilename,
                       _dbus_strerror (errno));
       return FALSE;
+    }
+
+  return TRUE;
+}
+
+/**
+ * Writes the given pid_to_write to a pidfile (if non-NULL) and/or to a
+ * pipe (if non-NULL). Does nothing if pidfile and print_pid_pipe are both
+ * NULL.
+ *
+ * @param pidfile the file to write to or #NULL
+ * @param print_pid_pipe the pipe to write to or #NULL
+ * @param pid_to_write the pid to write out
+ * @param error error on failure
+ * @returns FALSE if error is set
+ */
+dbus_bool_t
+_dbus_write_pid_to_file_and_pipe (const DBusString *pidfile,
+                                  DBusPipe         *print_pid_pipe,
+                                  dbus_pid_t        pid_to_write,
+                                  DBusError        *error)
+{
+  if (pidfile)
+    {
+      _dbus_verbose ("writing pid file %s\n", _dbus_string_get_const_data (pidfile));
+      if (!_dbus_write_pid_file (pidfile,
+                                 pid_to_write,
+                                 error))
+        {
+          _dbus_verbose ("pid file write failed\n");
+          _DBUS_ASSERT_ERROR_IS_SET(error);
+          return FALSE;
+        }
+    }
+  else
+    {
+      _dbus_verbose ("No pid file requested\n");
+    }
+
+  if (print_pid_pipe != NULL && _dbus_pipe_is_valid (print_pid_pipe))
+    {
+      DBusString pid;
+      int bytes;
+
+      _dbus_verbose ("writing our pid to pipe %d\n", print_pid_pipe->fd_or_handle);
+
+      if (!_dbus_string_init (&pid))
+        {
+          _DBUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      if (!_dbus_string_append_int (&pid, pid_to_write) ||
+          !_dbus_string_append (&pid, "\n"))
+        {
+          _dbus_string_free (&pid);
+          _DBUS_SET_OOM (error);
+          return FALSE;
+        }
+
+      bytes = _dbus_string_get_length (&pid);
+      if (_dbus_pipe_write (print_pid_pipe, &pid, 0, bytes, error) != bytes)
+        {
+          /* _dbus_pipe_write sets error only on failure, not short write */
+          if (error != NULL && !dbus_error_is_set(error))
+            {
+              dbus_set_error (error, DBUS_ERROR_FAILED,
+                              "Printing message bus PID: did not write enough bytes\n");
+            }
+          _dbus_string_free (&pid);
+          return FALSE;
+        }
+
+      _dbus_string_free (&pid);
+    }
+  else
+    {
+      _dbus_verbose ("No pid pipe to write to\n");
     }
 
   return TRUE;

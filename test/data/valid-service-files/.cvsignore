@@ -1,6 +1,0 @@
-debug-echo.service
-debug-glib.service
-debug-python.service
-debug-segfault.service
-debug-shell-echo-fail.service
-debug-shell-echo-success.service

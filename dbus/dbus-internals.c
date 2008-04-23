@@ -543,8 +543,18 @@ _dbus_read_uuid_file_without_creating (const DBusString *filename,
   DBusString decoded;
   int end;
   
-  _dbus_string_init (&contents);
-  _dbus_string_init (&decoded);
+  if (!_dbus_string_init (&contents))
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  if (!_dbus_string_init (&decoded))
+    {
+      _dbus_string_free (&contents);
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
   
   if (!_dbus_file_get_contents (&contents, filename, error))
     goto error;
@@ -608,7 +618,11 @@ _dbus_create_uuid_file_exclusively (const DBusString *filename,
 {
   DBusString encoded;
 
-  _dbus_string_init (&encoded);
+  if (!_dbus_string_init (&encoded))
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
 
   _dbus_generate_uuid (uuid);
   
@@ -668,9 +682,7 @@ _dbus_read_uuid_file (const DBusString *filename,
                       dbus_bool_t       create_if_not_found,
                       DBusError        *error)
 {
-  DBusError read_error;
-
-  dbus_error_init (&read_error);
+  DBusError read_error = DBUS_ERROR_INIT;
 
   if (_dbus_read_uuid_file_without_creating (filename, uuid, &read_error))
     return TRUE;
@@ -719,8 +731,8 @@ _dbus_get_local_machine_uuid_encoded (DBusString *uuid_str)
   _DBUS_LOCK (machine_uuid);
   if (machine_uuid_initialized_generation != _dbus_current_generation)
     {
-      DBusError error;
-      dbus_error_init (&error);
+      DBusError error = DBUS_ERROR_INIT;
+
       if (!_dbus_read_local_machine_uuid (&machine_uuid, FALSE,
                                           &error))
         {          

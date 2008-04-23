@@ -141,21 +141,26 @@ target_link_libraries(test-sleep-forever ${DBUS_1})
 ### keep these in creation order, i.e. uppermost dirs first 
 set (TESTDIRS
 	test/data					
-	test/data/valid-messages			
-	test/data/invalid-messages			
-	test/data/incomplete-messages		
-	test/data/auth				
-	test/data/sha-1				
-	test/data/valid-config-files			
-	test/data/valid-config-files/basic.d		
-	test/data/valid-config-files/system.d	
-	test/data/valid-service-files		
-	test/data/invalid-config-files		
-	test/data/equiv-config-files			
-	test/data/equiv-config-files/basic		
-	test/data/equiv-config-files/basic/basic.d	
-	test/data/equiv-config-files/entities	
+	test/data/auth
+	test/data/equiv-config-files
+	test/data/equiv-config-files/basic
+	test/data/equiv-config-files/basic/basic.d
+	test/data/equiv-config-files/entities
 	test/data/equiv-config-files/entities/basic.d
+	test/data/incomplete-messages
+	test/data/invalid-config-files
+	test/data/invalid-config-files-system
+	test/data/invalid-messages
+	test/data/invalid-service-files-system
+	test/data/sha-1
+	test/data/valid-config-files
+	test/data/valid-config-files/basic.d		
+	test/data/valid-config-files/system.d
+	test/data/valid-config-files-system
+	test/data/valid-introspection-files
+	test/data/valid-messages
+	test/data/valid-service-files
+	test/data/valid-service-files-system
 )
 set (CONFIG_VERBOSE 0)
 

@@ -1,12 +1,16 @@
 dnl -*- mode: m4 -*-
 AC_PREREQ(2.52)
 
-AC_INIT(dbus/dbus.h)
+m4_define([dbus_major_version], [1])
+m4_define([dbus_minor_version], [2])
+m4_define([dbus_micro_version], [1])
+m4_define([dbus_version],
+          [dbus_major_version.dbus_minor_version.dbus_micro_version])
+AC_INIT(dbus, [dbus_version])
 
 AC_CANONICAL_TARGET
 
-AM_INIT_AUTOMAKE(dbus, 1.1.2)
-
+AM_INIT_AUTOMAKE([1.9 tar-ustar])
 AM_CONFIG_HEADER(config.h)
 
 # Honor aclocal flags
@@ -25,7 +29,7 @@ AM_MAINTAINER_MODE
 #
 
 ## increment if the interface has additions, changes, removals.
-LT_CURRENT=6
+LT_CURRENT=7
 
 ## increment any time the source changes; set to
 ##  0 if you increment CURRENT
@@ -34,17 +38,29 @@ LT_REVISION=0
 ## increment if any interfaces have been added; set to 0
 ## if any interfaces have been changed or removed. removal has
 ## precedence over adding, so set to 0 if both happened.
-LT_AGE=3
+LT_AGE=4
 
 AC_SUBST(LT_CURRENT)
 AC_SUBST(LT_REVISION)
 AC_SUBST(LT_AGE)
 
+DBUS_MAJOR_VERSION=dbus_major_version
+DBUS_MINOR_VERSION=dbus_minor_version
+DBUS_MICRO_VERSION=dbus_micro_version
+DBUS_VERSION=dbus_major_version.dbus_minor_version.dbus_micro_version
+
+AC_SUBST(DBUS_MAJOR_VERSION)
+AC_SUBST(DBUS_MINOR_VERSION)
+AC_SUBST(DBUS_MICRO_VERSION)
+AC_SUBST(DBUS_VERSION)
 
 AC_PROG_CC
+AM_PROG_CC_C_O
 AC_PROG_CXX
 AC_ISC_POSIX
 AC_HEADER_STDC
+AC_C_INLINE
+AM_PROG_LIBTOOL
 
 AC_ARG_ENABLE(tests, AS_HELP_STRING([--enable-tests],[enable unit test code]),enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
 AC_ARG_ENABLE(ansi, AS_HELP_STRING([--enable-ansi],[enable -ansi -pedantic gcc flags]),enable_ansi=$enableval,enable_ansi=no)
@@ -58,6 +74,7 @@ AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use 
 AC_ARG_ENABLE(selinux, AS_HELP_STRING([--enable-selinux],[build with SELinux support]),enable_selinux=$enableval,enable_selinux=auto)
 AC_ARG_ENABLE(libaudit,          [  --enable-libaudit    build audit daemon support for SELinux],enable_libaudit=$enableval,enable_libaudit=auto)
 AC_ARG_ENABLE(dnotify, AS_HELP_STRING([--enable-dnotify],[build with dnotify support (linux only)]),enable_dnotify=$enableval,enable_dnotify=auto)
+AC_ARG_ENABLE(inotify, AS_HELP_STRING([--enable-inotify],[build with inotify support (linux only)]),enable_inotify=$enableval,enable_inotify=auto)
 AC_ARG_ENABLE(kqueue, AS_HELP_STRING([--enable-kqueue],[build with kqueue support]),enable_kqueue=$enableval,enable_kqueue=auto)
 AC_ARG_ENABLE(console-owner-file, AS_HELP_STRING([--enable-console-owner-file],[enable console owner file]),enable_console_owner_file=$enableval,enable_console_owner_file=auto)
 AC_ARG_ENABLE(userdb-cache, AS_HELP_STRING([--enable-userdb-cache],[build with userdb-cache support]),enable_userdb_cache=$enableval,enable_userdb_cache=yes)
@@ -126,6 +143,36 @@ cc_supports_flag() {
     *) AC_MSG_RESULT(no);;
   esac
   return $rc
+}
+
+ld_supports_flag() {
+  AC_MSG_CHECKING([whether $LD supports "$@"])
+  AC_TRY_LINK([
+    int one(void) { return 1; }
+    int two(void) { return 2; }
+  ], [ two(); ] , [_ac_ld_flag_supported=yes], [_ac_ld_flag_supported=no])
+
+  if test "$_ac_ld_flag_supported" = "yes"; then
+    rm -f conftest.c
+    touch conftest.c
+    if $CC -c conftest.c; then
+      ld_out=`$LD $@ -o conftest conftest.o 2>&1`
+      ld_ret=$?
+      if test $ld_ret -ne 0 ; then
+        _ac_ld_flag_supported=no
+      elif echo "$ld_out" | egrep 'option ignored|^usage:|unrecognized option|illegal option' >/dev/null ; then
+        _ac_ld_flag_supported=no
+      fi
+    fi
+    rm -f conftest.c conftest.o conftest
+  fi
+
+  AC_MSG_RESULT($_ac_ld_flag_supported)
+  if test "$_ac_ld_flag_supported" = "yes" ; then
+    return 0
+  else
+    return 1
+  fi
 }
 
 if test "x$GCC" = "xyes"; then
@@ -197,7 +244,23 @@ if test "x$GCC" = "xyes"; then
   case " $CFLAGS " in
   *[\ \	]-fPIC[\ \	]*) ;;
   *) if cc_supports_flag -fPIC; then
-        CFLAGS="$CFLAGS -fPIC"
+        PIC_CFLAGS="-fPIC"
+        if ld_supports_flag -z,relro; then
+           PIC_LDFLAGS="-Wl,-z,relro"
+        fi
+     fi
+     ;;
+  esac
+
+  case " $CFLAGS " in
+  *[\ \	]-fPIE[\ \	]*) ;;
+  *) if cc_supports_flag -fPIE; then
+        PIE_CFLAGS="-fPIE"
+        if ld_supports_flag -z,relro; then
+           PIE_LDFLAGS="-pie -Wl,-z,relro"
+        else
+           PIE_LDFLAGS="-pie"
+        fi
      fi
      ;;
   esac
@@ -243,6 +306,19 @@ else
   fi
 fi
 
+AC_SUBST(PIC_CFLAGS)
+AC_SUBST(PIC_LDFLAGS)  
+AC_SUBST(PIE_CFLAGS)
+AC_SUBST(PIE_LDFLAGS)  
+
+if ld_supports_flag --gc-sections; then
+  SECTION_LDFLAGS="-Wl,--gc-sections $SECTION_LDFLAGS"
+  CFLAGS="-ffunction-sections -fdata-sections $CFLAGS"
+fi
+AC_SUBST(SECTION_FLAGS)
+AC_SUBST(SECTION_LDFLAGS)
+AC_MSG_RESULT($ac_gcsections)
+
 # Add -D_POSIX_PTHREAD_SEMANTICS if on Solaris
 #
 case $target_os in
@@ -250,8 +326,6 @@ case $target_os in
        CFLAGS="$CFLAGS -D_POSIX_PTHREAD_SEMANTICS" ;;
 esac
     
-AM_PROG_LIBTOOL
-
 changequote(,)dnl
 # compress spaces in flags
 CFLAGS=`echo "$CFLAGS" | sed -e 's/ +/ /g'`
@@ -478,7 +552,7 @@ fi
 
 #### Atomic integers (checks by Sebastian Wilhelmi for GLib)
 AC_MSG_CHECKING([whether to use inline assembler routines for atomic integers])
-have_atomic_inc=no
+have_atomic_inc_cond=0
 if test x"$GCC" = xyes; then
   if test "x$enable_ansi" = "xyes"; then
     AC_MSG_RESULT([no])
@@ -493,18 +567,13 @@ if test x"$GCC" = xyes; then
             AC_MSG_RESULT([darwin])
             # check at compile-time, so that it is possible to build universal
             # (with multiple architectures at once on the compile line)
-            AH_VERBATIM([DBUS_USE_ATOMIC_INT_486_DARWIN], [
-              #if (defined(__i386__) || defined(__x86_64__))
-              # define DBUS_USE_ATOMIC_INT_486 1
-              #endif
-            ])
+            have_atomic_inc_cond="(defined(__i386__) || defined(__x86_64__))"
             ;;
           *)
             AC_MSG_RESULT([i486])
-            AC_DEFINE_UNQUOTED(DBUS_USE_ATOMIC_INT_486, 1, [Use atomic integer implementation for 486])
+            have_atomic_inc_cond=1
             ;;
         esac
-        have_atomic_inc=yes
         ;;
       *)
         AC_MSG_RESULT([no])
@@ -512,26 +581,44 @@ if test x"$GCC" = xyes; then
     esac
   fi
 fi
-if test x$have_atomic_inc = xyes ; then
-  case $host_os in
-    darwin*)
-      AH_VERBATIM([DBUS_HAVE_ATOMIC_INT_DARWIN], [
-        #if (defined(__i386__) || defined(__x86_64__))
-        # define DBUS_HAVE_ATOMIC_INT 1
-        #endif
-      ])
-      ;;
-    *)
-      AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT, 1, [Some atomic integer implementation present])
-      ;;
-  esac
-fi
+AC_DEFINE_UNQUOTED([DBUS_USE_ATOMIC_INT_486_COND], [$have_atomic_inc_cond],
+                   [Always defined; expands to 1 if we should use atomic integer implementation for 486, else 0])
+AC_DEFINE_UNQUOTED(DBUS_HAVE_ATOMIC_INT_COND, [$have_atomic_inc_cond],
+                   [Always defined; expands to 1 if we have an atomic integer implementation, else 0])
 
 #### Various functions
 AC_CHECK_LIB(socket,socket)
 AC_CHECK_FUNC(gethostbyname,,[AC_CHECK_LIB(nsl,gethostbyname)])
 
-AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep poll setenv unsetenv socketpair getgrouplist fpathconf setrlimit)
+AC_CHECK_FUNCS(vsnprintf vasprintf nanosleep usleep setenv clearenv unsetenv socketpair getgrouplist fpathconf setrlimit poll)
+
+#### Check for broken poll; taken from Glib's configure
+
+AC_MSG_CHECKING([for broken poll])
+AC_RUN_IFELSE([AC_LANG_SOURCE([[
+    #include <stdlib.h>
+    #include <fcntl.h>
+    #include <poll.h>
+    #ifdef HAVE_SYS_POLL_H
+    #include <sys/poll.h>
+    #endif
+    int main(void) {
+      struct pollfd fds[1];
+      int fd;
+      fd = open("/dev/null", 1);
+      fds[0].fd = fd;
+      fds[0].events = POLLIN;
+      fds[0].revents = 0;
+      if (poll(fds, 1, 0) < 0 || (fds[0].revents & POLLNVAL) != 0) {
+            exit(1);  /* Does not work for devices -- fail */
+      }
+      exit(0);
+    }]])],
+  [broken_poll=no],
+  [broken_poll=yes
+   AC_DEFINE(BROKEN_POLL,1,[poll doesn't work on devices])],
+  [broken_poll="no (cross compiling)"])
+AC_MSG_RESULT($broken_poll)
 
 AC_MSG_CHECKING(for dirfd)
 AC_TRY_LINK([
@@ -760,8 +847,6 @@ AC_CHECK_LIB(expat, XML_ParserCreate_MM,
              [ AC_CHECK_HEADERS(expat.h, have_expat=true, have_expat=false) ],
              have_expat=false)
 
-PKG_CHECK_MODULES(LIBXML, libxml-2.0 >= 2.6.0, have_libxml=true, have_libxml=false)
-
 # see what we want to use
 dbus_use_libxml=false
 dbus_use_expat=false
@@ -772,6 +857,8 @@ if test x$with_xml = xexpat; then
         fi
 elif test x$with_xml = xlibxml; then
         dbus_use_libxml=true
+        PKG_CHECK_MODULES(LIBXML, libxml-2.0 >= 2.6.0, have_libxml=true, have_libxml=false)
+
         if ! $have_libxml ; then
            AC_MSG_ERROR([Explicitly requested libxml but libxml not found])
         fi
@@ -851,11 +938,26 @@ else
     SELINUX_LIBS=
 fi
 
+# inotify checks
+if test x$enable_inotify = xno ; then
+    have_inotify=no;
+else
+    AC_CHECK_HEADERS(sys/inotify.h, have_inotify=yes, have_inotify=no)
+fi
+
+dnl check if inotify backend is enabled
+if test x$have_inotify = xyes; then
+   AC_DEFINE(DBUS_BUS_ENABLE_INOTIFY,1,[Use inotify])
+
+fi
+
+AM_CONDITIONAL(DBUS_BUS_ENABLE_INOTIFY, test x$have_inotify = xyes)
+
 # dnotify checks
 if test x$enable_dnotify = xno ; then
     have_dnotify=no;
 else
-    if test x$target_os = xlinux-gnu -o x$target_os = xlinux; then
+    if test x$have_inotify = xno -a x$target_os = xlinux-gnu -o x$target_os = xlinux; then
         have_dnotify=yes;	
     else
         have_dnotify=no;
@@ -932,10 +1034,15 @@ DBUS_CLIENT_LIBS="$THREAD_LIBS"
 AC_SUBST(DBUS_CLIENT_CFLAGS)
 AC_SUBST(DBUS_CLIENT_LIBS)
 
-DBUS_BUS_CFLAGS=$XML_CFLAGS
+DBUS_BUS_CFLAGS="$XML_CFLAGS"
 DBUS_BUS_LIBS="$XML_LIBS $SELINUX_LIBS $INTLLIBS $THREAD_LIBS"
 AC_SUBST(DBUS_BUS_CFLAGS)
 AC_SUBST(DBUS_BUS_LIBS)
+
+DBUS_LAUNCHER_CFLAGS="$XML_CFLAGS"
+DBUS_LAUNCHER_LIBS="$XML_LIBS $THREAD_LIBS"
+AC_SUBST(DBUS_LAUNCHER_CFLAGS)
+AC_SUBST(DBUS_LAUNCHER_LIBS)
 
 DBUS_TEST_CFLAGS=
 DBUS_TEST_LIBS="$THREAD_LIBS"
@@ -1034,6 +1141,7 @@ AS_AC_EXPAND(EXPANDED_LOCALSTATEDIR, "$localstatedir")
 AS_AC_EXPAND(EXPANDED_SYSCONFDIR, "$sysconfdir")
 AS_AC_EXPAND(EXPANDED_BINDIR, "$bindir")
 AS_AC_EXPAND(EXPANDED_LIBDIR, "$libdir")
+AS_AC_EXPAND(EXPANDED_LIBEXECDIR, "$libexecdir")
 AS_AC_EXPAND(EXPANDED_DATADIR, "$datadir")
 
 #### Check our operating system
@@ -1139,9 +1247,14 @@ AC_SUBST(DBUS_DAEMONDIR)
 AC_DEFINE_UNQUOTED(DBUS_DAEMONDIR,"$DBUS_DAEMONDIR", [Directory for installing the DBUS daemon])
 
 #### Directory to install the other binaries
-DBUS_BINDIR=$EXPANDED_BINDIR
+DBUS_BINDIR="$EXPANDED_BINDIR"
 AC_SUBST(DBUS_BINDIR)
 AC_DEFINE_UNQUOTED(DBUS_BINDIR,"$DBUS_BINDIR", [Directory for installing the binaries])
+
+#### Directory to install the libexec binaries
+DBUS_LIBEXECDIR="$EXPANDED_LIBEXECDIR"
+AC_SUBST(DBUS_LIBEXECDIR)
+AC_DEFINE_UNQUOTED(DBUS_LIBEXECDIR,"$DBUS_LIBEXECDIR", [Directory for installing the libexec binaries])
 
 #### Tell tests where to find certain stuff in builddir
 
@@ -1153,7 +1266,10 @@ AC_DEFINE_UNQUOTED(TEST_$1, "$TEST_$1",
 AC_SUBST(TEST_$1)
 ])
 
-TEST_PATH(SERVICE_DIR, data/valid-service-files)
+TEST_PATH(VALID_SERVICE_DIR, data/valid-service-files)
+TEST_PATH(INVALID_SERVICE_DIR, data/invalid-service-files)
+TEST_PATH(VALID_SERVICE_SYSTEM_DIR, data/valid-service-files-system)
+TEST_PATH(INVALID_SERVICE_SYSTEM_DIR, data/invalid-service-files-system)
 TEST_PATH(SERVICE_BINARY, test-service)
 TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
 TEST_PATH(EXIT_BINARY, test-exit)
@@ -1163,6 +1279,12 @@ TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
 AC_DEFINE_UNQUOTED(TEST_BUS_BINARY, "$DBUS_PWD/bus/dbus-daemon",
                    [Full path to the daemon in the builddir])
 AC_SUBST(TEST_BUS_BINARY)
+
+## Export the non-setuid external helper
+TEST_LAUNCH_HELPER_BINARY="$DBUS_PWD/bus/dbus-daemon-launch-helper-test"
+AC_SUBST(TEST_LAUNCH_HELPER_BINARY)
+AC_DEFINE_UNQUOTED(DBUS_TEST_LAUNCH_HELPER_BINARY, "$TEST_LAUNCH_HELPER_BINARY",
+                   [Full path to the launch helper test program in the builddir])
 
 #### Find socket directories
 if ! test -z "$TMPDIR" ; then
@@ -1193,6 +1315,18 @@ AC_SUBST(DBUS_SESSION_SOCKET_DIR)
 
 AC_DEFINE_UNQUOTED(DBUS_UNIX, "1", [Defined on UNIX and Linux systems and not on Windows])
 
+# darwin needs this to initialize the environment
+AC_CHECK_HEADERS(crt_externs.h)
+AC_CHECK_FUNC(_NSGetEnviron, [AC_DEFINE(HAVE_NSGETENVIRON, 1, [Define if your system needs _NSGetEnviron to set up the environment])])
+AH_VERBATIM(_DARWIN_ENVIRON,
+[
+#if defined(HAVE_NSGETENVIRON) && defined(HAVE_CRT_EXTERNS_H)
+# include <sys/time.h>
+# include <crt_externs.h>
+# define environ (*_NSGetEnviron())
+#endif
+])
+
 AC_OUTPUT([
 Doxyfile
 dbus/dbus-arch-deps.h
@@ -1211,10 +1345,19 @@ doc/Makefile
 dbus-1.pc
 test/data/valid-config-files/debug-allow-all.conf
 test/data/valid-config-files/debug-allow-all-sha1.conf
-test/data/valid-service-files/debug-echo.service
-test/data/valid-service-files/debug-segfault.service
-test/data/valid-service-files/debug-shell-echo-success.service
-test/data/valid-service-files/debug-shell-echo-fail.service
+test/data/valid-config-files-system/debug-allow-all-pass.conf
+test/data/valid-config-files-system/debug-allow-all-fail.conf
+test/data/valid-service-files/org.freedesktop.DBus.TestSuiteEchoService.service
+test/data/valid-service-files/org.freedesktop.DBus.TestSuiteSegfaultService.service
+test/data/valid-service-files/org.freedesktop.DBus.TestSuiteShellEchoServiceSuccess.service
+test/data/valid-service-files/org.freedesktop.DBus.TestSuiteShellEchoServiceFail.service
+test/data/valid-service-files-system/org.freedesktop.DBus.TestSuiteEchoService.service
+test/data/valid-service-files-system/org.freedesktop.DBus.TestSuiteSegfaultService.service
+test/data/valid-service-files-system/org.freedesktop.DBus.TestSuiteShellEchoServiceSuccess.service
+test/data/valid-service-files-system/org.freedesktop.DBus.TestSuiteShellEchoServiceFail.service
+test/data/invalid-service-files-system/org.freedesktop.DBus.TestSuiteNoExec.service
+test/data/invalid-service-files-system/org.freedesktop.DBus.TestSuiteNoUser.service
+test/data/invalid-service-files-system/org.freedesktop.DBus.TestSuiteNoService.service
 ])
 
 dnl ==========================================================================
@@ -1225,6 +1368,7 @@ echo "
 	prefix:                   ${prefix}
 	exec_prefix:              ${exec_prefix}
         libdir:                   ${EXPANDED_LIBDIR}
+        libexecdir:               ${EXPANDED_LIBEXECDIR}
         bindir:                   ${EXPANDED_BINDIR}
         sysconfdir:               ${EXPANDED_SYSCONFDIR}
         localstatedir:            ${EXPANDED_LOCALSTATEDIR}
@@ -1248,7 +1392,9 @@ echo "
         Building assertions:      ${enable_asserts}
         Building checks:          ${enable_checks}
         Building SELinux support: ${have_selinux}
+        Building inotify support: ${have_inotify}
         Building dnotify support: ${have_dnotify}
+        Building kqueue support:  ${have_kqueue}
         Building X11 code:        ${enable_x11}
         Building Doxygen docs:    ${enable_doxygen_docs}
         Building XML docs:        ${enable_xml_docs}
@@ -1286,4 +1432,8 @@ if test x$enable_asserts = xyes; then
 fi
 if test x$enable_checks = xno; then
         echo "NOTE: building without checks for arguments passed to public API makes it harder to debug apps using D-Bus, but will slightly decrease D-Bus library size and _very_ slightly improve performance."
+fi
+if test x$dbus_use_libxml = xtrue; then
+        echo
+	echo "WARNING: You have chosen to use libxml as your xml parser however this code path is not maintained by the D-Bus developers and if it breaks you get to keep the pieces.  If you have selected this option in err please reconfigure with expat (e.g. --with-xml=expat)."
 fi

@@ -23,6 +23,7 @@
  *
  */
 #include "activation.h"
+#include "activation-exit-codes.h"
 #include "desktop-file.h"
 #include "services.h"
 #include "test.h"
@@ -37,10 +38,6 @@
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
 #endif
-
-#define DBUS_SERVICE_SECTION "D-BUS Service"
-#define DBUS_SERVICE_NAME "Name"
-#define DBUS_SERVICE_EXEC "Exec"
 
 struct BusActivation
 {
@@ -68,6 +65,7 @@ typedef struct
   int refcount;
   char *name;
   char *exec;
+  char *user;
   unsigned long mtime;
   BusServiceDirectory *s_dir;
   char *filename;
@@ -240,6 +238,7 @@ bus_activation_entry_unref (BusActivationEntry *entry)
   
   dbus_free (entry->name);
   dbus_free (entry->exec);
+  dbus_free (entry->user);
   dbus_free (entry->filename);
 
   dbus_free (entry);
@@ -252,17 +251,21 @@ update_desktop_file_entry (BusActivation       *activation,
                            BusDesktopFile      *desktop_file,
                            DBusError           *error)
 {
-  char *name, *exec;
+  char *name, *exec, *user;
   BusActivationEntry *entry;
   DBusStat stat_buf;
   DBusString file_path;
+  DBusError tmp_error;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   
   name = NULL;
   exec = NULL;
+  user = NULL;
   entry = NULL;
   
+  dbus_error_init (&tmp_error);
+
   if (!_dbus_string_init (&file_path))
     {
       BUS_SET_OOM (error);
@@ -297,6 +300,29 @@ update_desktop_file_entry (BusActivation       *activation,
                                     error))
     goto failed;
 
+  /* user is not _required_ unless we are using system activation */
+  if (!bus_desktop_file_get_string (desktop_file,
+                                    DBUS_SERVICE_SECTION,
+                                    DBUS_SERVICE_USER,
+                                    &user, &tmp_error))
+    {
+      _DBUS_ASSERT_ERROR_IS_SET (&tmp_error);
+      /* if we got OOM, then exit */
+      if (dbus_error_has_name (&tmp_error, DBUS_ERROR_NO_MEMORY))
+        {
+          dbus_move_error (&tmp_error, error);
+          goto failed;
+        }
+      else
+        {
+          /* if we have error because we didn't find anything then continue */
+          dbus_error_free (&tmp_error);
+          dbus_free (user);
+          user = NULL;
+        }
+    }
+  _DBUS_ASSERT_ERROR_IS_CLEAR (&tmp_error);
+
   entry = _dbus_hash_table_lookup_string (s_dir->entries, 
                                           _dbus_string_get_const_data (filename));
   if (entry == NULL) /* New file */
@@ -320,6 +346,7 @@ update_desktop_file_entry (BusActivation       *activation,
      
       entry->name = name;
       entry->exec = exec;
+      entry->user = user;
       entry->refcount = 1;
     
       entry->s_dir = s_dir;
@@ -360,8 +387,10 @@ update_desktop_file_entry (BusActivation       *activation,
  
       dbus_free (entry->name);
       dbus_free (entry->exec);
+      dbus_free (entry->user);
       entry->name = name;
       entry->exec = exec;
+      entry->user = user;
       if (!_dbus_hash_table_insert_string (activation->entries,
                                            entry->name, bus_activation_entry_ref(entry)))
         {
@@ -385,6 +414,7 @@ update_desktop_file_entry (BusActivation       *activation,
 failed:
   dbus_free (name);
   dbus_free (exec);
+  dbus_free (user);
   _dbus_string_free (&file_path);
 
   if (entry)
@@ -1088,6 +1118,58 @@ pending_activation_failed (BusPendingActivation *pending_activation,
                                   pending_activation->service_name);
 }
 
+/**
+ * Depending on the exit code of the helper, set the error accordingly
+ */
+static void
+handle_activation_exit_error (int        exit_code,
+                              DBusError *error)
+{
+  switch (exit_code)
+    {
+    case BUS_SPAWN_EXIT_CODE_NO_MEMORY:
+      dbus_set_error (error, DBUS_ERROR_NO_MEMORY,
+                      "Launcher could not run (out of memory)");
+      break;
+    case BUS_SPAWN_EXIT_CODE_SETUP_FAILED:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_SETUP_FAILED,
+                      "Failed to setup environment correctly");
+      break;
+    case BUS_SPAWN_EXIT_CODE_NAME_INVALID:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_SERVICE_INVALID,
+                      "Bus name is not valid or missing");
+      break;
+    case BUS_SPAWN_EXIT_CODE_SERVICE_NOT_FOUND:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_SERVICE_NOT_FOUND,
+                      "Bus name not found in system service directory");
+      break;
+    case BUS_SPAWN_EXIT_CODE_PERMISSIONS_INVALID:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_PERMISSIONS_INVALID,
+                      "The permission of the setuid helper is not correct");
+      break;
+    case BUS_SPAWN_EXIT_CODE_FILE_INVALID:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_PERMISSIONS_INVALID,
+                      "The service file is incorrect or does not have all required attributes");
+      break;
+    case BUS_SPAWN_EXIT_CODE_EXEC_FAILED:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_EXEC_FAILED,
+                      "Cannot launch daemon, file not found or permissions invalid");
+      break;
+    case BUS_SPAWN_EXIT_CODE_INVALID_ARGS:
+      dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                      "Invalid arguments to command line");
+      break;
+    case BUS_SPAWN_EXIT_CODE_CHILD_SIGNALED:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_CHILD_SIGNALED,
+                      "Launched child was signaled, it probably crashed");
+      break;
+    default:
+      dbus_set_error (error, DBUS_ERROR_SPAWN_CHILD_EXITED,
+                      "Launch helper exited with unknown return code %i", exit_code);
+      break;
+    }
+}
+
 static dbus_bool_t
 babysitter_watch_callback (DBusWatch     *watch,
                            unsigned int   condition,
@@ -1120,6 +1202,17 @@ babysitter_watch_callback (DBusWatch     *watch,
       
       dbus_error_init (&error);
       _dbus_babysitter_set_child_exit_error (babysitter, &error);
+
+      /* refine the error code if we got an exit code */
+      if (dbus_error_has_name (&error, DBUS_ERROR_SPAWN_CHILD_EXITED))
+      	{
+          int exit_code = 0;
+          if (_dbus_babysitter_get_child_exit_status (babysitter, &exit_code))
+            {
+              dbus_error_free (&error);
+              handle_activation_exit_error (exit_code, &error);
+            }
+      	}
 
       /* Destroy all pending activations with the same exec */
       _dbus_hash_iter_init (pending_activation->activation->pending_activations,
@@ -1310,12 +1403,14 @@ bus_activation_activate_service (BusActivation  *activation,
   BusPendingActivationEntry *pending_activation_entry;
   DBusMessage *message;
   DBusString service_str;
+  const char *servicehelper;
   char **argv;
   char **envp = NULL;
   int argc;
   dbus_bool_t retval;
   DBusHashIter iter;
   dbus_bool_t activated;
+  DBusString command;
   
   activated = TRUE;
 
@@ -1529,8 +1624,58 @@ bus_activation_activate_service (BusActivation  *activation,
   if (activated)
     return TRUE;
 
-  /* Now try to spawn the process */
-  if (!_dbus_shell_parse_argv (entry->exec, &argc, &argv, error))
+  /* use command as system and session different */
+  if (!_dbus_string_init (&command))
+    {
+      BUS_SET_OOM (error);
+      return FALSE;
+    }
+
+  /* does the bus use a helper? */
+  servicehelper = bus_context_get_servicehelper (activation->context);
+  if (servicehelper != NULL)
+    {
+      if (entry->user == NULL)
+        {
+          _dbus_string_free (&command);
+          dbus_set_error (error, DBUS_ERROR_SPAWN_FILE_INVALID,
+                          "Cannot do system-bus activation with no user\n");
+          return FALSE;
+        }
+
+      /* join the helper path and the service name */
+      if (!_dbus_string_append (&command, servicehelper))
+        {
+          _dbus_string_free (&command);
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+      if (!_dbus_string_append (&command, " "))
+        {
+          _dbus_string_free (&command);
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+      if (!_dbus_string_append (&command, service_name))
+        {
+          _dbus_string_free (&command);
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+    }
+  else
+    {
+      /* the bus does not use a helper, so we can append arguments with the exec line */
+      if (!_dbus_string_append (&command, entry->exec))
+        {
+          _dbus_string_free (&command);
+          BUS_SET_OOM (error);
+          return FALSE;
+        }
+    }
+
+  /* convert command into arguments */
+  if (!_dbus_shell_parse_argv (_dbus_string_get_const_data (&command), &argc, &argv, error))
     {
       _dbus_verbose ("Failed to parse command line: %s\n", entry->exec);
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -1538,8 +1683,10 @@ bus_activation_activate_service (BusActivation  *activation,
       _dbus_hash_table_remove_string (activation->pending_activations,
                                       pending_activation->service_name);
 
+      _dbus_string_free (&command);
       return FALSE;
     }
+  _dbus_string_free (&command);
 
   _dbus_verbose ("Spawning %s ...\n", argv[0]);
   if (!_dbus_spawn_async_with_babysitter (&pending_activation->babysitter, argv,

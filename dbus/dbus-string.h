@@ -73,6 +73,8 @@ dbus_bool_t   _dbus_string_init_preallocated     (DBusString        *str,
                                                   int                allocate_size);
 void          _dbus_string_free                  (DBusString        *str);
 void          _dbus_string_lock                  (DBusString        *str);
+dbus_bool_t   _dbus_string_compact               (DBusString        *str,
+                                                  int                max_waste);
 #ifndef _dbus_string_get_data
 char*         _dbus_string_get_data              (DBusString        *str);
 #endif /* _dbus_string_get_data */
@@ -118,6 +120,9 @@ dbus_bool_t   _dbus_string_copy_data_len         (const DBusString  *str,
 void          _dbus_string_copy_to_buffer        (const DBusString  *str,
                                                   char              *buffer,
 						  int                len);
+void          _dbus_string_copy_to_buffer_with_nul (const DBusString  *str,
+                                                    char              *buffer,
+                                                    int                avail_len);
 #ifndef _dbus_string_get_length
 int           _dbus_string_get_length            (const DBusString  *str);
 #endif /* !_dbus_string_get_length */

@@ -41,6 +41,7 @@ struct BusContext
   DBusGUID uuid;
   char *config_file;
   char *type;
+  char *servicehelper;
   char *address;
   char *pidfile;
   char *user;
@@ -207,9 +208,9 @@ setup_server (BusContext *context,
   BusServerData *bd;
 
   bd = dbus_new0 (BusServerData, 1);
-  if (!dbus_server_set_data (server,
-                             server_data_slot,
-                             bd, free_server_data))
+  if (bd == NULL || !dbus_server_set_data (server,
+                                           server_data_slot,
+                                           bd, free_server_data))
     {
       dbus_free (bd);
       BUS_SET_OOM (error);
@@ -253,8 +254,9 @@ setup_server (BusContext *context,
 }
 
 /* This code only gets executed the first time the
-   config files are parsed.  It is not executed
-   when config files are reloaded.*/
+ * config files are parsed.  It is not executed
+ * when config files are reloaded.
+ */
 static dbus_bool_t
 process_config_first_time_only (BusContext      *context,
 				BusConfigParser *parser,
@@ -392,8 +394,11 @@ process_config_first_time_only (BusContext      *context,
 }
 
 /* This code gets executed every time the config files
-   are parsed: both during BusContext construction
-   and on reloads. */
+ * are parsed: both during BusContext construction
+ * and on reloads. This function is slightly screwy
+ * since it can do a "half reload" in out-of-memory
+ * situations. Realistically, unlikely to ever matter.
+ */
 static dbus_bool_t
 process_config_every_time (BusContext      *context,
 			   BusConfigParser *parser,
@@ -402,9 +407,12 @@ process_config_every_time (BusContext      *context,
 {
   DBusString full_address;
   DBusList *link;
+  DBusList **dirs;
   BusActivation *new_activation;
   char *addr;
-
+  const char *servicehelper;
+  char *s;
+  
   dbus_bool_t retval;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -467,10 +475,27 @@ process_config_every_time (BusContext      *context,
       goto failed;
     }
 
+  /* get the service directories */
+  dirs = bus_config_parser_get_service_dirs (parser);
+
+  /* and the service helper */
+  servicehelper = bus_config_parser_get_servicehelper (parser);
+
+  s = _dbus_strdup(servicehelper);
+  if (s == NULL && servicehelper != NULL)
+    {
+      BUS_SET_OOM (error);
+      goto failed;
+    }
+  else
+    {
+      dbus_free(context->servicehelper);
+      context->servicehelper = s;
+    }
+  
   /* Create activation subsystem */
   new_activation = bus_activation_new (context, &full_address,
-				       bus_config_parser_get_service_dirs (parser),
-				       error);
+                                       dirs, error);
   if (new_activation == NULL)
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -640,7 +665,7 @@ bus_context_new (const DBusString *config_file,
 
       if (!_dbus_pipe_is_stdout_or_stderr (print_addr_pipe))
         _dbus_pipe_close (print_addr_pipe, NULL);
-
+      
       _dbus_string_free (&addr);
     }
   
@@ -670,78 +695,48 @@ bus_context_new (const DBusString *config_file,
         }
     }
 
-  /* Now become a daemon if appropriate */
-  if ((force_fork != FORK_NEVER && context->fork) || force_fork == FORK_ALWAYS)
-    {
-      DBusString u;
+  /* Now become a daemon if appropriate and write out pid file in any case */
+  {
+    DBusString u;
 
-      if (context->pidfile)
-        _dbus_string_init_const (&u, context->pidfile);
-      
-      if (!_dbus_become_daemon (context->pidfile ? &u : NULL, 
-				print_pid_pipe,
-				error))
-	{
-	  _DBUS_ASSERT_ERROR_IS_SET (error);
-	  goto failed;
-	}
-    }
-  else
-    {
-      /* Need to write PID file for ourselves, not for the child process */
-      if (context->pidfile != NULL)
-        {
-          DBusString u;
+    if (context->pidfile)
+      _dbus_string_init_const (&u, context->pidfile);
 
-          _dbus_string_init_const (&u, context->pidfile);
-          
-          if (!_dbus_write_pid_file (&u, _dbus_getpid (), error))
-	    {
-	      _DBUS_ASSERT_ERROR_IS_SET (error);
-	      goto failed;
-	    }
-        }
-    }
+    if ((force_fork != FORK_NEVER && context->fork) || force_fork == FORK_ALWAYS)
+      {
+        _dbus_verbose ("Forking and becoming daemon\n");
+        
+        if (!_dbus_become_daemon (context->pidfile ? &u : NULL, 
+                                  print_pid_pipe,
+                                  error))
+          {
+            _DBUS_ASSERT_ERROR_IS_SET (error);
+            goto failed;
+          }
+      }
+    else
+      {
+        _dbus_verbose ("Fork not requested\n");
+        
+        /* Need to write PID file and to PID pipe for ourselves,
+         * not for the child process. This is a no-op if the pidfile
+         * is NULL and print_pid_pipe is NULL.
+         */
+        if (!_dbus_write_pid_to_file_and_pipe (context->pidfile ? &u : NULL,
+                                               print_pid_pipe,
+                                               _dbus_getpid (),
+                                               error))
+          {
+            _DBUS_ASSERT_ERROR_IS_SET (error);
+            goto failed;
+          }
+      }
+  }
 
-  /* Write PID if requested */
-  if (print_pid_pipe != NULL && _dbus_pipe_is_valid (print_pid_pipe))
-    {
-      DBusString pid;
-      int bytes;
-
-      if (!_dbus_string_init (&pid))
-        {
-          BUS_SET_OOM (error);
-          goto failed;
-        }
-      
-      if (!_dbus_string_append_int (&pid, _dbus_getpid ()) ||
-          !_dbus_string_append (&pid, "\n"))
-        {
-          _dbus_string_free (&pid);
-          BUS_SET_OOM (error);
-          goto failed;
-        }
-
-      bytes = _dbus_string_get_length (&pid);
-      if (_dbus_pipe_write (print_pid_pipe, &pid, 0, bytes, error) != bytes)
-        {
-          /* pipe_write sets error on failure but not short write */
-          if (error != NULL && !dbus_error_is_set (error))
-            {
-              dbus_set_error (error, DBUS_ERROR_FAILED,
-                              "Printing message bus PID: did not write enough bytes\n");
-            }
-          _dbus_string_free (&pid);
-          goto failed;
-        }
-
-      if (!_dbus_pipe_is_stdout_or_stderr (print_pid_pipe))
-        _dbus_pipe_close (print_pid_pipe, NULL);
-      
-      _dbus_string_free (&pid);
-    }
-
+  if (print_pid_pipe && _dbus_pipe_is_valid (print_pid_pipe) &&
+      !_dbus_pipe_is_stdout_or_stderr (print_pid_pipe))
+    _dbus_pipe_close (print_pid_pipe, NULL);
+  
   if (!process_config_postinit (context, parser, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -764,6 +759,11 @@ bus_context_new (const DBusString *config_file,
 	  _DBUS_ASSERT_ERROR_IS_SET (error);
 	  goto failed;
 	}
+
+#ifdef HAVE_SELINUX
+      /* FIXME - why not just put this in full_init() below? */
+      bus_selinux_audit_init ();
+#endif
     }
 
   if (!bus_selinux_full_init ())
@@ -941,6 +941,7 @@ bus_context_unref (BusContext *context)
       dbus_free (context->type);
       dbus_free (context->address);
       dbus_free (context->user);
+      dbus_free (context->servicehelper);
 
       if (context->pidfile)
 	{
@@ -971,6 +972,12 @@ const char*
 bus_context_get_address (BusContext *context)
 {
   return context->address;
+}
+
+const char*
+bus_context_get_servicehelper (BusContext *context)
+{
+  return context->servicehelper;
 }
 
 BusRegistry*
@@ -1173,27 +1180,23 @@ bus_context_check_security_policy (BusContext     *context,
 				    dbus_message_get_error_name (message),
 				    dest ? dest : DBUS_SERVICE_DBUS, error))
         {
+          if (error != NULL && !dbus_error_is_set (error))
+            {
+              dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
+                              "An SELinux policy prevents this sender "
+                              "from sending this message to this recipient "
+                              "(rejected message had interface \"%s\" "
+                              "member \"%s\" error name \"%s\" destination \"%s\")",
+                              dbus_message_get_interface (message) ?
+                              dbus_message_get_interface (message) : "(unset)",
+                              dbus_message_get_member (message) ?
+                              dbus_message_get_member (message) : "(unset)",
+                              dbus_message_get_error_name (message) ?
+                              dbus_message_get_error_name (message) : "(unset)",
+                              dest ? dest : DBUS_SERVICE_DBUS);
+              _dbus_verbose ("SELinux security check denying send to service\n");
+            }
 
-	  if (dbus_error_is_set (error) &&
-	      dbus_error_has_name (error, DBUS_ERROR_NO_MEMORY))
-	    {
-	      return FALSE;
-	    }
-	  
-
-          dbus_set_error (error, DBUS_ERROR_ACCESS_DENIED,
-                          "An SELinux policy prevents this sender "
-                          "from sending this message to this recipient "
-                          "(rejected message had interface \"%s\" "
-                          "member \"%s\" error name \"%s\" destination \"%s\")",
-                          dbus_message_get_interface (message) ?
-                          dbus_message_get_interface (message) : "(unset)",
-                          dbus_message_get_member (message) ?
-                          dbus_message_get_member (message) : "(unset)",
-                          dbus_message_get_error_name (message) ?
-                          dbus_message_get_error_name (message) : "(unset)",
-                          dest ? dest : DBUS_SERVICE_DBUS);
-          _dbus_verbose ("SELinux security check denying send to service\n");
           return FALSE;
         }
        

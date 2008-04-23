@@ -22,6 +22,8 @@
  *
  */
 
+#define _GNU_SOURCE 
+
 #include "dbus-internals.h"
 #include "dbus-sysdeps.h"
 #include "dbus-sysdeps-unix.h"
@@ -71,6 +73,10 @@
 
 #ifndef O_BINARY
 #define O_BINARY 0
+#endif
+
+#ifndef _AI_ADDRCONFIG
+#define _AI_ADDRCONFIG 0
 #endif
 
 #ifndef HAVE_SOCKLEN_T
@@ -737,64 +743,93 @@ _dbus_listen_unix_socket (const char     *path,
  * nonblocking.
  *
  * @param host the host name to connect to
- * @param port the prot to connect to
+ * @param port the port to connect to
+ * @param family the address family to listen on, NULL for all
  * @param error return location for error code
  * @returns connection file descriptor or -1 on error
  */
 int
 _dbus_connect_tcp_socket (const char     *host,
-                          dbus_uint32_t   port,
+                          const char     *port,
+                          const char     *family,
                           DBusError      *error)
 {
-  int fd;
-  struct sockaddr_in addr;
-  struct hostent *he;
-  struct in_addr *haddr;
+  int fd = -1, res;
+  struct addrinfo hints;
+  struct addrinfo *ai, *tmp;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
- 
-  
+
   if (!_dbus_open_tcp_socket (&fd, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET(error);
-      
       return -1;
     }
-  _DBUS_ASSERT_ERROR_IS_CLEAR(error);
-      
-  if (host == NULL)
-    host = "localhost";
 
-  he = gethostbyname (host);
-  if (he == NULL) 
+  _DBUS_ASSERT_ERROR_IS_CLEAR(error);
+
+  _DBUS_ZERO (hints);
+
+  if (!family)
+    hints.ai_family = AF_UNSPEC;
+  else if (!strcmp(family, "ipv4"))
+    hints.ai_family = AF_INET;
+  else if (!strcmp(family, "ipv6"))
+    hints.ai_family = AF_INET6;
+  else
     {
       dbus_set_error (error,
                       _dbus_error_from_errno (errno),
-                      "Failed to lookup hostname: %s",
-                      host);
-      _dbus_close (fd, NULL);
+                      "Unknown address family %s", family);
       return -1;
     }
-  
-  haddr = ((struct in_addr *) (he->h_addr_list)[0]);
+  fprintf(stderr, "Family %s\n", family ? family : "none");
+  hints.ai_protocol = IPPROTO_TCP;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_ADDRCONFIG;
 
-  _DBUS_ZERO (addr);
-  memcpy (&addr.sin_addr, haddr, sizeof(struct in_addr));
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons (port);
-  
-  if (connect (fd, (struct sockaddr*) &addr, sizeof (addr)) < 0)
-    {      
+  if ((res = getaddrinfo(host, port, &hints, &ai)) != 0)
+    {
       dbus_set_error (error,
-                       _dbus_error_from_errno (errno),
-                      "Failed to connect to socket %s:%d %s",
-                      host, port, _dbus_strerror (errno));
-
+                      _dbus_error_from_errno (errno),
+                      "Failed to lookup host/port: \"%s:%s\": %s (%d)",
+                      host, port, gai_strerror(res), res);
       _dbus_close (fd, NULL);
-      fd = -1;
-      
       return -1;
     }
+
+  tmp = ai;
+  while (tmp)
+    {
+      if (!_dbus_open_socket (&fd, tmp->ai_family, SOCK_STREAM, 0, error))
+        {
+          freeaddrinfo(ai);
+          _DBUS_ASSERT_ERROR_IS_SET(error);
+          return -1;
+        }
+      _DBUS_ASSERT_ERROR_IS_CLEAR(error);
+
+      if (connect (fd, (struct sockaddr*) tmp->ai_addr, tmp->ai_addrlen) < 0)
+        {
+          _dbus_close(fd, NULL);
+          fd = -1;
+          tmp = tmp->ai_next;
+          continue;
+        }
+
+      break;
+    }
+  freeaddrinfo(ai);
+
+  if (fd == -1)
+    {
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to connect to socket \"%s:%s\" %s",
+                      host, port, _dbus_strerror(errno));
+      return -1;
+    }
+
 
   if (!_dbus_set_fd_nonblocking (fd, error))
     {
@@ -814,88 +849,186 @@ _dbus_connect_tcp_socket (const char     *host,
  * If inaddr_any is specified, the hostname is ignored.
  *
  * @param host the host name to listen on
- * @param port the prot to listen on, if zero a free port will be used
- * @param inaddr_any TRUE to listen on all local interfaces instead of on the host name
+ * @param port the port to listen on, if zero a free port will be used
+ * @param family the address family to listen on, NULL for all
+ * @param retport string to return the actual port listened on
+ * @param fds_p location to store returned file descriptors
  * @param error return location for errors
- * @returns the listening file descriptor or -1 on error
+ * @returns the number of listening file descriptors or -1 on error
  */
 int
 _dbus_listen_tcp_socket (const char     *host,
-                         dbus_uint32_t  *port,
-                         dbus_bool_t     inaddr_any,
+                         const char     *port,
+                         const char     *family,
+                         DBusString     *retport,
+                         int           **fds_p,
                          DBusError      *error)
 {
-  int listen_fd;
-  struct sockaddr_in addr;
-  socklen_t len = (socklen_t) sizeof (struct sockaddr);
+  int nlisten_fd = 0, *listen_fd = NULL, res, i;
+  struct addrinfo hints;
+  struct addrinfo *ai, *tmp;
 
-  _DBUS_ASSERT_ERROR_IS_CLEAR (error);  
-  
-  if (!_dbus_open_tcp_socket (&listen_fd, error))
-    {
-      _DBUS_ASSERT_ERROR_IS_SET(error);
-      return -1;
-    }
-  _DBUS_ASSERT_ERROR_IS_CLEAR(error);
+  *fds_p = NULL;
+  _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  _DBUS_ZERO (addr);
-  
-  if (inaddr_any)
-    {
-      addr.sin_addr.s_addr = INADDR_ANY;
-    }
+  _DBUS_ZERO (hints);
+
+  if (!family)
+    hints.ai_family = AF_UNSPEC;
+  else if (!strcmp(family, "ipv4"))
+    hints.ai_family = AF_INET;
+  else if (!strcmp(family, "ipv6"))
+    hints.ai_family = AF_INET6;
   else
     {
-      struct hostent *he;
-      struct in_addr *haddr;      
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Unknown address family %s", family);
+      return -1;
+    }
 
-      he = gethostbyname (host);
-      if (he == NULL) 
+  hints.ai_protocol = IPPROTO_TCP;
+  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_flags = AI_ADDRCONFIG | AI_PASSIVE;
+
+ redo_lookup_with_port:
+  if ((res = getaddrinfo(host, port, &hints, &ai)) != 0 || !ai)
+    {
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to lookup host/port: \"%s:%s\": %s (%d)",
+                      host ? host : "*", port, gai_strerror(res), res);
+      return -1;
+    }
+
+  tmp = ai;
+  while (tmp)
+    {
+      int fd = -1, *newlisten_fd;
+      if (!_dbus_open_socket (&fd, tmp->ai_family, SOCK_STREAM, 0, error))
         {
-          dbus_set_error (error,
-                          _dbus_error_from_errno (errno),
-                          "Failed to lookup hostname: %s",
-                          host);
-          _dbus_close (listen_fd, NULL);
-          return -1;
+          _DBUS_ASSERT_ERROR_IS_SET(error);
+          goto failed;
         }
-  
-      haddr = ((struct in_addr *) (he->h_addr_list)[0]);
-      
-      memcpy (&addr.sin_addr, haddr, sizeof (struct in_addr));
-    }
-  
-  addr.sin_family = AF_INET;
-  addr.sin_port = htons (*port);
+      _DBUS_ASSERT_ERROR_IS_CLEAR(error);
 
-  if (bind (listen_fd, (struct sockaddr*) &addr, sizeof (struct sockaddr)))
+      if (bind (fd, (struct sockaddr*) tmp->ai_addr, tmp->ai_addrlen) < 0)
+        {
+          _dbus_close(fd, NULL);
+          if (errno == EADDRINUSE)
+            {
+              /* Depending on kernel policy, it may or may not
+                 be neccessary to bind to both IPv4 & 6 addresses
+                 so ignore EADDRINUSE here */
+              tmp = tmp->ai_next;
+              continue;
+            }
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+                          "Failed to bind socket \"%s:%s\": %s",
+                          host ? host : "*", port, _dbus_strerror (errno));
+          goto failed;
+        }
+
+      if (listen (fd, 30 /* backlog */) < 0)
+        {
+          _dbus_close (fd, NULL);
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+                          "Failed to listen on socket \"%s:%s\": %s",
+                          host ? host : "*", port, _dbus_strerror (errno));
+          goto failed;
+        }
+
+      newlisten_fd = dbus_realloc(listen_fd, sizeof(int)*(nlisten_fd+1));
+      if (!newlisten_fd)
+        {
+          _dbus_close (fd, NULL);
+          dbus_set_error (error, _dbus_error_from_errno (errno),
+                          "Failed to allocate file handle array: %s",
+                          _dbus_strerror (errno));
+          goto failed;
+        }
+      listen_fd = newlisten_fd;
+      listen_fd[nlisten_fd] = fd;
+      nlisten_fd++;
+
+      if (!_dbus_string_get_length(retport))
+        {
+          /* If the user didn't specify a port, or used 0, then
+             the kernel chooses a port. After the first address
+             is bound to, we need to force all remaining addresses
+             to use the same port */
+          if (!port || !strcmp(port, "0"))
+            {
+              struct sockaddr_storage addr;
+              socklen_t addrlen;
+              char portbuf[50];
+
+              addrlen = sizeof(addr);
+              getsockname(fd, (struct sockaddr*) &addr, &addrlen);
+
+              if ((res = getnameinfo((struct sockaddr*)&addr, addrlen, NULL, 0,
+                                     portbuf, sizeof(portbuf),
+                                     NI_NUMERICHOST)) != 0)
+                {
+                  dbus_set_error (error, _dbus_error_from_errno (errno),
+                                  "Failed to resolve port \"%s:%s\": %s (%s)",
+                                  host ? host : "*", port, gai_strerror(res), res);
+                  goto failed;
+                }
+              if (!_dbus_string_append(retport, portbuf))
+                {
+                  dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+                  goto failed;
+                }
+
+              /* Release current address list & redo lookup */
+              port = _dbus_string_get_const_data(retport);
+              freeaddrinfo(ai);
+              goto redo_lookup_with_port;
+            }
+          else
+            {
+              if (!_dbus_string_append(retport, port))
+                {
+                    dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+                    goto failed;
+                }
+            }
+        }
+
+      tmp = tmp->ai_next;
+    }
+  freeaddrinfo(ai);
+  ai = NULL;
+
+  if (!nlisten_fd)
     {
+      errno = EADDRINUSE;
       dbus_set_error (error, _dbus_error_from_errno (errno),
-                      "Failed to bind socket \"%s:%d\": %s",
-                      host, *port, _dbus_strerror (errno));
-      _dbus_close (listen_fd, NULL);
+                      "Failed to bind socket \"%s:%s\": %s",
+                      host ? host : "*", port, _dbus_strerror (errno));
       return -1;
     }
 
-  if (listen (listen_fd, 30 /* backlog */) < 0)
+  for (i = 0 ; i < nlisten_fd ; i++)
     {
-      dbus_set_error (error, _dbus_error_from_errno (errno),  
-                      "Failed to listen on socket \"%s:%d\": %s",
-                      host, *port, _dbus_strerror (errno));
-      _dbus_close (listen_fd, NULL);
-      return -1;
+      if (!_dbus_set_fd_nonblocking (listen_fd[i], error))
+        {
+          goto failed;
+        }
     }
 
-  getsockname(listen_fd, (struct sockaddr*) &addr, &len);
-  *port = (dbus_uint32_t) ntohs(addr.sin_port);
+  *fds_p = listen_fd;
 
-  if (!_dbus_set_fd_nonblocking (listen_fd, error))
-    {
-      _dbus_close (listen_fd, NULL);
-      return -1;
-    }
-  
-  return listen_fd;
+  return nlisten_fd;
+
+ failed:
+  if (ai)
+    freeaddrinfo(ai);
+  for (i = 0 ; i < nlisten_fd ; i++)
+    _dbus_close(listen_fd[i], NULL);
+  dbus_free(listen_fd);
+  return -1;
 }
 
 static dbus_bool_t
@@ -1089,7 +1222,7 @@ _dbus_read_credentials_socket  (int              client_fd,
 #ifdef SO_PEERCRED
     struct ucred cr;   
     int cr_len = sizeof (cr);
-   
+    
     if (getsockopt (client_fd, SOL_SOCKET, SO_PEERCRED, &cr, &cr_len) == 0 &&
 	cr_len == sizeof (cr))
       {
@@ -1516,7 +1649,7 @@ _dbus_credentials_add_from_current_process (DBusCredentials *credentials)
 
   if (!_dbus_credentials_add_unix_pid(credentials, _dbus_getpid()))
     return FALSE;
-  if (!_dbus_credentials_add_unix_uid(credentials, _dbus_getuid()))
+  if (!_dbus_credentials_add_unix_uid(credentials, _dbus_geteuid()))
     return FALSE;
 
   return TRUE;
@@ -1537,7 +1670,7 @@ dbus_bool_t
 _dbus_append_user_from_current_process (DBusString *str)
 {
   return _dbus_string_append_uint (str,
-                                   _dbus_getuid ());
+                                   _dbus_geteuid ());
 }
 
 /**
@@ -1557,6 +1690,15 @@ dbus_uid_t
 _dbus_getuid (void)
 {
   return getuid ();
+}
+
+/** Gets our effective UID
+ * @returns process effective UID
+ */
+dbus_uid_t
+_dbus_geteuid (void)
+{
+  return geteuid ();
 }
 
 /**
@@ -1614,7 +1756,7 @@ _dbus_parse_uid (const DBusString      *uid_str,
 
 _DBUS_DEFINE_GLOBAL_LOCK (atomic);
 
-#ifdef DBUS_USE_ATOMIC_INT_486
+#if DBUS_USE_ATOMIC_INT_486_COND
 /* Taken from CVS version 1.7 of glibc's sysdeps/i386/i486/atomicity.h */
 /* Since the asm stuff here is gcc-specific we go ahead and use "inline" also */
 static inline dbus_int32_t
@@ -1641,7 +1783,7 @@ atomic_exchange_and_add (DBusAtomic            *atomic,
 dbus_int32_t
 _dbus_atomic_inc (DBusAtomic *atomic)
 {
-#ifdef DBUS_USE_ATOMIC_INT_486
+#if DBUS_USE_ATOMIC_INT_486_COND
   return atomic_exchange_and_add (atomic, 1);
 #else
   dbus_int32_t res;
@@ -1664,7 +1806,7 @@ _dbus_atomic_inc (DBusAtomic *atomic)
 dbus_int32_t
 _dbus_atomic_dec (DBusAtomic *atomic)
 {
-#ifdef DBUS_USE_ATOMIC_INT_486
+#if DBUS_USE_ATOMIC_INT_486_COND
   return atomic_exchange_and_add (atomic, -1);
 #else
   dbus_int32_t res;
@@ -1701,7 +1843,7 @@ _dbus_poll (DBusPollFD *fds,
             int         n_fds,
             int         timeout_milliseconds)
 {
-#ifdef HAVE_POLL
+#if defined(HAVE_POLL) && !defined(BROKEN_POLL)
   /* This big thing is a constant expression and should get optimized
    * out of existence. So it's more robust than a configure check at
    * no cost.
@@ -2641,7 +2783,11 @@ _dbus_get_autolaunch_address (DBusString *address,
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   retval = FALSE;
 
-  _dbus_string_init (&uuid);
+  if (!_dbus_string_init (&uuid))
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
   
   if (!_dbus_get_local_machine_uuid_encoded (&uuid))
     {
@@ -2832,6 +2978,7 @@ _dbus_read_local_machine_uuid (DBusGUID   *machine_id,
 }
 
 #define DBUS_UNIX_STANDARD_SESSION_SERVICEDIR "/dbus-1/services"
+#define DBUS_UNIX_STANDARD_SYSTEM_SERVICEDIR "/dbus-1/system-services"
 
 
 /**
@@ -2910,6 +3057,72 @@ _dbus_get_standard_session_servicedirs (DBusList **dirs)
 
   if (!_dbus_split_paths_and_append (&servicedir_path, 
                                      DBUS_UNIX_STANDARD_SESSION_SERVICEDIR, 
+                                     dirs))
+    goto oom;
+
+  _dbus_string_free (&servicedir_path);  
+  return TRUE;
+
+ oom:
+  _dbus_string_free (&servicedir_path);
+  return FALSE;
+}
+
+
+/**
+ * Returns the standard directories for a system bus to look for service 
+ * activation files 
+ *
+ * On UNIX this should be the standard xdg freedesktop.org data directories:
+ *
+ * XDG_DATA_DIRS=${XDG_DATA_DIRS-/usr/local/share:/usr/share}
+ *
+ * and
+ *
+ * DBUS_DATADIR
+ *
+ * On Windows there is no system bus and this function can return nothing.
+ *
+ * @param dirs the directory list we are returning
+ * @returns #FALSE on OOM 
+ */
+
+dbus_bool_t 
+_dbus_get_standard_system_servicedirs (DBusList **dirs)
+{
+  const char *xdg_data_dirs;
+  DBusString servicedir_path;
+
+  if (!_dbus_string_init (&servicedir_path))
+    return FALSE;
+
+  xdg_data_dirs = _dbus_getenv ("XDG_DATA_DIRS");
+
+  if (xdg_data_dirs != NULL)
+    {
+      if (!_dbus_string_append (&servicedir_path, xdg_data_dirs))
+        goto oom;
+
+      if (!_dbus_string_append (&servicedir_path, ":"))
+        goto oom;
+    }
+  else
+    {
+      if (!_dbus_string_append (&servicedir_path, "/usr/local/share:/usr/share:"))
+        goto oom;
+    }
+
+  /* 
+   * add configured datadir to defaults
+   * this may be the same as an xdg dir
+   * however the config parser should take 
+   * care of duplicates 
+   */
+  if (!_dbus_string_append (&servicedir_path, DBUS_DATADIR":"))
+        goto oom;
+
+  if (!_dbus_split_paths_and_append (&servicedir_path, 
+                                     DBUS_UNIX_STANDARD_SYSTEM_SERVICEDIR, 
                                      dirs))
     goto oom;
 

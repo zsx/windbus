@@ -46,8 +46,11 @@ set (BUS_SOURCES
 	${BUS_DIR}/bus.c					
 	${BUS_DIR}/bus.h					
 	${BUS_DIR}/config-parser.c				
-	${BUS_DIR}/config-parser.h				
-	${BUS_DIR}/connection.c				
+	${BUS_DIR}/config-parser.h
+    ${BUS_DIR}/config-parser-common.c
+    ${BUS_DIR}/config-parser-common.h
+#    ${BUS_DIR}/config-parser-trivial.c
+	${BUS_DIR}/connection.c
 	${BUS_DIR}/connection.h				
 	${BUS_DIR}/desktop-file.c				
 	${BUS_DIR}/desktop-file.h				

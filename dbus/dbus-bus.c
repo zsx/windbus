@@ -436,12 +436,6 @@ internal_bus_get (DBusBusType  type,
       return NULL;
     }
 
-  /* By default we're bound to the lifecycle of
-   * the message bus.
-   */
-  dbus_connection_set_exit_on_disconnect (connection,
-                                          TRUE);
-  
   if (!dbus_bus_register (connection, error))
     {
       _DBUS_ASSERT_ERROR_IS_SET (error);
@@ -461,6 +455,12 @@ internal_bus_get (DBusBusType  type,
       bus_connections[type] = connection;
     }
 
+  /* By default we're bound to the lifecycle of
+   * the message bus.
+   */
+  dbus_connection_set_exit_on_disconnect (connection,
+                                          TRUE);
+ 
   _DBUS_LOCK (bus_datas);
   bd = ensure_bus_data (connection);
   _dbus_assert (bd != NULL); /* it should have been created on
@@ -1423,6 +1423,13 @@ send_no_return_values (DBusConnection *connection,
  * match the string "5" not the integer 5.
  *
  * Currently there is no way to match against non-string arguments.
+ *
+ * A specialised form of wildcard matching on arguments is
+ * supported for path-like namespaces.  If your argument match has
+ * a 'path' suffix (eg: "arg0path='/some/path/'") then it is
+ * considered a match if the argument exactly matches the given
+ * string or if one of them ends in a '/' and is a prefix of the
+ * other.
  *
  * Matching on interface is tricky because method call
  * messages only optionally specify the interface.

@@ -35,6 +35,15 @@
 #include <string.h>
 #include <stdarg.h>
 
+ 
+/* AIX sys/poll.h does #define events reqevents, and other
+ * wonderousness, so must include sys/poll before declaring
+ * DBusPollFD
+ */ 
+#ifdef HAVE_POLL
+#include <sys/poll.h>
+#endif
+
 DBUS_BEGIN_DECLS
 
 #ifdef DBUS_WIN
@@ -91,6 +100,7 @@ void _dbus_abort (void) _DBUS_GNUC_NORETURN;
 const char* _dbus_getenv (const char *varname);
 dbus_bool_t _dbus_setenv (const char *varname,
 			  const char *value);
+dbus_bool_t _dbus_clearenv (void);
 
 /** A process ID */
 typedef unsigned long dbus_pid_t;
@@ -143,11 +153,14 @@ int         _dbus_write_socket_two (int               fd,
                                     int               start2,
                                     int               len2);
 int _dbus_connect_tcp_socket  (const char     *host,
-                               dbus_uint32_t   port,
+                               const char     *port,
+                               const char     *family,
                                DBusError      *error);
 int _dbus_listen_tcp_socket   (const char     *host,
-                               dbus_uint32_t  *port,
-                               dbus_bool_t     inaddr_any,
+                               const char     *port,
+                               const char     *family,
+                               DBusString     *retport,
+                               int           **fds_p,
                                DBusError      *error);
 int _dbus_accept              (int             listen_fd);
 
@@ -195,9 +208,36 @@ struct DBusAtomic
 #endif
 };
 
+/* The value we get from autofoo is in the form of a cpp expression;
+ * convert that to a conventional defined/undef switch. (We can't get
+ * the conventional defined/undef because of multiarch builds only running
+ * ./configure once, on Darwin.) */
+#if DBUS_HAVE_ATOMIC_INT_COND
+#   define DBUS_HAVE_ATOMIC_INT 1
+#else
+#   undef DBUS_HAVE_ATOMIC_INT
+#endif
+
 dbus_int32_t _dbus_atomic_inc (DBusAtomic *atomic);
 dbus_int32_t _dbus_atomic_dec (DBusAtomic *atomic);
 
+
+/* AIX uses different values for poll */
+
+#ifdef _AIX
+/** There is data to read */
+#define _DBUS_POLLIN      0x0001
+/** There is urgent data to read */
+#define _DBUS_POLLPRI     0x0004
+/** Writing now will not block */
+#define _DBUS_POLLOUT     0x0002
+/** Error condition */
+#define _DBUS_POLLERR     0x4000
+/** Hung up */
+#define _DBUS_POLLHUP     0x2000
+/** Invalid request: fd not open */
+#define _DBUS_POLLNVAL    0x8000
+#else
 /** There is data to read */
 #define _DBUS_POLLIN      0x0001
 /** There is urgent data to read */
@@ -210,6 +250,7 @@ dbus_int32_t _dbus_atomic_dec (DBusAtomic *atomic);
 #define _DBUS_POLLHUP     0x0010
 /** Invalid request: fd not open */
 #define _DBUS_POLLNVAL    0x0020
+#endif
 
 /**
  * A portable struct pollfd wrapper. 
@@ -260,6 +301,7 @@ dbus_bool_t _dbus_string_get_dirname  (const DBusString *filename,
 dbus_bool_t _dbus_path_is_absolute    (const DBusString *filename);
 
 dbus_bool_t _dbus_get_standard_session_servicedirs (DBusList **dirs);
+dbus_bool_t _dbus_get_standard_system_servicedirs (DBusList **dirs);
 
 dbus_bool_t _dbus_append_system_config_file  (DBusString *str);
 dbus_bool_t _dbus_append_session_config_file (DBusString *str);
@@ -358,12 +400,15 @@ void        _dbus_print_backtrace  (void);
 dbus_bool_t _dbus_become_daemon   (const DBusString *pidfile,
                                    DBusPipe         *print_pid_pipe,
                                    DBusError        *error);
-dbus_bool_t _dbus_write_pid_file  (const DBusString *filename,
-                                   unsigned long     pid,
-                                   DBusError        *error);
+
 dbus_bool_t _dbus_verify_daemon_user    (const char *user);
 dbus_bool_t _dbus_change_to_daemon_user (const char *user,
                                          DBusError  *error);
+
+dbus_bool_t _dbus_write_pid_to_file_and_pipe (const DBusString *pidfile,
+                                              DBusPipe         *print_pid_pipe,
+                                              dbus_pid_t        pid_to_write,
+                                              DBusError        *error);
 
 /** A UNIX signal handler */
 typedef void (* DBusSignalHandler) (int sig);

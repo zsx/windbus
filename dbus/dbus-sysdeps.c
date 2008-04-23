@@ -177,6 +177,29 @@ _dbus_getenv (const char *varname)
   return getenv (varname);
 }
 
+/**
+ * Wrapper for clearenv().
+ *
+ * @returns #TRUE on success.
+ */
+dbus_bool_t
+_dbus_clearenv (void)
+{
+  dbus_bool_t rc = TRUE;
+
+#ifdef HAVE_CLEARENV
+  if (clearenv () != 0)
+     rc = FALSE;
+#else
+  extern char **environ;
+
+  if (environ != NULL)
+    environ[0] = NULL;
+#endif
+
+  return rc;
+}
+
 /*
  * init a pipe instance.
  *

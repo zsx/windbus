@@ -73,7 +73,7 @@ read_ints (int        fd,
   while (TRUE)
     {
       size_t chunk;
-      size_t to_read;
+      ssize_t to_read;
 
       to_read = sizeof (int) * n_ints_in_buf - bytes;
 
@@ -128,7 +128,7 @@ read_pid (int        fd,
   while (TRUE)
     {
       size_t chunk;    
-      size_t to_read;
+      ssize_t to_read;
       
       to_read = sizeof (pid_t) - bytes;
 
@@ -366,11 +366,9 @@ read_data (DBusBabysitter *sitter,
 {
   int what;
   int got;
-  DBusError error;
+  DBusError error = DBUS_ERROR_INIT;
   ReadStatus r;
-  
-  dbus_error_init (&error);
-  
+
   r = read_ints (fd, &what, 1, &got, &error);
 
   switch (r)
@@ -417,6 +415,7 @@ read_data (DBusBabysitter *sitter,
                   {
                     sitter->have_child_status = TRUE;
                     sitter->status = arg;
+                    sitter->errnum = 0;
                     _dbus_verbose ("recorded child status exited = %d signaled = %d exitstatus = %d termsig = %d\n",
                                    WIFEXITED (sitter->status), WIFSIGNALED (sitter->status),
                                    WEXITSTATUS (sitter->status), WTERMSIG (sitter->status));
@@ -553,10 +552,21 @@ babysitter_iteration (DBusBabysitter *sitter,
     {
       int ret;
 
-      ret = _dbus_poll (fds, i, 0);
+      do
+        {
+          ret = _dbus_poll (fds, i, 0);
+        }
+      while (ret < 0 && errno == EINTR);
+
       if (ret == 0 && block)
-        ret = _dbus_poll (fds, i, -1);
-      
+        {
+          do
+            {
+              ret = _dbus_poll (fds, i, -1);
+            }
+          while (ret < 0 && errno == EINTR);
+        }
+
       if (ret > 0)
         {
           descriptors_ready = TRUE;
@@ -620,6 +630,33 @@ _dbus_babysitter_get_child_exited (DBusBabysitter *sitter)
 
   /* We will have exited the babysitter when the child has exited */
   return sitter->socket_to_babysitter < 0;
+}
+
+/**
+ * Gets the exit status of the child. We do this so implementation specific
+ * detail is not cluttering up dbus, for example the system launcher code.
+ * This can only be called if the child has exited, i.e. call
+ * _dbus_babysitter_get_child_exited(). It returns FALSE if the child
+ * did not return a status code, e.g. because the child was signaled
+ * or we failed to ever launch the child in the first place.
+ *
+ * @param sitter the babysitter
+ * @param status the returned status code
+ * @returns #FALSE on failure
+ */
+dbus_bool_t
+_dbus_babysitter_get_child_exit_status (DBusBabysitter *sitter,
+                                        int            *status)
+{
+  if (!_dbus_babysitter_get_child_exited (sitter))
+    _dbus_assert_not_reached ("Child has not exited");
+  
+  if (!sitter->have_child_status ||
+      !(WIFEXITED (sitter->status)))
+    return FALSE;
+
+  *status = WEXITSTATUS (sitter->status);
+  return TRUE;
 }
 
 /**
@@ -945,9 +982,9 @@ babysit_signal_handler (int signo)
 {
   char b = '\0';
  again:
-  write (babysit_sigchld_pipe, &b, 1);
-  if (errno == EINTR)
-    goto again;
+  if (write (babysit_sigchld_pipe, &b, 1) <= 0) 
+    if (errno == EINTR)
+      goto again;
 }
 
 static void
@@ -992,7 +1029,11 @@ babysit (pid_t grandchild_pid,
       pfds[1].events = _DBUS_POLLIN;
       pfds[1].revents = 0;
       
-      _dbus_poll (pfds, _DBUS_N_ELEMENTS (pfds), -1);
+      if (_dbus_poll (pfds, _DBUS_N_ELEMENTS (pfds), -1) < 0 && errno != EINTR)
+        {
+          _dbus_warn ("_dbus_poll() error: %s\n", strerror (errno));
+          exit (1);
+        }
 
       if (pfds[0].revents != 0)
         {
@@ -1044,7 +1085,9 @@ _dbus_spawn_async_with_babysitter (DBusBabysitter          **sitter_p,
   
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
 
-  *sitter_p = NULL;
+  if (sitter_p != NULL)
+    *sitter_p = NULL;
+
   sitter = NULL;
 
   sitter = _dbus_babysitter_new ();
@@ -1210,12 +1253,8 @@ static dbus_bool_t
 check_spawn_nonexistent (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter;
-  DBusError error;
-  
-  sitter = NULL;
-  
-  dbus_error_init (&error);
+  DBusBabysitter *sitter = NULL;
+  DBusError error = DBUS_ERROR_INIT;
 
   /*** Test launching nonexistent binary */
   
@@ -1255,12 +1294,8 @@ static dbus_bool_t
 check_spawn_segfault (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter;
-  DBusError error;
-  
-  sitter = NULL;
-  
-  dbus_error_init (&error);
+  DBusBabysitter *sitter = NULL;
+  DBusError error = DBUS_ERROR_INIT;
 
   /*** Test launching segfault binary */
   
@@ -1300,12 +1335,8 @@ static dbus_bool_t
 check_spawn_exit (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter;
-  DBusError error;
-  
-  sitter = NULL;
-  
-  dbus_error_init (&error);
+  DBusBabysitter *sitter = NULL;
+  DBusError error = DBUS_ERROR_INIT;
 
   /*** Test launching exit failure binary */
   
@@ -1345,12 +1376,8 @@ static dbus_bool_t
 check_spawn_and_kill (void *data)
 {
   char *argv[4] = { NULL, NULL, NULL, NULL };
-  DBusBabysitter *sitter;
-  DBusError error;
-  
-  sitter = NULL;
-  
-  dbus_error_init (&error);
+  DBusBabysitter *sitter = NULL;
+  DBusError error = DBUS_ERROR_INIT;
 
   /*** Test launching sleeping binary then killing it */
 

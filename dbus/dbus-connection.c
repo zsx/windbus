@@ -1378,13 +1378,13 @@ _dbus_connection_unref_unlocked (DBusConnection *connection)
 static dbus_uint32_t
 _dbus_connection_get_next_client_serial (DBusConnection *connection)
 {
-  int serial;
+  dbus_uint32_t serial;
 
   serial = connection->client_serial++;
 
-  if (connection->client_serial < 0)
+  if (connection->client_serial == 0)
     connection->client_serial = 1;
-  
+
   return serial;
 }
 
@@ -1438,6 +1438,23 @@ _dbus_connection_handle_watch (DBusWatch                   *watch,
 
 _DBUS_DEFINE_GLOBAL_LOCK (shared_connections);
 static DBusHashTable *shared_connections = NULL;
+static DBusList *shared_connections_no_guid = NULL;
+
+static void
+close_connection_on_shutdown (DBusConnection *connection)
+{
+  DBusMessage *message;
+
+  dbus_connection_ref (connection);
+  _dbus_connection_close_possibly_shared (connection);
+
+  /* Churn through to the Disconnected message */
+  while ((message = dbus_connection_pop_message (connection)))
+    {
+      dbus_message_unref (message);
+    }
+  dbus_connection_unref (connection);
+}
 
 static void
 shared_connections_shutdown (void *data)
@@ -1450,7 +1467,6 @@ shared_connections_shutdown (void *data)
   while ((n_entries = _dbus_hash_table_get_n_entries (shared_connections)) > 0)
     {
       DBusConnection *connection;
-      DBusMessage *message;
       DBusHashIter iter;
       
       _dbus_hash_iter_init (shared_connections, &iter);
@@ -1459,17 +1475,7 @@ shared_connections_shutdown (void *data)
       connection = _dbus_hash_iter_get_value (&iter);
 
       _DBUS_UNLOCK (shared_connections);
-
-      dbus_connection_ref (connection);
-      _dbus_connection_close_possibly_shared (connection);
-
-      /* Churn through to the Disconnected message */
-      while ((message = dbus_connection_pop_message (connection)))
-        {
-          dbus_message_unref (message);
-        }
-      dbus_connection_unref (connection);
-      
+      close_connection_on_shutdown (connection);
       _DBUS_LOCK (shared_connections);
 
       /* The connection should now be dead and not in our hash ... */
@@ -1480,6 +1486,21 @@ shared_connections_shutdown (void *data)
   
   _dbus_hash_table_unref (shared_connections);
   shared_connections = NULL;
+
+  if (shared_connections_no_guid != NULL)
+    {
+      DBusConnection *connection;
+      connection = _dbus_list_pop_first (&shared_connections_no_guid);
+      while (connection != NULL)
+        {
+          _DBUS_UNLOCK (shared_connections);
+          close_connection_on_shutdown (connection);
+          _DBUS_LOCK (shared_connections);
+          connection = _dbus_list_pop_first (&shared_connections_no_guid);
+        }
+    }
+
+  shared_connections_no_guid = NULL;
   
   _DBUS_UNLOCK (shared_connections);
 }
@@ -1589,7 +1610,18 @@ connection_record_shared_unlocked (DBusConnection *connection,
   _dbus_connection_ref_unlocked (connection);
 
   if (guid == NULL)
-    return TRUE; /* don't store in the hash */
+    {
+      _DBUS_LOCK (shared_connections);
+
+      if (!_dbus_list_prepend (&shared_connections_no_guid, connection))
+        {
+          _DBUS_UNLOCK (shared_connections);
+          return FALSE;
+        }
+
+      _DBUS_UNLOCK (shared_connections);
+      return TRUE; /* don't store in the hash */
+    }
   
   /* A separate copy of the key is required in the hash table, because
    * we don't have a lock on the connection when we are doing a hash
@@ -1709,8 +1741,8 @@ _dbus_connection_open_internal (const char     *address,
 {
   DBusConnection *connection;
   DBusAddressEntry **entries;
-  DBusError tmp_error;
-  DBusError first_error;
+  DBusError tmp_error = DBUS_ERROR_INIT;
+  DBusError first_error = DBUS_ERROR_INIT;
   int len, i;
 
   _DBUS_ASSERT_ERROR_IS_CLEAR (error);
@@ -1725,8 +1757,6 @@ _dbus_connection_open_internal (const char     *address,
   
   connection = NULL;
 
-  dbus_error_init (&tmp_error);
-  dbus_error_init (&first_error);
   for (i = 0; i < len; i++)
     {
       if (shared)
@@ -2290,10 +2320,11 @@ _dbus_connection_block_pending_call (DBusPendingCall *pending)
       return;
     }
   
-  if (status == DBUS_DISPATCH_DATA_REMAINS) {
-    if (check_for_reply_and_update_dispatch_unlocked (connection, pending))
-      return;
-  }
+  if (status == DBUS_DISPATCH_DATA_REMAINS)
+    {
+      if (check_for_reply_and_update_dispatch_unlocked (connection, pending))
+        return;
+    }
   
   _dbus_get_current_time (&tv_sec, &tv_usec);
   
@@ -3024,18 +3055,24 @@ _dbus_connection_send_unlocked_no_update (DBusConnection *connection,
 /**
  * Adds a message to the outgoing message queue. Does not block to
  * write the message to the network; that happens asynchronously. To
- * force the message to be written, call dbus_connection_flush().
+ * force the message to be written, call dbus_connection_flush() however
+ * it is not necessary to call dbus_connection_flush() by hand; the 
+ * message will be sent the next time the main loop is run. 
+ * dbus_connection_flush() should only be used, for example, if
+ * the application was expected to exit before running the main loop.
+ *
  * Because this only queues the message, the only reason it can
  * fail is lack of memory. Even if the connection is disconnected,
- * no error will be returned.
- *
- * If the function fails due to lack of memory, it returns #FALSE.
- * The function will never fail for other reasons; even if the
- * connection is disconnected, you can queue an outgoing message,
+ * no error will be returned. If the function fails due to lack of memory, 
+ * it returns #FALSE. The function will never fail for other reasons; even 
+ * if the connection is disconnected, you can queue an outgoing message,
  * though obviously it won't be sent.
  *
  * The message serial is used by the remote application to send a
  * reply; see dbus_message_get_serial() or the D-Bus specification.
+ *
+ * dbus_message_unref() can be called as soon as this method returns
+ * as the message queue will hold its own ref until the message is sent.
  * 
  * @param connection the connection.
  * @param message the message to write.
@@ -3140,8 +3177,6 @@ dbus_connection_send_with_reply (DBusConnection     *connection,
    if (!_dbus_connection_get_is_connected_unlocked (connection))
     {
       CONNECTION_UNLOCK (connection);
-
-      *pending_return = NULL;
 
       return TRUE;
     }
@@ -5265,18 +5300,20 @@ dbus_connection_remove_filter (DBusConnection            *connection,
  * Registers a handler for a given path in the object hierarchy.
  * The given vtable handles messages sent to exactly the given path.
  *
- *
  * @param connection the connection
  * @param path a '/' delimited string of path elements
  * @param vtable the virtual table
  * @param user_data data to pass to functions in the vtable
- * @returns #FALSE if not enough memory
+ * @param error address where an error can be returned
+ * @returns #FALSE if an error (#DBUS_ERROR_NO_MEMORY or
+ *    #DBUS_ERROR_ADDRESS_IN_USE) is reported
  */
 dbus_bool_t
-dbus_connection_register_object_path (DBusConnection              *connection,
-                                      const char                  *path,
-                                      const DBusObjectPathVTable  *vtable,
-                                      void                        *user_data)
+dbus_connection_try_register_object_path (DBusConnection              *connection,
+                                          const char                  *path,
+                                          const DBusObjectPathVTable  *vtable,
+                                          void                        *user_data,
+                                          DBusError                   *error)
 {
   char **decomposed_path;
   dbus_bool_t retval;
@@ -5294,7 +5331,106 @@ dbus_connection_register_object_path (DBusConnection              *connection,
   retval = _dbus_object_tree_register (connection->objects,
                                        FALSE,
                                        (const char **) decomposed_path, vtable,
-                                       user_data);
+                                       user_data, error);
+
+  CONNECTION_UNLOCK (connection);
+
+  dbus_free_string_array (decomposed_path);
+
+  return retval;
+}
+
+/**
+ * Registers a handler for a given path in the object hierarchy.
+ * The given vtable handles messages sent to exactly the given path.
+ *
+ * It is a bug to call this function for object paths which already
+ * have a handler. Use dbus_connection_try_register_object_path() if this
+ * might be the case.
+ *
+ * @param connection the connection
+ * @param path a '/' delimited string of path elements
+ * @param vtable the virtual table
+ * @param user_data data to pass to functions in the vtable
+ * @returns #FALSE if not enough memory
+ */
+dbus_bool_t
+dbus_connection_register_object_path (DBusConnection              *connection,
+                                      const char                  *path,
+                                      const DBusObjectPathVTable  *vtable,
+                                      void                        *user_data)
+{
+  char **decomposed_path;
+  dbus_bool_t retval;
+  DBusError error = DBUS_ERROR_INIT;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (path != NULL, FALSE);
+  _dbus_return_val_if_fail (path[0] == '/', FALSE);
+  _dbus_return_val_if_fail (vtable != NULL, FALSE);
+
+  if (!_dbus_decompose_path (path, strlen (path), &decomposed_path, NULL))
+    return FALSE;
+
+  CONNECTION_LOCK (connection);
+
+  retval = _dbus_object_tree_register (connection->objects,
+                                       FALSE,
+                                       (const char **) decomposed_path, vtable,
+                                       user_data, &error);
+
+  CONNECTION_UNLOCK (connection);
+
+  dbus_free_string_array (decomposed_path);
+
+  if (dbus_error_has_name (&error, DBUS_ERROR_ADDRESS_IN_USE))
+    {
+      _dbus_warn ("%s\n", error.message);
+      dbus_error_free (&error);
+      return FALSE;
+    }
+
+  return retval;
+}
+
+/**
+ * Registers a fallback handler for a given subsection of the object
+ * hierarchy.  The given vtable handles messages at or below the given
+ * path. You can use this to establish a default message handling
+ * policy for a whole "subdirectory."
+ *
+ * @param connection the connection
+ * @param path a '/' delimited string of path elements
+ * @param vtable the virtual table
+ * @param user_data data to pass to functions in the vtable
+ * @param error address where an error can be returned
+ * @returns #FALSE if an error (#DBUS_ERROR_NO_MEMORY or
+ *    #DBUS_ERROR_ADDRESS_IN_USE) is reported
+ */
+dbus_bool_t
+dbus_connection_try_register_fallback (DBusConnection              *connection,
+                                       const char                  *path,
+                                       const DBusObjectPathVTable  *vtable,
+                                       void                        *user_data,
+                                       DBusError                   *error)
+{
+  char **decomposed_path;
+  dbus_bool_t retval;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (path != NULL, FALSE);
+  _dbus_return_val_if_fail (path[0] == '/', FALSE);
+  _dbus_return_val_if_fail (vtable != NULL, FALSE);
+
+  if (!_dbus_decompose_path (path, strlen (path), &decomposed_path, NULL))
+    return FALSE;
+
+  CONNECTION_LOCK (connection);
+
+  retval = _dbus_object_tree_register (connection->objects,
+                                       TRUE,
+                                       (const char **) decomposed_path, vtable,
+                                       user_data, error);
 
   CONNECTION_UNLOCK (connection);
 
@@ -5308,6 +5444,10 @@ dbus_connection_register_object_path (DBusConnection              *connection,
  * hierarchy.  The given vtable handles messages at or below the given
  * path. You can use this to establish a default message handling
  * policy for a whole "subdirectory."
+ *
+ * It is a bug to call this function for object paths which already
+ * have a handler. Use dbus_connection_try_register_fallback() if this
+ * might be the case.
  *
  * @param connection the connection
  * @param path a '/' delimited string of path elements
@@ -5323,7 +5463,8 @@ dbus_connection_register_fallback (DBusConnection              *connection,
 {
   char **decomposed_path;
   dbus_bool_t retval;
-  
+  DBusError error = DBUS_ERROR_INIT;
+
   _dbus_return_val_if_fail (connection != NULL, FALSE);
   _dbus_return_val_if_fail (path != NULL, FALSE);
   _dbus_return_val_if_fail (path[0] == '/', FALSE);
@@ -5337,11 +5478,18 @@ dbus_connection_register_fallback (DBusConnection              *connection,
   retval = _dbus_object_tree_register (connection->objects,
                                        TRUE,
 				       (const char **) decomposed_path, vtable,
-                                       user_data);
+                                       user_data, &error);
 
   CONNECTION_UNLOCK (connection);
 
   dbus_free_string_array (decomposed_path);
+
+  if (dbus_error_has_name (&error, DBUS_ERROR_ADDRESS_IN_USE))
+    {
+      _dbus_warn ("%s\n", error.message);
+      dbus_error_free (&error);
+      return FALSE;
+    }
 
   return retval;
 }
