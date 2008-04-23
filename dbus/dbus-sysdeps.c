@@ -114,6 +114,7 @@ _dbus_setenv (const char *varname,
 #else
       char *putenv_value;
       size_t len;
+      dbus_bool_t ret;
 
       len = strlen (varname);
 
@@ -130,7 +131,9 @@ _dbus_setenv (const char *varname,
       strcat (putenv_value, "=");
 #endif
       
-      return (putenv (putenv_value) == 0);
+      ret = (putenv (putenv_value) == 0);
+      free (putenv_value);
+      return ret;
 #endif
     }
   else
@@ -142,6 +145,7 @@ _dbus_setenv (const char *varname,
       size_t len;
       size_t varname_len;
       size_t value_len;
+      dbus_bool_t ret;
 
       varname_len = strlen (varname);
       value_len = strlen (value);
@@ -160,7 +164,9 @@ _dbus_setenv (const char *varname,
       strcpy (putenv_value + varname_len, "=");
       strcpy (putenv_value + varname_len + 1, value);
       
-      return (putenv (putenv_value) == 0);
+      ret = (putenv (putenv_value) == 0);
+      free (putenv_value);
+      return ret;
 #endif
     }
 }
