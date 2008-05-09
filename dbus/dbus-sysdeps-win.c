@@ -54,6 +54,14 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+// needed for w2k compatibility (getaddrinfo/freeaddrinfo/getnameinfo)
+#ifdef __GNUC__
+#define _inline
+#include "wspiapi.h"
+#else
+#include <wspiapi.h>
+#endif
+
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
