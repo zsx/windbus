@@ -193,10 +193,7 @@ if (WIN32)
 		${DBUS_DIR}/dbus-sockets-win.h
 		${DBUS_DIR}/dbus-sysdeps-win.h
 	)
-    find_library(WS2_32_LIBRARY ws2_32)
-    find_library(ADVAPI32_LIBRARY advapi32)
-    find_library(NETAPI32_LIBRARY netapi32)
-	set (LIBS ${LIBS} ${WS2_32_LIBRARY} ${ADVAPI32_LIBRARY} ${NETAPI32_LIBRARY})
+	set (LIBS ${LIBS} ws2_32 advapi32 netapi32)
 
 else (WIN32)
 	set (DBUS_SHARED_SOURCES ${DBUS_SHARED_SOURCES} 
