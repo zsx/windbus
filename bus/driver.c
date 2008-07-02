@@ -35,6 +35,10 @@
 #include <dbus/dbus-marshal-recursive.h>
 #include <string.h>
 
+#ifdef DBUS_WIN
+#define DBUS_CLEANUP_OLD_SERVICES
+#endif
+
 static dbus_bool_t bus_driver_send_welcome_message (DBusConnection *connection,
                                                     DBusMessage    *hello_message,
                                                     BusTransaction *transaction,
@@ -676,6 +680,11 @@ bus_driver_handle_release_service (DBusConnection *connection,
   return retval;
 }
 
+#ifdef DBUS_CLEANUP_OLD_SERVICES
+extern _dbus_process_exists (int pid);
+extern int _dbus_find_unique_pid (BusRegistry *registry, const char *service_name);
+#endif
+
 static dbus_bool_t
 bus_driver_handle_service_exists (DBusConnection *connection,
                                   BusTransaction *transaction,
@@ -709,6 +718,15 @@ bus_driver_handle_service_exists (DBusConnection *connection,
     {
       _dbus_string_init_const (&service_name, name);
       service = bus_registry_lookup (registry, &service_name);
+
+#ifdef DBUS_CLEANUP_OLD_SERVICES
+      if (service)
+        {
+          int pid = _dbus_find_unique_pid (registry, name);
+          if (pid != 0 && !_dbus_process_exists (pid))
+            service = NULL;
+        }
+#endif
       service_exists = service != NULL;
     }
   

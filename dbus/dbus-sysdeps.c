@@ -1028,7 +1028,11 @@ _dbus_get_is_errno_nonzero (void)
 dbus_bool_t
 _dbus_get_is_errno_enomem (void)
 {
+#ifdef ENOMEM
   return errno == ENOMEM;
+#else
+  return FALSE;
+#endif
 }
 
 /**
@@ -1038,7 +1042,11 @@ _dbus_get_is_errno_enomem (void)
 dbus_bool_t
 _dbus_get_is_errno_eintr (void)
 {
+#ifdef EINTR
   return errno == EINTR;
+#else
+  return FALSE;
+#endif
 }
 
 /**

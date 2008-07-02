@@ -35,6 +35,10 @@
 #include "bus.h"
 #include "selinux.h"
 
+#ifdef DBUS_WIN
+#define DBUS_CLEANUP_OLD_SERVICES
+#endif
+
 struct BusService
 {
   int refcount;
@@ -64,6 +68,9 @@ struct BusRegistry
   DBusHashTable *service_hash;
   DBusMemPool   *service_pool;
   DBusMemPool   *owner_pool;
+#ifdef DBUS_CLEANUP_OLD_SERVICES
+  DBusHashTable *unique_pid_hash;
+#endif
 
   DBusHashTable *service_sid_table;
 };
@@ -85,6 +92,14 @@ bus_registry_new (BusContext *context)
   if (registry->service_hash == NULL)
     goto failed;
   
+  
+#ifdef DBUS_CLEANUP_OLD_SERVICES
+  registry->unique_pid_hash = _dbus_hash_table_new (DBUS_HASH_STRING,
+                                                    dbus_free, NULL);
+  if (registry->unique_pid_hash == NULL)
+    goto failed;
+#endif
+
   registry->service_pool = _dbus_mem_pool_new (sizeof (BusService),
                                                TRUE);
 
@@ -125,6 +140,10 @@ bus_registry_unref  (BusRegistry *registry)
     {
       if (registry->service_hash)
         _dbus_hash_table_unref (registry->service_hash);
+#ifdef DBUS_CLEANUP_OLD_SERVICES
+      if (registry->unique_pid_hash)
+        _dbus_hash_table_unref (registry->unique_pid_hash);
+#endif
       if (registry->service_pool)
         _dbus_mem_pool_free (registry->service_pool);
       if (registry->owner_pool)
@@ -372,10 +391,147 @@ bus_registry_list_services (BusRegistry *registry,
   return FALSE;
 }
 
+#ifdef DBUS_CLEANUP_OLD_SERVICES
+#include <stdlib.h>
+#include <windows.h>
+#include <Tlhelp32.h>
+
+int _dbus_get_base_service_name_and_pid (const char *service_name,
+                                         char      **base_service_name)
+{
+  static const char* unique_part = ".unique-";
+  char* unique_part_pos;
+  char* result;
+  int pid;
+  unique_part_pos = strstr (service_name, unique_part);
+  if (unique_part_pos == NULL)
+      return 0;
+  pid = 0;
+  if (strlen(unique_part_pos + 8 /*".unique-"*/) > 0)
+    pid = atoi( unique_part_pos + 8 );
+  if (pid == 0)
+      return 0;
+  result = _dbus_strdup (service_name);
+  result[ unique_part_pos - service_name ] = 0; // cut off before .unique.
+  *base_service_name = result;
+  return pid;
+}
+
+static void
+bus_service_unlink (BusService *service);
+
+dbus_bool_t
+_dbus_process_exists (int pid)
+{
+  HANDLE proc_handle;
+  HANDLE hProcessSnap;
+  PROCESSENTRY32 pe32;
+
+  proc_handle = OpenProcess (PROCESS_ALL_ACCESS, FALSE, pid);
+  if (proc_handle == 0) 
+      return FALSE;
+  // this process _may_ still exists: do nothing, so DBUS_REQUEST_NAME_REPLY_EXISTS result will be set
+  CloseHandle (proc_handle);
+  // find out if the process isn't a zombie
+  hProcessSnap = CreateToolhelp32Snapshot (TH32CS_SNAPPROCESS, 0);
+  if (hProcessSnap == INVALID_HANDLE_VALUE)
+    return TRUE;  
+  pe32.dwSize = sizeof( PROCESSENTRY32 );
+  if (!Process32First(hProcessSnap, &pe32))
+    {
+      CloseHandle (hProcessSnap);
+      return TRUE;
+    }
+  do
+    {
+      if (pe32.th32ProcessID == pid)
+        {
+          CloseHandle (hProcessSnap);
+          return TRUE;
+        }
+    } while (Process32Next (hProcessSnap,&pe32));
+  CloseHandle (hProcessSnap);
+  return FALSE;
+}
+
+int
+_dbus_find_unique_pid (BusRegistry *registry, const char *service_name)
+{
+  return (int)_dbus_hash_table_lookup_string (registry->unique_pid_hash,
+                                              service_name);
+}
+
+static dbus_bool_t
+_dbus_registry_release_old_service_win_if_unique (BusRegistry      *registry,
+                                                  DBusConnection   *connection,
+                                                  const char       *base_service_name,
+                                                  int               pid,
+                                                  BusTransaction   *transaction,
+                                                  DBusError        *error)
+{
+  BusService *service;
+  DBusConnection *connection_to_release;
+  DBusString base_service_name_str;
+  dbus_uint32_t service_reply;
+  char *base_service_name_copy;
+  int old_pid;
+
+  old_pid = _dbus_find_unique_pid (registry, base_service_name);
+  if (pid == old_pid)
+    return TRUE;
+
+  if (old_pid != 0)
+    {
+      if (_dbus_process_exists (old_pid))
+        return TRUE;
+      // no such process:
+      // release old service
+      _dbus_string_init_const (&base_service_name_str, base_service_name);
+      _dbus_verbose ("Attempt to release old unique service \"%s\"",
+                     base_service_name);
+      service = bus_registry_lookup (registry, &base_service_name_str);
+      if (service) {
+        struct DBusList *link;
+        BusOwner* owner;
+        link = _dbus_list_get_first_link (&service->owners);
+        owner = (BusOwner *)link->data;
+        connection_to_release = owner->conn;
+      }
+      else
+        {
+          connection_to_release = connection;
+        }
+
+      if (!bus_registry_release_service (registry, connection_to_release, &base_service_name_str, &service_reply,
+                                         transaction, error))
+        {
+          _dbus_string_free (&base_service_name_str);
+          dbus_set_error (error, DBUS_ERROR_INVALID_ARGS,
+                          "Cannot release old unique service \"%s\"",
+                          base_service_name);
+          return FALSE;
+        }
+      _dbus_string_free (&base_service_name_str);
+      _dbus_verbose  ("_dbus_registry_release_old_service_win_if_unique(): Service \"%s\" released\n",
+                      base_service_name);
+    }
+  // remember new PID for this service
+  base_service_name_copy = _dbus_strdup (base_service_name);
+  if (!_dbus_hash_table_insert_string (registry->unique_pid_hash,
+                                       base_service_name_copy,
+                                       (void*)pid))
+    {
+      dbus_free (base_service_name_copy);
+      return FALSE;
+    }
+  return TRUE;
+}
+#endif
+
 dbus_bool_t
 bus_registry_acquire_service (BusRegistry      *registry,
                               DBusConnection   *connection,
-                              const DBusString *service_name,
+                              const DBusString *a_service_name,
                               dbus_uint32_t     flags,
                               dbus_uint32_t    *result,
                               BusTransaction   *transaction,
@@ -389,8 +545,27 @@ bus_registry_acquire_service (BusRegistry      *registry,
   BusActivation  *activation;
   BusSELinuxID *sid;
   BusOwner *primary_owner;
+  int pid;
+  char *service_name_tmp;
+  DBusString *service_name; // real name
+  DBusString service_name_stack;
  
   retval = FALSE;
+
+  pid = _dbus_get_base_service_name_and_pid (_dbus_string_get_const_data (a_service_name),
+                                             &service_name_tmp);
+  if (pid == 0)
+    {
+      service_name = a_service_name;
+      service_name_tmp = 0;
+    }
+  else
+    {
+      _dbus_string_init_const (&service_name_stack, service_name_tmp);
+      service_name = &service_name_stack;
+      _dbus_registry_release_old_service_win_if_unique (
+            registry, connection, service_name_tmp, pid, transaction, error);
+    }
 
   if (!_dbus_validate_bus_name (service_name, 0,
                                 _dbus_string_get_length (service_name)))
@@ -594,6 +769,10 @@ bus_registry_acquire_service (BusRegistry      *registry,
 								 error);
   
  out:
+#ifdef DBUS_CLEANUP_OLD_SERVICES
+  if (service_name_tmp)
+      free (service_name_tmp);
+#endif
   return retval;
 }
 
@@ -671,6 +850,14 @@ bus_registry_release_service (BusRegistry      *registry,
   retval = TRUE;
 
  out:
+#ifdef DBUS_CLEANUP_OLD_SERVICES
+  if (retval)
+    {
+      // remove old entry
+      _dbus_hash_table_remove_string (registry->unique_pid_hash,
+                                      _dbus_string_get_const_data(service_name));
+    }
+#endif
   return retval;
 }
 

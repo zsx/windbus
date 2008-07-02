@@ -134,6 +134,7 @@ typedef unsigned long dbus_gid_t;
  * 
  */
 
+void        _dbus_daemon_release   (void);
 dbus_bool_t _dbus_open_tcp_socket  (int              *fd,
                                     DBusError        *error);
 dbus_bool_t _dbus_close_socket     (int               fd,

@@ -3130,12 +3130,14 @@ static const char *test_session_service_dir_matches[] =
 #ifdef DBUS_UNIX
          "/testusr/testlocal/testshare/dbus-1/services",
          "/testusr/testshare/dbus-1/services",
-#endif
          DBUS_DATADIR"/dbus-1/services",
-#ifdef DBUS_UNIX
          "/testhome/foo/.testlocal/testshare/dbus-1/services",
-#endif
+         NULL,
+#else
+         DBUS_DATADIR"/dbus-1/services",
+         NULL,
          NULL
+#endif
         };
 
 static dbus_bool_t

@@ -3118,14 +3118,16 @@ _dbus_get_autolaunch_address (DBusString *address,
 
   if (_dbus_daemon_already_runs(address))
     {
-        printf("dbus daemon already exists\n");
+        _dbus_verbose("found already running dbus daemon\n");
         retval = TRUE;
         goto out;
     }
 
   if (!SearchPathA(NULL, "dbus-daemon.exe", NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
     {
-      printf ("could not find dbus-daemon executable\n");
+      printf ("please add the path to dbus-daemon.exe to your PATH environment variable\n");
+      printf ("or start the daemon manually\n\n");
+      printf ("");
       goto out;
     }
 
@@ -3367,12 +3369,15 @@ _dbus_get_config_file_name(DBusString *config_file, char *s)
 {
   char path[MAX_PATH*2];
   int path_size = sizeof(path);
+  int len = 4 + strlen(s);
 
   if (!_dbus_get_install_root(path,path_size))
     return FALSE;
 
-  strcat_s(path,path_size,"etc\\");
-  strcat_s(path,path_size,s);
+  if(len > sizeof(path)-2)
+    return FALSE;
+  strcat(path,"etc\\");
+  strcat(path,s);
   if (_dbus_file_exists(path)) 
     {
       // find path from executable 
@@ -3383,8 +3388,10 @@ _dbus_get_config_file_name(DBusString *config_file, char *s)
     {
       if (!_dbus_get_install_root(path,path_size))
         return FALSE;
-      strcat_s(path,path_size,"bus\\");
-      strcat_s(path,path_size,s);
+      if(len + strlen(path) > sizeof(path)-2)
+        return FALSE;
+      strcat(path,"bus\\");
+      strcat(path,s);
   
       if (_dbus_file_exists(path)) 
         {

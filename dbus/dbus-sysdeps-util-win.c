@@ -32,6 +32,7 @@
 #include "dbus-string.h"
 #include "dbus-sysdeps.h"
 #include "dbus-sysdeps-win.h"
+#include "dbus-sockets-win.h"
 #include "dbus-memory.h"
 
 #include <io.h>

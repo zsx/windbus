@@ -883,6 +883,8 @@ _dbus_loop_quit (DBusLoop *loop)
   
   loop->depth -= 1;
 
+ _dbus_daemon_release ();
+
   _dbus_verbose ("Quit main loop, depth %d -> %d\n",
                  loop->depth + 1, loop->depth);
 }

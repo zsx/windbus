@@ -350,8 +350,10 @@ _dbus_bus_notify_shared_connection_disconnected_unlocked (DBusConnection *connec
 {
   int i;
   
+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
+   // qt example pong says "QMutex::lock: Deadlock detected"
   _DBUS_LOCK (bus);
-
+#endif
   /* We are expecting to have the connection saved in only one of these
    * slots, but someone could in a pathological case set system and session
    * bus to the same bus or something. Or set one of them to the starter
@@ -366,7 +368,9 @@ _dbus_bus_notify_shared_connection_disconnected_unlocked (DBusConnection *connec
         }
     }
 
+#if !defined(DBUS_WIN) && !defined(DBUS_WINCE)
   _DBUS_UNLOCK (bus);
+#endif
 }
 
 static DBusConnection *
