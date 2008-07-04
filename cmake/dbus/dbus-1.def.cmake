@@ -870,3 +870,4 @@ dbus_watch_get_socket
 dbus_watch_get_unix_fd
 dbus_watch_handle
 dbus_watch_set_data
+dbus_kde_patch

@@ -170,6 +170,13 @@ dbus_get_version (int *major_version_p,
     *micro_version_p = DBUS_MICRO_VERSION;
 }
 
+/**
+ *  Indicates that this is KDE modification of dbus; used in KUniqueApplication::start().
+ */
+void
+dbus_kde_patch (void)
+{
+}
 
 /** @} */ /* End of public API */
 
