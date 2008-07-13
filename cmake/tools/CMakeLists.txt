@@ -1,7 +1,5 @@
 project(tools)
 
-include_directories(${CMAKE_SOURCE_DIR}/..)
-
 #nodist_libdbus_glib_HEADERS = dbus-glib-bindings.h
 #libdbus_glibdir = $(includedir)/dbus-1.0/dbus
 

@@ -2,7 +2,6 @@ project(dbus-lib)
 
 #INCLUDES=-I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) -DDBUS_COMPILATION
 
-include_directories(${CMAKE_SOURCE_DIR}/..)
 SET(DBUS_DIR ${CMAKE_SOURCE_DIR}/../dbus)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-arch-deps.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/dbus-arch-deps.h )

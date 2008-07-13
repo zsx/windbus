@@ -177,8 +177,7 @@ endif (WIN32 OR CYGWIN)
 set (EXECUTABLE_OUTPUT_PATH ${CMAKE_BINARY_DIR}/bin)
 
 # for including config.h and for includes like <dir/foo.h>
-include_directories( ${CMAKE_SOURCE_DIR} ${CMAKE_BINARY_DIR} )
-include_directories( ${CMAKE_INCLUDE_PATH} )
+include_directories( ${CMAKE_SOURCE_DIR}/.. ${CMAKE_BINARY_DIR} ${CMAKE_INCLUDE_PATH} )
 
 # linker search directories
 link_directories(${DBUS_LIB_DIR} ${LIBRARY_OUTPUT_PATH} )

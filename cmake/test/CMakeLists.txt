@@ -17,9 +17,6 @@ add_subdirectory( name-test )
 
 #INCLUDES=-I$(top_srcdir) $(DBUS_test-CFLAGS) 
 
-include_directories( ${CMAKE_SOURCE_DIR}/.. )
-include_directories( ${CMAKE_INCLUDE_PATH} )
-
 if (WIN32)
 add_definitions(-Dsleep=_sleep)
 endif (WIN32)

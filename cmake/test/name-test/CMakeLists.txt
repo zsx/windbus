@@ -2,8 +2,6 @@ if (DBUS_BUILD_TESTS)
 
 set (NAMEtest-DIR ../../../test/name-test)
 
-include_directories( ${CMAKE_SOURCE_DIR}/.. )
-include_directories( ${CMAKE_INCLUDE_PATH} )
 add_definitions(-DDBUS_COMPILATION)
 
 # there is also a test-names executable, don't know if this is the same

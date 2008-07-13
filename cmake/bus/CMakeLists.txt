@@ -1,8 +1,5 @@
 project(bus)
 
-include_directories(${CMAKE_SOURCE_DIR}/..)
-include_directories( ${CMAKE_INCLUDE_PATH} )
-
 add_definitions(-DDBUS_COMPILATION)
 
 SET(EFENCE "")
