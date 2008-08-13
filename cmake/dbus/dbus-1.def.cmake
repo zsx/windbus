@@ -160,6 +160,7 @@ _dbus_generate_uuid
 _dbus_get_autolaunch_address
 _dbus_get_config_file_name
 _dbus_get_current_time
+_dbus_get_environment
 _dbus_get_fail_alloc_counter
 _dbus_get_fail_alloc_failures
 _dbus_get_install_root
@@ -518,6 +519,7 @@ _dbus_string_shorten
 _dbus_string_skip_blank
 _dbus_string_skip_white
 _dbus_string_skip_white_reverse
+_dbus_string_split_on_byte
 _dbus_string_starts_with_c_str
 _dbus_string_steal_data
 _dbus_string_steal_data_len
@@ -547,6 +549,7 @@ _dbus_transport_disconnect
 _dbus_transport_do_iteration
 _dbus_transport_finalize_base
 _dbus_transport_get_address
+_dbus_transport_get_adt_audit_session_data
 _dbus_transport_get_dispatch_status
 _dbus_transport_get_is_anonymous
 _dbus_transport_get_is_authenticated
@@ -681,6 +684,7 @@ dbus_connection_dispatch
 dbus_connection_flush
 dbus_connection_free_data_slot
 dbus_connection_free_preallocated_send
+dbus_connection_get_adt_audit_session_data
 dbus_connection_get_data
 dbus_connection_get_dispatch_status
 dbus_connection_get_is_anonymous
