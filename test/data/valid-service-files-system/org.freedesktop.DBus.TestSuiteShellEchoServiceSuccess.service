@@ -1,5 +1,5 @@
 [D-BUS Service]
 Name=org.freedesktop.DBus.TestSuiteShellEchoServiceSuccess
-Exec=/home/quinticent/devel/release/dbus/test/test-shell-service -test "that" 'we get' back --what "we put in"
+Exec=/src/jhbuild/checkout/dbus.whatever/test/test-shell-service -test "that" 'we get' back --what "we put in"
 User=anyrandomuser
 

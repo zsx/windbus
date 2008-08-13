@@ -516,7 +516,7 @@ dbus_watch_get_unix_fd (DBusWatch *watch)
 #ifdef DBUS_UNIX
   return watch->fd;
 #else
-  return dbus_watch_get_socket( watch );
+  return -1;
 #endif
 }
 

@@ -71,6 +71,10 @@
 #include <ucred.h>
 #endif
 
+#ifdef HAVE_ADT
+#include <bsm/adt.h>
+#endif
+
 #ifndef O_BINARY
 #define O_BINARY 0
 #endif
@@ -783,7 +787,6 @@ _dbus_connect_tcp_socket (const char     *host,
                       "Unknown address family %s", family);
       return -1;
     }
-  fprintf(stderr, "Family %s\n", family ? family : "none");
   hints.ai_protocol = IPPROTO_TCP;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_ADDRCONFIG;
@@ -1260,6 +1263,37 @@ _dbus_read_credentials_socket  (int              client_fd,
       {
         pid_read = ucred_getpid (ucred);
         uid_read = ucred_geteuid (ucred);
+#ifdef HAVE_ADT
+        /* generate audit session data based on socket ucred */
+        adt_session_data_t *adth = NULL;
+        adt_export_data_t *data = NULL;
+        size_t size = 0;
+        if (adt_start_session (&adth, NULL, 0) || (adth == NULL))
+          {
+            _dbus_verbose ("Failed to adt_start_session(): %s\n", _dbus_strerror (errno));
+          }
+        else 
+          {
+            if (adt_set_from_ucred (adth, ucred, ADT_NEW)) 
+              {
+                _dbus_verbose ("Failed to adt_set_from_ucred(): %s\n", _dbus_strerror (errno));
+              }
+            else
+              {
+                size = adt_export_session_data (adth, &data);
+                if (size <= 0)
+                  {
+                    _dbus_verbose ("Failed to adt_export_session_data(): %s\n", _dbus_strerror (errno));
+                  }
+                else
+                  {
+                    _dbus_credentials_add_adt_audit_data (credentials, data, size);
+                    free (data);
+                  }
+              }
+            (void) adt_end_session (adth);
+          }
+#endif /* HAVE_ADT */
       }
     else
       {
@@ -1452,28 +1486,60 @@ fill_user_info (DBusUserInfo       *info,
   {
     struct passwd *p;
     int result;
-    char buf[1024];
+    size_t buflen;
+    char *buf;
     struct passwd p_str;
 
-    p = NULL;
+    /* retrieve maximum needed size for buf */
+    buflen = sysconf (_SC_GETPW_R_SIZE_MAX);
+
+    if (buflen <= 0)
+      buflen = 1024;
+
+    result = -1;
+    while (1)
+      {
+        buf = dbus_malloc (buflen);
+        if (buf == NULL)
+          {
+            dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
+            return FALSE;
+          }
+
+        p = NULL;
 #ifdef HAVE_POSIX_GETPWNAM_R
-    if (uid != DBUS_UID_UNSET)
-      result = getpwuid_r (uid, &p_str, buf, sizeof (buf),
-                           &p);
-    else
-      result = getpwnam_r (username_c, &p_str, buf, sizeof (buf),
-                           &p);
+        if (uid != DBUS_UID_UNSET)
+          result = getpwuid_r (uid, &p_str, buf, buflen,
+                               &p);
+        else
+          result = getpwnam_r (username_c, &p_str, buf, buflen,
+                               &p);
 #else
-    if (uid != DBUS_UID_UNSET)
-      p = getpwuid_r (uid, &p_str, buf, sizeof (buf));
-    else
-      p = getpwnam_r (username_c, &p_str, buf, sizeof (buf));
-    result = 0;
+        if (uid != DBUS_UID_UNSET)
+          p = getpwuid_r (uid, &p_str, buf, buflen);
+        else
+          p = getpwnam_r (username_c, &p_str, buf, buflen);
+        result = 0;
 #endif /* !HAVE_POSIX_GETPWNAM_R */
+        //Try a bigger buffer if ERANGE was returned
+        if (result == ERANGE && buflen < 512 * 1024)
+          {
+            dbus_free (buf);
+            buflen *= 2;
+          }
+        else
+          {
+            break;
+          }
+      }
     if (result == 0 && p == &p_str)
       {
         if (!fill_user_info_from_passwd (p, info, error))
-          return FALSE;
+          {
+            dbus_free (buf);
+            return FALSE;
+          }
+        dbus_free (buf);
       }
     else
       {
@@ -1481,6 +1547,7 @@ fill_user_info (DBusUserInfo       *info,
                         "User \"%s\" unknown or no memory to allocate password entry\n",
                         username_c ? username_c : "???");
         _dbus_verbose ("User %s unknown\n", username_c ? username_c : "???");
+        dbus_free (buf);
         return FALSE;
       }
   }
@@ -1497,7 +1564,9 @@ fill_user_info (DBusUserInfo       *info,
     if (p != NULL)
       {
         if (!fill_user_info_from_passwd (p, info, error))
-          return FALSE;
+          {
+            return FALSE;
+          }
       }
     else
       {
@@ -2848,7 +2917,10 @@ _dbus_get_autolaunch_address (DBusString *address,
   if (pid == 0)
     {
       /* child process */
-      int fd = open ("/dev/null", O_RDWR);
+      int maxfds;
+      int fd;
+
+      fd = open ("/dev/null", O_RDWR);
       if (fd == -1)
         /* huh?! can't open /dev/null? */
         _exit (1);
@@ -2869,9 +2941,15 @@ _dbus_get_autolaunch_address (DBusString *address,
       if (dup2 (errors_pipe[WRITE_END], 2) == -1)
         _exit (1);
 
-      close (fd);
-      close (address_pipe[WRITE_END]);
-      close (errors_pipe[WRITE_END]);
+      maxfds = sysconf (_SC_OPEN_MAX);
+      /* Pick something reasonable if for some reason sysconf
+       * says unlimited.
+       */
+      if (maxfds < 0)
+        maxfds = 1024;
+      /* close all inherited fds */
+      for (i = 3; i < maxfds; i++)
+        close (i);
 
       execv (DBUS_BINDIR "/dbus-launch", argv);
 

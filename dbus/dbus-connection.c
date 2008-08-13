@@ -965,6 +965,13 @@ _dbus_connection_detach_pending_call_and_unlock (DBusConnection  *connection,
   _dbus_pending_call_ref_unlocked (pending);
   _dbus_hash_table_remove_int (connection->pending_replies,
                                _dbus_pending_call_get_reply_serial_unlocked (pending));
+
+  if (_dbus_pending_call_is_timeout_added_unlocked (pending))
+      _dbus_connection_remove_timeout_unlocked (connection,
+              _dbus_pending_call_get_timeout_unlocked (pending));
+
+  _dbus_pending_call_set_timeout_added_unlocked (pending, FALSE);
+
   _dbus_pending_call_unref_and_unlock (pending);
 }
 
@@ -1671,12 +1678,12 @@ connection_forget_shared_unlocked (DBusConnection *connection)
   if (!connection->shareable)
     return;
   
+  _DBUS_LOCK (shared_connections);
+      
   if (connection->server_guid != NULL)
     {
       _dbus_verbose ("dropping connection to %s out of the shared table\n",
                      connection->server_guid);
-      
-      _DBUS_LOCK (shared_connections);
       
       if (!_dbus_hash_table_remove_string (shared_connections,
                                            connection->server_guid))
@@ -1684,8 +1691,13 @@ connection_forget_shared_unlocked (DBusConnection *connection)
       
       dbus_free (connection->server_guid);
       connection->server_guid = NULL;
-      _DBUS_UNLOCK (shared_connections);
     }
+  else
+    {
+      _dbus_list_remove (&shared_connections_no_guid, connection);
+    }
+
+  _DBUS_UNLOCK (shared_connections);
   
   /* remove our reference held on all shareable connections */
   _dbus_connection_unref_unlocked (connection);
@@ -3404,8 +3416,13 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
                                      dbus_bool_t     dispatch)
 {
   DBusDispatchStatus dstatus;
-  dbus_bool_t no_progress_possible;
-  
+  dbus_bool_t progress_possible;
+
+  /* Need to grab a ref here in case we're a private connection and
+   * the user drops the last ref in a handler we call; see bug 
+   * https://bugs.freedesktop.org/show_bug.cgi?id=15635
+   */
+  dbus_connection_ref (connection);
   dstatus = dbus_connection_get_dispatch_status (connection);
 
   if (dispatch && dstatus == DBUS_DISPATCH_DATA_REMAINS)
@@ -3440,12 +3457,16 @@ _dbus_connection_read_write_dispatch (DBusConnection *connection,
    * as long as the transport is open.
    */
   if (dispatch)
-    no_progress_possible = connection->n_incoming == 0 &&
-      connection->disconnect_message_link == NULL;
+    progress_possible = connection->n_incoming != 0 ||
+      connection->disconnect_message_link != NULL;
   else
-    no_progress_possible = _dbus_connection_get_is_connected_unlocked (connection);
+    progress_possible = _dbus_connection_get_is_connected_unlocked (connection);
+
   CONNECTION_UNLOCK (connection);
-  return !no_progress_possible; /* TRUE if we can make more progress */
+
+  dbus_connection_unref (connection);
+
+  return progress_possible; /* TRUE if we can make more progress */
 }
 
 
@@ -4958,6 +4979,40 @@ dbus_connection_get_unix_process_id (DBusConnection *connection,
   _dbus_assert (!result);
 #endif
   
+  CONNECTION_UNLOCK (connection);
+
+  return result;
+}
+
+/**
+ * Gets the ADT audit data of the connection if any.
+ * Returns #TRUE if the structure pointer is returned.
+ * Always returns #FALSE prior to authenticating the
+ * connection.
+ *
+ * @param connection the connection
+ * @param data return location for audit data 
+ * @returns #TRUE if audit data is filled in with a valid ucred pointer
+ */
+dbus_bool_t
+dbus_connection_get_adt_audit_session_data (DBusConnection *connection,
+					    void          **data,
+					    dbus_int32_t   *data_size)
+{
+  dbus_bool_t result;
+
+  _dbus_return_val_if_fail (connection != NULL, FALSE);
+  _dbus_return_val_if_fail (data != NULL, FALSE);
+  _dbus_return_val_if_fail (data_size != NULL, FALSE);
+  
+  CONNECTION_LOCK (connection);
+
+  if (!_dbus_transport_get_is_authenticated (connection->transport))
+    result = FALSE;
+  else
+    result = _dbus_transport_get_adt_audit_session_data (connection->transport,
+					    	         data,
+			  			         data_size);
   CONNECTION_UNLOCK (connection);
 
   return result;

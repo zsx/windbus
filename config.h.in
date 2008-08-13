@@ -104,6 +104,9 @@
 /* Have abstract socket namespace */
 #undef HAVE_ABSTRACT_SOCKETS
 
+/* Adt audit API */
+#undef HAVE_ADT
+
 /* Define to 1 if you have the `backtrace' function. */
 #undef HAVE_BACKTRACE
 
@@ -302,6 +305,9 @@
 /* Full path to test file test/data/invalid-service-files-system in builddir
    */
 #undef TEST_INVALID_SERVICE_SYSTEM_DIR
+
+/* Full path to test file test/name-test/test-privserver in builddir */
+#undef TEST_PRIVSERVER_BINARY
 
 /* Full path to test file test/test-segfault in builddir */
 #undef TEST_SEGFAULT_BINARY

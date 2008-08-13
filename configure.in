@@ -3,7 +3,7 @@ AC_PREREQ(2.52)
 
 m4_define([dbus_major_version], [1])
 m4_define([dbus_minor_version], [2])
-m4_define([dbus_micro_version], [1])
+m4_define([dbus_micro_version], [3])
 m4_define([dbus_version],
           [dbus_major_version.dbus_minor_version.dbus_micro_version])
 AC_INIT(dbus, [dbus_version])
@@ -1028,6 +1028,24 @@ if test x$have_libaudit = xyes ; then
     AC_DEFINE(HAVE_LIBAUDIT,1,[audit daemon SELinux support])
 fi
 
+# Check for ADT API
+AC_MSG_CHECKING(for ADT API)
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#include <bsm/adt.h>
+adt_user_context = ADT_USER;
+]], [[]])], [ check_adt_audit=yes ], [ check_adt_audit=no ])
+
+if test ${check_adt_audit} = yes
+then
+   AC_DEFINE([HAVE_ADT], [], [Adt audit API])
+   ADT_LIBS="-lbsm"
+   LIBS="-lbsm $LIBS"
+   AC_MSG_RESULT(yes)
+else
+   AC_MSG_RESULT(no)
+fi
+
+
 #### Set up final flags
 DBUS_CLIENT_CFLAGS=
 DBUS_CLIENT_LIBS="$THREAD_LIBS"
@@ -1035,7 +1053,7 @@ AC_SUBST(DBUS_CLIENT_CFLAGS)
 AC_SUBST(DBUS_CLIENT_LIBS)
 
 DBUS_BUS_CFLAGS="$XML_CFLAGS"
-DBUS_BUS_LIBS="$XML_LIBS $SELINUX_LIBS $INTLLIBS $THREAD_LIBS"
+DBUS_BUS_LIBS="$XML_LIBS $SELINUX_LIBS $INTLLIBS $THREAD_LIBS $ADT_LIBS"
 AC_SUBST(DBUS_BUS_CFLAGS)
 AC_SUBST(DBUS_BUS_LIBS)
 
@@ -1275,6 +1293,7 @@ TEST_PATH(SHELL_SERVICE_BINARY, test-shell-service)
 TEST_PATH(EXIT_BINARY, test-exit)
 TEST_PATH(SEGFAULT_BINARY, test-segfault)
 TEST_PATH(SLEEP_FOREVER_BINARY, test-sleep-forever)
+TEST_PATH(PRIVSERVER_BINARY, name-test/test-privserver)
 
 AC_DEFINE_UNQUOTED(TEST_BUS_BINARY, "$DBUS_PWD/bus/dbus-daemon",
                    [Full path to the daemon in the builddir])
@@ -1347,6 +1366,7 @@ test/data/valid-config-files/debug-allow-all.conf
 test/data/valid-config-files/debug-allow-all-sha1.conf
 test/data/valid-config-files-system/debug-allow-all-pass.conf
 test/data/valid-config-files-system/debug-allow-all-fail.conf
+test/data/valid-service-files/org.freedesktop.DBus.TestSuite.PrivServer.service
 test/data/valid-service-files/org.freedesktop.DBus.TestSuiteEchoService.service
 test/data/valid-service-files/org.freedesktop.DBus.TestSuiteSegfaultService.service
 test/data/valid-service-files/org.freedesktop.DBus.TestSuiteShellEchoServiceSuccess.service
