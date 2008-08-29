@@ -394,7 +394,7 @@ bus_registry_list_services (BusRegistry *registry,
 #ifdef DBUS_CLEANUP_OLD_SERVICES
 #include <stdlib.h>
 #include <windows.h>
-#include <Tlhelp32.h>
+#include <tlhelp32.h>
 
 int _dbus_get_base_service_name_and_pid (const char *service_name,
                                          char      **base_service_name)
