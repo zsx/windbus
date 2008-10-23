@@ -79,8 +79,8 @@
 #define O_BINARY 0
 #endif
 
-#ifndef _AI_ADDRCONFIG
-#define _AI_ADDRCONFIG 0
+#ifndef AI_ADDRCONFIG
+#define AI_ADDRCONFIG 0
 #endif
 
 #ifndef HAVE_SOCKLEN_T
@@ -1493,7 +1493,11 @@ fill_user_info (DBusUserInfo       *info,
     /* retrieve maximum needed size for buf */
     buflen = sysconf (_SC_GETPW_R_SIZE_MAX);
 
-    if (buflen <= 0)
+    /* sysconf actually returns a long, but everything else expects size_t,
+     * so just recast here.
+     * https://bugs.freedesktop.org/show_bug.cgi?id=17061
+     */
+    if ((long) buflen <= 0)
       buflen = 1024;
 
     result = -1;
@@ -2223,6 +2227,15 @@ _dbus_string_save_to_file (const DBusString *str,
 
       total += bytes_written;
     }
+
+  if (fsync(fd))
+    {
+      dbus_set_error (error, _dbus_error_from_errno (errno),
+                      "Could not synchronize file %s: %s",
+                      tmp_filename_c, _dbus_strerror (errno));
+
+      goto out;
+  }
 
   if (!_dbus_close (fd, NULL))
     {
