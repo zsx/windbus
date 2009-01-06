@@ -1504,7 +1504,6 @@ _dbus_connect_tcp_socket (const char     *host,
                       "Unknown address family %s", family);
       return -1;
     }
-  fprintf(stderr, "Family %s\n", family ? family : "none");
   hints.ai_protocol = IPPROTO_TCP;
   hints.ai_socktype = SOCK_STREAM;
 #ifdef AI_ADDRCONFIG
