@@ -65,6 +65,7 @@ struct BusPolicyRule
       char *destination;
       unsigned int eavesdrop : 1;
       unsigned int requested_reply : 1;
+      unsigned int log : 1;
     } send;
 
     struct
@@ -141,14 +142,17 @@ dbus_bool_t      bus_client_policy_check_can_send    (BusClientPolicy  *policy,
                                                       BusRegistry      *registry,
                                                       dbus_bool_t       requested_reply,
                                                       DBusConnection   *receiver,
-                                                      DBusMessage      *message);
+                                                      DBusMessage      *message,
+                                                      dbus_int32_t     *toggles,
+                                                      dbus_bool_t      *log);
 dbus_bool_t      bus_client_policy_check_can_receive (BusClientPolicy  *policy,
                                                       BusRegistry      *registry,
                                                       dbus_bool_t       requested_reply,
                                                       DBusConnection   *sender,
                                                       DBusConnection   *addressed_recipient,
                                                       DBusConnection   *proposed_recipient,
-                                                      DBusMessage      *message);
+                                                      DBusMessage      *message,
+                                                      dbus_int32_t     *toggles);
 dbus_bool_t      bus_client_policy_check_can_own     (BusClientPolicy  *policy,
                                                       DBusConnection   *connection,
                                                       const DBusString *service_name);

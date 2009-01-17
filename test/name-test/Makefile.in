@@ -32,8 +32,7 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-target_triplet = @target@
-@DBUS_BUILD_TESTS_TRUE@TESTS = run-test.sh
+@DBUS_BUILD_TESTS_TRUE@TESTS = run-test.sh run-test-systemserver.sh
 @DBUS_BUILD_TESTS_TRUE@noinst_PROGRAMS = test-names$(EXEEXT) \
 @DBUS_BUILD_TESTS_TRUE@	test-pending-call-dispatch$(EXEEXT) \
 @DBUS_BUILD_TESTS_TRUE@	test-threads-init$(EXEEXT) \
@@ -197,6 +196,7 @@ DBUS_X_LIBS = @DBUS_X_LIBS@
 DEFS = @DEFS@
 DEPDIR = @DEPDIR@
 DOXYGEN = @DOXYGEN@
+DSYMUTIL = @DSYMUTIL@
 ECHO = @ECHO@
 ECHO_C = @ECHO_C@
 ECHO_N = @ECHO_N@
@@ -232,6 +232,7 @@ LT_REVISION = @LT_REVISION@
 MAINT = @MAINT@
 MAKEINFO = @MAKEINFO@
 MKDIR_P = @MKDIR_P@
+NMEDIT = @NMEDIT@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -321,16 +322,13 @@ sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
 sysconfdir = @sysconfdir@
-target = @target@
 target_alias = @target_alias@
-target_cpu = @target_cpu@
-target_os = @target_os@
-target_vendor = @target_vendor@
+top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 INCLUDES = -I$(top_srcdir) $(DBUS_CLIENT_CFLAGS) $(DBUS_GLIB_CFLAGS) $(DBUS_TEST_CFLAGS) -DDBUS_COMPILATION
 @DBUS_BUILD_TESTS_TRUE@TESTS_ENVIRONMENT = DBUS_TOP_BUILDDIR=@abs_top_builddir@ DBUS_TOP_SRCDIR=@abs_top_srcdir@
-EXTRA_DIST = run-test.sh 
+EXTRA_DIST = run-test.sh run-test-systemserver.sh test-wait-for-echo.py
 @DBUS_BUILD_TESTS_TRUE@test_names_SOURCES = \
 @DBUS_BUILD_TESTS_TRUE@	test-names.c
 

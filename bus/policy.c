@@ -866,7 +866,9 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
                                   BusRegistry     *registry,
                                   dbus_bool_t      requested_reply,
                                   DBusConnection  *receiver,
-                                  DBusMessage     *message)
+                                  DBusMessage     *message,
+                                  dbus_int32_t    *toggles,
+                                  dbus_bool_t     *log)
 {
   DBusList *link;
   dbus_bool_t allowed;
@@ -876,6 +878,7 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
    */
 
   _dbus_verbose ("  (policy) checking send rules\n");
+  *toggles = 0;
   
   allowed = FALSE;
   link = _dbus_list_get_first_link (&policy->rules);
@@ -1026,6 +1029,8 @@ bus_client_policy_check_can_send (BusClientPolicy *policy,
 
       /* Use this rule */
       allowed = rule->allow;
+      *log = rule->d.send.log;
+      (*toggles)++;
 
       _dbus_verbose ("  (policy) used rule, allow now = %d\n",
                      allowed);
@@ -1044,7 +1049,8 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
                                      DBusConnection  *sender,
                                      DBusConnection  *addressed_recipient,
                                      DBusConnection  *proposed_recipient,
-                                     DBusMessage     *message)
+                                     DBusMessage     *message,
+                                     dbus_int32_t    *toggles)
 {
   DBusList *link;
   dbus_bool_t allowed;
@@ -1059,6 +1065,7 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
    */
 
   _dbus_verbose ("  (policy) checking receive rules, eavesdropping = %d\n", eavesdropping);
+  *toggles = 0;
   
   allowed = FALSE;
   link = _dbus_list_get_first_link (&policy->rules);
@@ -1223,6 +1230,7 @@ bus_client_policy_check_can_receive (BusClientPolicy *policy,
       
       /* Use this rule */
       allowed = rule->allow;
+      (*toggles)++;
 
       _dbus_verbose ("  (policy) used rule, allow now = %d\n",
                      allowed);

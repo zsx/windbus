@@ -43,6 +43,7 @@
 #include <sys/socket.h>
 #include <dirent.h>
 #include <sys/un.h>
+#include <syslog.h>
 #ifdef HAVE_LIBAUDIT
 #include <sys/prctl.h>
 #include <sys/capability.h>
@@ -69,12 +70,14 @@
  * @param pidfile #NULL, or pidfile to create
  * @param print_pid_pipe pipe to print daemon's pid to, or -1 for none
  * @param error return location for errors
+ * @param keep_umask #TRUE to keep the original umask
  * @returns #FALSE on failure
  */
 dbus_bool_t
 _dbus_become_daemon (const DBusString *pidfile,
                      DBusPipe         *print_pid_pipe,
-                     DBusError        *error)
+                     DBusError        *error,
+                     dbus_bool_t       keep_umask)
 {
   const char *s;
   pid_t child_pid;
@@ -121,9 +124,12 @@ _dbus_become_daemon (const DBusString *pidfile,
             _dbus_verbose ("keeping stderr open due to DBUS_DEBUG_OUTPUT\n");
         }
 
-      /* Get a predictable umask */
-      _dbus_verbose ("setting umask\n");
-      umask (022);
+      if (!keep_umask)
+        {
+          /* Get a predictable umask */
+          _dbus_verbose ("setting umask\n");
+          umask (022);
+        }
 
       _dbus_verbose ("calling setsid()\n");
       if (setsid () == -1)
@@ -449,6 +455,38 @@ _dbus_change_to_daemon_user  (const char    *user,
 #endif
 
  return FALSE;
+}
+
+void 
+_dbus_init_system_log (void)
+{
+  openlog ("dbus", LOG_PID, LOG_DAEMON);
+}
+
+/**
+ * Log an informative message.  Intended for use primarily by
+ * the system bus.
+ *
+ * @param msg a printf-style format string
+ * @param args arguments for the format string
+ */
+void 
+_dbus_log_info (const char *msg, va_list args)
+{
+  vsyslog (LOG_DAEMON|LOG_NOTICE, msg, args);
+}
+
+/**
+ * Log a security-related message.  Intended for use primarily by
+ * the system bus.
+ *
+ * @param msg a printf-style format string
+ * @param args arguments for the format string
+ */
+void 
+_dbus_log_security (const char *msg, va_list args)
+{
+  vsyslog (LOG_AUTH|LOG_NOTICE, msg, args);
 }
 
 /** Installs a UNIX signal handler
@@ -1100,3 +1138,99 @@ _dbus_string_get_dirname  (const DBusString *filename,
 }
 /** @} */ /* DBusString stuff */
 
+static void
+string_squash_nonprintable (DBusString *str)
+{
+  char *buf;
+  int i, len; 
+  
+  buf = _dbus_string_get_data (str);
+  len = _dbus_string_get_length (str);
+  
+  for (i = 0; i < len; i++)
+    if (buf[i] == '\0')
+      buf[i] = ' ';
+    else if (buf[i] < 0x20 || buf[i] > 127)
+      buf[i] = '?';
+}
+
+/**
+ * Get a printable string describing the command used to execute
+ * the process with pid.  This string should only be used for
+ * informative purposes such as logging; it may not be trusted.
+ * 
+ * The command is guaranteed to be printable ASCII and no longer
+ * than max_len.
+ * 
+ * @param pid Process id
+ * @param str Append command to this string
+ * @param max_len Maximum length of returned command
+ * @param error return location for errors
+ * @returns #FALSE on error
+ */
+dbus_bool_t 
+_dbus_command_for_pid (unsigned long  pid,
+                       DBusString    *str,
+                       int            max_len,
+                       DBusError     *error)
+{
+  /* This is all Linux-specific for now */
+  DBusString path;
+  DBusString cmdline;
+  int fd;
+  
+  if (!_dbus_string_init (&path)) 
+    {
+      _DBUS_SET_OOM (error);
+      return FALSE;
+    }
+  
+  if (!_dbus_string_init (&cmdline))
+    {
+      _DBUS_SET_OOM (error);
+      _dbus_string_free (&path);
+      return FALSE;
+    }
+  
+  if (!_dbus_string_append_printf (&path, "/proc/%ld/cmdline", pid))
+    goto oom;
+  
+  fd = open (_dbus_string_get_const_data (&path), O_RDONLY);
+  if (fd < 0) 
+    {
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to open \"%s\": %s",
+                      _dbus_string_get_const_data (&path),
+                      _dbus_strerror (errno));
+      goto fail;
+    }
+  
+  if (!_dbus_read (fd, &cmdline, max_len))
+    {
+      dbus_set_error (error,
+                      _dbus_error_from_errno (errno),
+                      "Failed to read from \"%s\": %s",
+                      _dbus_string_get_const_data (&path),
+                      _dbus_strerror (errno));      
+      goto fail;
+    }
+  
+  if (!_dbus_close (fd, error))
+    goto fail;
+  
+  string_squash_nonprintable (&cmdline);  
+  
+  if (!_dbus_string_copy (&cmdline, 0, str, _dbus_string_get_length (str)))
+    goto oom;
+  
+  _dbus_string_free (&cmdline);  
+  _dbus_string_free (&path);
+  return TRUE;
+oom:
+  _DBUS_SET_OOM (error);
+fail:
+  _dbus_string_free (&cmdline);
+  _dbus_string_free (&path);
+  return FALSE;
+}

@@ -401,7 +401,8 @@ void        _dbus_print_backtrace  (void);
 
 dbus_bool_t _dbus_become_daemon   (const DBusString *pidfile,
                                    DBusPipe         *print_pid_pipe,
-                                   DBusError        *error);
+                                   DBusError        *error,
+                                   dbus_bool_t       keep_umask);
 
 dbus_bool_t _dbus_verify_daemon_user    (const char *user);
 dbus_bool_t _dbus_change_to_daemon_user (const char *user,
@@ -412,6 +413,11 @@ dbus_bool_t _dbus_write_pid_to_file_and_pipe (const DBusString *pidfile,
                                               dbus_pid_t        pid_to_write,
                                               DBusError        *error);
 
+dbus_bool_t _dbus_command_for_pid (unsigned long  pid,
+                                   DBusString    *str,
+                                   int            max_len,
+                                   DBusError     *error);
+
 /** A UNIX signal handler */
 typedef void (* DBusSignalHandler) (int sig);
 
@@ -420,6 +426,10 @@ void _dbus_set_signal_handler (int               sig,
 
 dbus_bool_t _dbus_user_at_console (const char *username,
                                    DBusError  *error);
+
+void _dbus_init_system_log (void);
+void _dbus_log_info (const char *msg, va_list args);
+void _dbus_log_security (const char *msg, va_list args);
 
 /* Define DBUS_VA_COPY() to do the right thing for copying va_list variables. 
  * config.h may have already defined DBUS_VA_COPY as va_copy or __va_copy. 
