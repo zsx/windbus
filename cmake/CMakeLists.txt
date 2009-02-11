@@ -24,7 +24,7 @@ CMAKE_MINIMUM_REQUIRED(VERSION 2.4.4 FATAL_ERROR)
 if(COMMAND cmake_policy)
     cmake_policy(SET CMP0003 NEW)
 endif(COMMAND cmake_policy)
-    
+
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/modules")
 
@@ -34,7 +34,7 @@ SET(BUILD_SHARED_LIBS ON)
 if (CYGWIN)
    set (WIN32)
 endif (CYGWIN)
-    
+
 # search for required packages
 if (WIN32)
     # include local header first to avoid using old installed header
@@ -52,7 +52,7 @@ find_package(X11)
 # do config checks
 INCLUDE(ConfigureChecks.cmake)
 
-# @TODO: how to remove last dir from ${CMAKE_SOURCE_DIR} ? 
+# @TODO: how to remove last dir from ${CMAKE_SOURCE_DIR} ?
 SET(DBUS_SOURCE_DIR ${CMAKE_SOURCE_DIR}/..)
 
 # make some more macros available
@@ -71,19 +71,19 @@ if(MSVC)
 		set(GROUP_CODE flat)
 	endif(NOT GROUP_CODE)
 	ADD_DEFINITIONS(-D_CRT_SECURE_NO_DEPRECATE -D_CRT_NONSTDC_NO_DEPRECATE)
-	
-	
+
+
 	# Use the highest warning level
 	if (WALL)
 		set(WALL 1 CACHE TYPE STRING FORCE)
 		set(CMAKE_CXX_WARNING_LEVEL 4 CACHE TYPE STRING FORCE)
-		
+
 		if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
 			STRING(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 		else(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
 			SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /W4")
 		endif(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-		
+
 		if(CMAKE_C_FLAGS MATCHES "/W[0-4]")
 			STRING(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
 		else(CMAKE_C_FLAGS MATCHES "/W[0-4]")
@@ -92,7 +92,7 @@ if(MSVC)
 	else (WALL)
 		set(CMAKE_CXX_WARNING_LEVEL 3 CACHE TYPE STRING FORCE)
 	endif (WALL)
-	
+
 	SET(MSVC_W_ERROR   " /we4028 /we4013 /we4133 /we4047 /we4031 /we4002 /we4003 /we4114")
 	SET(MSVC_W_DISABLE " /wd4127 /wd4090 /wd4101 /wd4244")
 
@@ -120,9 +120,9 @@ if(wince)
 	# don't forget parameters
 	set(wince 1 CACHE TYPE STRING FORCE)
 	set(wcelibcex ${wcelibcex} CACHE TYPE STRING FORCE)
-	
+
 	include_directories(${wcelibcex}/include/wcelibcex ${wcelibcex}/src)
-	
+
 	add_definitions(
 # see config.h.cmake
 #			-DDBUS_WINCE
@@ -133,22 +133,22 @@ if(wince)
 			-DUNICODE
 			-DPOCKETPC2003_UI_MODEL
 			)
-			
+
 	# Windows CE Version
 	add_definitions(
 			-D_WIN32_WCE=0x420
 			-DWIN32_PLATFORM_PSPC=0x420
 			-DUNDER_CE=0x420
 			)
-	
+
 	# Architecture
 	add_definitions(
 			-DARM
 			-D_ARM_
 			)
-	
+
 	set(CMAKE_CXX_STANDARD_LIBRARIES "coredll.lib corelibc.lib ole32.lib oleaut32.lib uuid.lib commctrl.lib ws2.lib")
-			
+
 	set(CMAKE_SHARED_LINKER_FLAGS "/subsystem:windowsce,4.20 /machine:THUMB")
 
 endif(wince)
@@ -199,7 +199,7 @@ endif (DBUSDIR)
 if (NOT DBUS_INSTALL_DIR)
 	set(DBUS_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}" CACHE TYPE STRING)
 endif (NOT DBUS_INSTALL_DIR)
-	
+
 # TODO: setting EXPANDED_... has nothing to do with DBUS_INSTALL_SYSTEM_LIBS
 if (DBUS_INSTALL_SYSTEM_LIBS)
 	set(prefix                   ${DBUS_INSTALL_DIR})
@@ -217,7 +217,7 @@ else (DBUS_INSTALL_SYSTEM_LIBS)
 	if (MSVC_IDE)
 		set(EXPANDED_BINDIR      ${CMAKE_BINARY_DIR}/bin/debug)
 	else (MSVC_IDE)
-		set(EXPANDED_BINDIR      ${CMAKE_BINARY_DIR}/bin)	
+		set(EXPANDED_BINDIR      ${CMAKE_BINARY_DIR}/bin)
 	endif (MSVC_IDE)
 	set(DBUS_BINDIR              ${EXPANDED_BINDIR})
 	set(DBUS_MACHINE_UUID_FILE   ${CMAKE_BINARY_DIR}/lib/dbus/machine-id)
@@ -226,15 +226,15 @@ endif (DBUS_INSTALL_SYSTEM_LIBS)
 set (DBUS_DAEMONDIR ${EXPANDED_BINDIR})
 
 ########### command line options ###############
-# TODO: take check from configure.in 
+# TODO: take check from configure.in
 
 #AC_ARG_ENABLE(tests, AS_HELP_STRING([--enable-tests],[enable unit test code]),enable_tests=$enableval,enable_tests=$USE_MAINTAINER_MODE)
 OPTION(DBUS_BUILD_TESTS "enable unit test code" ON)
-if (DBUS_BUILD_TESTS)	
+if (DBUS_BUILD_TESTS)
 	if(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
 		add_definitions(-g)
 	endif(NOT MSVC AND NOT CMAKE_BUILD_TYPE MATCHES Release)
-endif (DBUS_BUILD_TESTS)	
+endif (DBUS_BUILD_TESTS)
 
 # win32 dbus service support - this support is not complete
 OPTION(DBUS_SERVICE "enable dbus service installer" OFF)
@@ -246,7 +246,7 @@ if(DBUS_ENABLE_ANSI)
         add_definitions(-ansi -D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE -pedantic)
    else(NOT MSVC)
         add_definitions(-Za -D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE -W4)
-   endif(NOT MSVC) 
+   endif(NOT MSVC)
 endif(DBUS_ENABLE_ANSI)
 
 #AC_ARG_ENABLE(verbose-mode, AS_HELP_STRING([--enable-verbose-mode],[support verbose debug mode]),enable_verbose_mode=$enableval,enable_verbose_mode=$USE_MAINTAINER_MODE)
@@ -266,7 +266,7 @@ if(DBUS_GCOV_ENABLED)
         # FIXME!!!!
         ## remove optimization
 #        CFLAGS=`echo "$CFLAGS" | sed -e 's/-O[0-9]*//g'`
-   endif(NOT MSVC) 
+   endif(NOT MSVC)
 endif(DBUS_GCOV_ENABLED)
 
 #AC_ARG_ENABLE(abstract-sockets, AS_HELP_STRING([--enable-abstract-sockets],[use abstract socket namespace (linux only)]),enable_abstract_sockets=$enableval,enable_abstract_sockets=auto)
@@ -417,7 +417,7 @@ endif (NOT WIN32)
 #else
 #   DBUS_SYSTEM_PID_FILE=${EXPANDED_LOCALSTATEDIR}/run/dbus/pid
 #fi
-# TODO: fix redhet 
+# TODO: fix redhet
 if (WIN32)
   # bus-test expects a non empty string
 	set (DBUS_SYSTEM_PID_FILE "/dbus-pid")
@@ -441,12 +441,12 @@ set (DBUS_USER )
 
 
 if (WIN32)
-  set (DBUS_SESSION_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=12434")
-  set (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=12434")
+  set (DBUS_SESSION_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=0")
+  set (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS "tcp:host=localhost,port=0")
   set (DBUS_SYSTEM_CONFIG_FILE "etc/system.conf")
   set (DBUS_SESSION_CONFIG_FILE "etc/session.conf")
   # bus-test expects a non empty string
-  set (DBUS_USER "Administrator") 
+  set (DBUS_USER "Administrator")
   set (DBUS_DATADIR "data")
 else (WIN32)
   set (DBUS_SYSTEM_BUS_DEFAULT_ADDRESS unix:tmpdir=)
@@ -455,26 +455,26 @@ else (WIN32)
   set (configdir ${sysconfdir}/dbus-1 )
   set (DBUS_SYSTEM_CONFIG_FILE  ${configdir}/system.conf)
   set (DBUS_SESSION_CONFIG_FILE ${configdir}/session.conf)
-  set (DBUS_USER "root") 
+  set (DBUS_USER "root")
   set (DBUS_DATADIR ${EXPANDED_DATADIR})
 endif (WIN32)
 
-set (DAEMON_NAME dbus-daemon)  
+set (DAEMON_NAME dbus-daemon)
 
 ########### create config.h ###############
 
 #include(ConfigureChecks.cmake)
 
-# better use flags for gcc 
+# better use flags for gcc
 if (MINGW)
 	set (HAVE_GNUC_VARARGS 1)
 endif(MINGW)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h )
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/dbus-env.bat.cmake ${CMAKE_BINARY_DIR}/bin/dbus-env.bat )
-install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-env.bat)	
+install_files(/bin FILES ${CMAKE_BINARY_DIR}/bin/dbus-env.bat)
 
-# compiler definitions 
+# compiler definitions
 add_definitions(-DHAVE_CONFIG_H=1)
 add_definitions(${DBUS_BUS_CFLAGS} -DDBUS_API_SUBJECT_TO_CHANGE)
 

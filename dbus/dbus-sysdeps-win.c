@@ -1653,7 +1653,7 @@ _dbus_listen_tcp_socket (const char     *host,
         }
       _DBUS_ASSERT_ERROR_IS_CLEAR(error);
 
-      if (bind (fd, (struct sockaddr*) tmp->ai_addr, tmp->ai_addrlen) < 0)
+      if (bind (fd, (struct sockaddr*) tmp->ai_addr, tmp->ai_addrlen) == SOCKET_ERROR)
         {
           closesocket (fd);
           dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -1662,7 +1662,7 @@ _dbus_listen_tcp_socket (const char     *host,
           goto failed;
         }
 
-      if (listen (fd, 30 /* backlog */) < 0)
+      if (listen (fd, 30 /* backlog */) == SOCKET_ERROR)
         {
           closesocket (fd);
           dbus_set_error (error, _dbus_error_from_errno (errno),
@@ -1692,22 +1692,18 @@ _dbus_listen_tcp_socket (const char     *host,
              to use the same port */
           if (!port || !strcmp(port, "0"))
             {
-              struct sockaddr_storage addr;
-              socklen_t addrlen;
-              char portbuf[50];
+              sockaddr_gen addr;
+              socklen_t addrlen = sizeof(addr);
+              char portbuf[10];
 
-              addrlen = sizeof(addr);
-              getsockname(fd, (struct sockaddr*) &addr, &addrlen);
-
-              if ((res = getnameinfo((struct sockaddr*)&addr, addrlen, NULL, 0,
-                                     portbuf, sizeof(portbuf),
-                                     NI_NUMERICHOST)) != 0)
+              if ((res = getsockname(fd, &addr.Address, &addrlen)) != 0)
                 {
                   dbus_set_error (error, _dbus_error_from_errno (errno),
-                                  "Failed to resolve port \"%s:%s\": %s (%s)",
+                                  "Failed to resolve port \"%s:%s\": %s (%d)",
                                   host ? host : "*", port, gai_strerror(res), res);
                   goto failed;
                 }
+              snprintf( portbuf, sizeof( portbuf ) - 1, "%d", addr.AddressIn.sin_port );
               if (!_dbus_string_append(retport, portbuf))
                 {
                   dbus_set_error (error, DBUS_ERROR_NO_MEMORY, NULL);
