@@ -2943,7 +2943,11 @@ static const char *cDBusAutolaunchMutex = "DBusAutolaunchMutex";
 // mutex to determine if dbus-daemon is already started (per user)
 static const char *cDBusDaemonMutex = "DBusDaemonMutex";
 // named shm for dbus adress info (per user)
+#ifdef _DEBUG
+static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfoDebug";
+#else
 static const char *cDBusDaemonAddressInfo = "DBusDaemonAddressInfo";
+#endif
 
 void
 _dbus_daemon_init(const char *host, dbus_uint32_t port)
