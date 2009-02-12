@@ -373,6 +373,38 @@ _dbus_delete_directory (const DBusString *filename,
   return TRUE;
 }
 
+void
+_dbus_init_system_log (void)
+{
+    // FIXME!
+}
+
+/**
+ * Log an informative message.  Intended for use primarily by
+ * the system bus.
+ *
+ * @param msg a printf-style format string
+ * @param args arguments for the format string
+ */
+void
+_dbus_log_info (const char *msg, va_list args)
+{
+    // FIXME!
+}
+
+/**
+ * Log a security-related message.  Intended for use primarily by
+ * the system bus.
+ *
+ * @param msg a printf-style format string
+ * @param args arguments for the format string
+ */
+void
+_dbus_log_security (const char *msg, va_list args)
+{
+    // FIXME!
+}
+
 /** Installs a signal handler
  *
  * @param sig the signal to handle
@@ -1790,4 +1822,28 @@ _dbus_lm_strerror(int error_number)
 
   return msg;
 #endif //DBUS_WINCE
+}
+
+/**
+ * Get a printable string describing the command used to execute
+ * the process with pid.  This string should only be used for
+ * informative purposes such as logging; it may not be trusted.
+ *
+ * The command is guaranteed to be printable ASCII and no longer
+ * than max_len.
+ *
+ * @param pid Process id
+ * @param str Append command to this string
+ * @param max_len Maximum length of returned command
+ * @param error return location for errors
+ * @returns #FALSE on error
+ */
+dbus_bool_t
+_dbus_command_for_pid (unsigned long  pid,
+                       DBusString    *str,
+                       int            max_len,
+                       DBusError     *error)
+{
+  // FIXME
+  return FALSE;
 }

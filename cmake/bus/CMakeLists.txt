@@ -80,14 +80,15 @@ SET (LIBS ${XML_LIBRARY})
 
 if(splitlib AND MSVC)
 	add_library(bus-lib STATIC ${BUS_SOURCES})
-	add_executable(dbus-daemon${CMAKE_EXE_POSTFIX} ${BUS_DIR}/main.c)
-	target_link_libraries(dbus-daemon${CMAKE_EXE_POSTFIX} ${DBUS_1} ${LIBS} bus-lib)
+	add_executable(dbus-daemon ${BUS_DIR}/main.c)
+	target_link_libraries(dbus-daemon ${DBUS_1} ${LIBS} bus-lib)
 else(splitlib AND MSVC)
-	add_executable(dbus-daemon${CMAKE_EXE_POSTFIX} ${BUS_SOURCES} ${BUS_DIR}/main.c)
-	target_link_libraries(dbus-daemon${CMAKE_EXE_POSTFIX} ${DBUS_1} ${LIBS})
+	add_executable(dbus-daemon ${BUS_SOURCES} ${BUS_DIR}/main.c)
+	target_link_libraries(dbus-daemon ${DBUS_1} ${LIBS})
 endif(splitlib AND MSVC)
+set_target_properties(dbus-daemon PROPERTIES DEBUG_POSTFIX d)
 
-install_targets(/bin dbus-daemon${CMAKE_EXE_POSTFIX})
+install_targets(/bin dbus-daemon)
 install_files(/etc FILES ${config_DATA})
 
 if (DBUS_SERVICE)
@@ -98,9 +99,10 @@ if (DBUS_SERVICE)
 	#	${BUS_SOURCES} 
 	)
 
-	add_executable(dbus-service${CMAKE_EXE_POSTFIX} ${dbus_service_SOURCES} )
-	target_link_libraries(dbus-service${CMAKE_EXE_POSTFIX} ${DBUS_1} ${LIBS})
-	install_targets(/bin dbus-service${CMAKE_EXE_POSTFIX} )
+	add_executable(dbus-service ${dbus_service_SOURCES} )
+	target_link_libraries(dbus-service ${DBUS_1} ${LIBS})
+	install_targets(/bin dbus-service )
+    set_target_properties(dbus-service PROPERTIES DEBUG_POSTFIX d)
 
 endif (DBUS_SERVICE)
 

@@ -3106,6 +3106,11 @@ _dbus_get_autolaunch_address (DBusString *address,
   LPSTR lpFile;
   char dbus_exe_path[MAX_PATH];
   char dbus_args[MAX_PATH * 2];
+#ifdef _DEBUG
+  const char * daemon_name = "dbus-daemond.exe";
+#else
+  const char * daemon_name = "dbus-daemon.exe";
+#endif
 
   mutex = _dbus_global_lock ( cDBusAutolaunchMutex );
 
@@ -3118,9 +3123,9 @@ _dbus_get_autolaunch_address (DBusString *address,
         goto out;
     }
 
-  if (!SearchPathA(NULL, "dbus-daemon.exe", NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
+  if (!SearchPathA(NULL, daemon_name, NULL, sizeof(dbus_exe_path), dbus_exe_path, &lpFile))
     {
-      printf ("please add the path to dbus-daemon.exe to your PATH environment variable\n");
+      printf ("please add the path to %s to your PATH environment variable\n", daemon_name);
       printf ("or start the daemon manually\n\n");
       printf ("");
       goto out;

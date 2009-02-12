@@ -51,6 +51,7 @@ _dbus_check_is_valid_member
 _dbus_check_is_valid_path
 _dbus_check_is_valid_signature
 _dbus_close_socket
+_dbus_command_for_pid
 _dbus_concat_dir_and_file
 _dbus_condvar_free
 _dbus_condvar_free_at_location
@@ -232,6 +233,7 @@ _dbus_header_set_field_basic
 _dbus_header_set_serial
 _dbus_header_toggle_flag
 _dbus_header_update_lengths
+_dbus_init_system_log
 _dbus_is_valid_file
 _dbus_is_verbose_real
 _dbus_keyring_get_best_key
@@ -288,6 +290,8 @@ _dbus_lock_shutdown_funcs DATA
 _dbus_lock_sid_atom_cache DATA
 _dbus_lock_system_users DATA
 _dbus_lock_win_fds DATA
+_dbus_log_info
+_dbus_log_security
 _dbus_loop_add_timeout
 _dbus_loop_add_watch
 _dbus_loop_dispatch
