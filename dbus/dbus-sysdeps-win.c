@@ -3150,9 +3150,7 @@ _dbus_get_autolaunch_address (DBusString *address,
   if(CreateProcessA(dbus_exe_path, dbus_args, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
     {
 
-      // Wait until started (see _dbus_get_autolaunch_shm())
-      if (WaitForInputIdle(pi.hProcess, INFINITE) == 0)
-        retval = _dbus_get_autolaunch_shm( address );
+      retval = _dbus_get_autolaunch_shm( address );
     }
 
   if (retval == FALSE)
