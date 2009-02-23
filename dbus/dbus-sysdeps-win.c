@@ -3025,6 +3025,7 @@ _dbus_get_autolaunch_shm(DBusString *adress)
   char szUserName[64];
   DWORD dwUserNameSize = sizeof(szUserName);
   char szDBusDaemonAddressInfo[128];
+  int i;
 
   if( !GetUserName(szUserName, &dwUserNameSize) )
       return FALSE;
@@ -3032,12 +3033,14 @@ _dbus_get_autolaunch_shm(DBusString *adress)
             cDBusDaemonAddressInfo, szUserName);
 
   // read shm
-  do {
+  for(i=0;i<20;++i) {
       // we know that dbus-daemon is available, so we wait until shm is available
       sharedMem = OpenFileMapping( FILE_MAP_READ, FALSE, szDBusDaemonAddressInfo );
       if( sharedMem == 0 )
           Sleep( 100 );
-  } while( sharedMem == 0 );
+      if ( sharedMem != 0)
+          break;
+  }
 
   if( sharedMem == 0 )
       return FALSE;
@@ -3100,7 +3103,7 @@ _dbus_daemon_already_runs (DBusString *adress)
 }
 
 dbus_bool_t
-_dbus_get_autolaunch_address (DBusString *address, 
+_dbus_get_autolaunch_address (DBusString *address,
                               DBusError *error)
 {
   HANDLE mutex;
@@ -3143,25 +3146,24 @@ _dbus_get_autolaunch_address (DBusString *address,
   _snprintf(dbus_args, sizeof(dbus_args) - 1, "\"%s\" %s", dbus_exe_path,  " --session");
 
 //  argv[i] = "--config-file=bus\\session.conf";
-  printf("create process \"%s\" %s\n", dbus_exe_path, dbus_args);
+//  printf("create process \"%s\" %s\n", dbus_exe_path, dbus_args);
   if(CreateProcessA(dbus_exe_path, dbus_args, NULL, NULL, FALSE, CREATE_NO_WINDOW, NULL, NULL, &si, &pi))
     {
-      retval = TRUE;
 
       // Wait until started (see _dbus_get_autolaunch_shm())
-      WaitForInputIdle(pi.hProcess, INFINITE);
-
-      retval = _dbus_get_autolaunch_shm( address );
-    } else {
-      retval = FALSE;
+      if (WaitForInputIdle(pi.hProcess, INFINITE) == 0)
+        retval = _dbus_get_autolaunch_shm( address );
     }
-  
+
+  if (retval == FALSE)
+    dbus_set_error_const (error, DBUS_ERROR_FAILED, "Failed to launch dbus-daemon");
+
 out:
   if (retval)
     _DBUS_ASSERT_ERROR_IS_CLEAR (error);
   else
     _DBUS_ASSERT_ERROR_IS_SET (error);
-  
+
   _dbus_global_unlock (mutex);
 
   return retval;

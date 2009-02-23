@@ -78,7 +78,8 @@ errno_t strcpy_s(char *dest, size_t size, char *src)
 dbus_bool_t
 _dbus_become_daemon (const DBusString *pidfile,
                      DBusPipe         *print_pid_pipe,
-                     DBusError        *error)
+                     DBusError        *error,
+                     dbus_bool_t       keep_umask)
 {
   return TRUE;
 }
