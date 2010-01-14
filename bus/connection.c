@@ -373,6 +373,19 @@ dispatch_status_function (DBusConnection    *connection,
     }
 }
 
+static dbus_bool_t allow_windows_user_function(DBusConnection *connection,
+                                               const char     *sid,
+                                               void           *data)
+{
+  BusConnectionData *d;
+    
+  d = BUS_CONNECTION_DATA (connection);
+
+  _dbus_assert (d != NULL);
+  
+  return bus_context_allow_windows_user (d->connections->context, sid);
+}
+
 static dbus_bool_t
 allow_unix_user_function (DBusConnection *connection,
                           unsigned long   uid,
@@ -672,6 +685,10 @@ bus_connections_setup_connection (BusConnections *connections,
    */
   dbus_connection_set_unix_user_function (connection,
                                           allow_unix_user_function,
+                                          NULL, NULL);
+
+  dbus_connection_set_windows_user_function (connection,
+                                          allow_windows_user_function,
                                           NULL, NULL);
 
   dbus_connection_set_dispatch_status_function (connection,

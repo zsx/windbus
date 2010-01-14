@@ -478,11 +478,16 @@ dbus_bool_t
 bus_policy_allow_windows_user (BusPolicy        *policy,
                                const char       *windows_sid)
 {
+  /* for initial system bus support e.g running dbus-daemon as service 
+   * under the SYSTEM user, we will allow all users for now
+   * until the policy user/group api is able to handle sid's and names'
+   */
+  return TRUE;
   /* Windows has no policies here since only the session bus
    * is really used for now, so just checking that the
    * connecting person is the same as the bus owner is fine.
    */
-  return _dbus_windows_user_is_process_owner (windows_sid);
+  //return _dbus_windows_user_is_process_owner (windows_sid);
 }
 
 dbus_bool_t
